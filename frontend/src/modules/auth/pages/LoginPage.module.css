@@ -1,0 +1,348 @@
+/* modules/auth/pages/LoginPage.module.css */
+
+.root {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 420px;
+  background: var(--c-bg-deep);
+}
+
+/* ── Panel izquierdo: visual decorativo ──────────────────── */
+.panel {
+  position: relative;
+  overflow: hidden;
+  background: var(--c-bg-base);
+  border-right: 1px solid var(--c-border);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: var(--sp-10);
+}
+
+.panelGrid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(var(--c-border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--c-border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  opacity: 0.35;
+}
+
+.panelAccent {
+  position: absolute;
+  top: -120px;
+  left: -120px;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(83,74,183,0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.panelAccent2 {
+  position: absolute;
+  bottom: -80px;
+  right: -80px;
+  width: 320px;
+  height: 320px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,153,34,0.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.panelContent {
+  position: relative;
+  z-index: 1;
+}
+
+.panelBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--c-purple-800);
+  border: 1px solid var(--c-purple-700);
+  color: var(--c-purple-100);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  margin-bottom: var(--sp-5);
+}
+
+.panelBadgeDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c-green-500);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.panelTitle {
+  font-size: var(--fs-3xl);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+  line-height: 1.25;
+  margin-bottom: var(--sp-4);
+}
+
+.panelTitle span {
+  color: var(--c-purple-300);
+}
+
+.panelDesc {
+  font-size: var(--fs-base);
+  color: var(--c-text-secondary);
+  line-height: 1.7;
+  max-width: 400px;
+  margin-bottom: var(--sp-8);
+}
+
+.panelStats {
+  display: flex;
+  gap: var(--sp-6);
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statNum {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.statLabel {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+/* ── Panel derecho: formulario ───────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: var(--sp-10) var(--sp-8);
+  background: var(--c-bg-surface);
+}
+
+.formHeader {
+  margin-bottom: var(--sp-8);
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-8);
+}
+
+.logoIcon {
+  width: 36px;
+  height: 36px;
+  background: var(--c-purple-700);
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.logoText {
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.formTitle {
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+  margin-bottom: var(--sp-2);
+}
+
+.formSubtitle {
+  font-size: var(--fs-sm);
+  color: var(--c-text-secondary);
+}
+
+/* ── Campos ──────────────────────────────────────────────── */
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-6);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.label {
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-secondary);
+}
+
+.inputWrapper {
+  position: relative;
+}
+
+.inputIcon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--c-text-muted);
+  font-size: 16px;
+  pointer-events: none;
+  display: flex;
+}
+
+.input {
+  width: 100%;
+  height: 42px;
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  color: var(--c-text-primary);
+  font-size: var(--fs-base);
+  padding: 0 40px 0 40px;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--c-text-muted);
+}
+
+.input:hover {
+  border-color: var(--c-border-strong);
+}
+
+.input:focus {
+  border-color: var(--c-border-focus);
+  background: var(--c-bg-hover);
+}
+
+.input.inputError {
+  border-color: var(--c-red-600);
+}
+
+.togglePassword {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 16px;
+  display: flex;
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.togglePassword:hover { color: var(--c-text-secondary); }
+
+.fieldError {
+  font-size: var(--fs-xs);
+  color: var(--c-red-400);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Error global ────────────────────────────────────────── */
+.errorBox {
+  background: rgba(163,45,45,0.15);
+  border: 1px solid var(--c-red-600);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--c-red-400);
+  font-size: var(--fs-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+/* ── Botón submit ────────────────────────────────────────── */
+.submitBtn {
+  width: 100%;
+  height: 44px;
+  background: var(--c-purple-600);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--c-purple-50);
+  font-size: var(--fs-base);
+  font-weight: var(--fw-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.submitBtn:hover:not(:disabled) {
+  background: var(--c-purple-700);
+}
+
+.submitBtn:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Footer del form ─────────────────────────────────────── */
+.formFooter {
+  margin-top: var(--sp-8);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--c-border);
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .root {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    display: none;
+  }
+  .form {
+    padding: var(--sp-8) var(--sp-5);
+  }
+}
