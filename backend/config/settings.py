@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv  
+from datetime import timedelta
+from decouple import config, Csv
+
+
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -58,6 +63,12 @@ INSTALLED_APPS = [
     'modulo_usuarios',
 
     "corsheaders",
+
+    "rest_framework",
+    "rest_framework_simplejwt",
+
+    "drf_spectacular",
+
 ]
 
 MIDDLEWARE = [
@@ -106,6 +117,16 @@ DATABASES = {
     }
 }
 
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+
+    # Muy importante si tu login devuelve access_token y refresh_token
+    "AUTH_HEADER_TYPES": ("Bearer",),
+}
+
 AUTH_USER_MODEL = "modulo_usuarios.Usuario"
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -137,6 +158,8 @@ USE_I18N = True
 
 USE_TZ = True
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -147,3 +170,20 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+SENTENCE_TRANSFORMER_MODEL = config(
+    'SENTENCE_TRANSFORMER_MODEL',
+    default='sentence-transformers/paraphrase-mpnet-base-v2'
+)
+
+REST_FRAMEWORK = {
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ),
+
+    "DEFAULT_PERMISSION_CLASSES": (
+        "rest_framework.permissions.IsAuthenticated",
+    ),
+}
