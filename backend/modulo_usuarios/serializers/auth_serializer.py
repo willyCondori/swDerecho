@@ -1,39 +1,41 @@
 import re
 
-from django.contrib.auth import authenticate
+from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from modulo_usuarios.models.usuario import Usuario
-
-
 class LoginSerializer(serializers.Serializer):
-    usuario  = serializers.CharField(max_length=100)
-    password = serializers.CharField(write_only=True, style={"input_type": "password"})
+    usuario = serializers.CharField(max_length=100)
+    password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
-        usuario  = attrs.get("usuario", "").strip()
+        usuario = attrs.get("usuario", "").strip()
         password = attrs.get("password", "")
 
         if not usuario:
             raise serializers.ValidationError({"usuario": "Este campo es obligatorio."})
+
         if not password:
             raise serializers.ValidationError({"password": "Este campo es obligatorio."})
 
-        user = authenticate(username=usuario, password=password)
-        if not user:
+        User = get_user_model()
+        user = User.objects.filter(usuario=usuario).first()
+
+        if not user or not user.check_password(password):
             raise serializers.ValidationError(
-                {"non_field_errors": "Credenciales incorrectas. Verifique usuario y contraseña."}
+                {"non_field_errors": "Credenciales incorrectas."}
             )
+
         if not user.estado:
             raise serializers.ValidationError(
-                {"non_field_errors": "Usuario inactivo. Contacte al administrador."}
+                {"non_field_errors": "Usuario inactivo."}
             )
 
         refresh = RefreshToken.for_user(user)
+
         return {
-            "user"         : user,
-            "access_token" : str(refresh.access_token),
+            "user": user,  # 👈 OBJETO REAL
+            "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
         }
 

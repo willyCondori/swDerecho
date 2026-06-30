@@ -85,7 +85,7 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
     queryset        = Usuario.objects.select_related("rol", "perfil").order_by("usuario")
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["usuario"]
-    ordering_fields = ["usuario", "created_at", "ultimo_login"]
+    ordering_fields = ["usuario", "created_at", "last_login"]
     auditoria_tabla = "usuarios"
 
     def get_queryset(self):

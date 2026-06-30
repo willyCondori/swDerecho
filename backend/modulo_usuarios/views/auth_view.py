@@ -13,25 +13,20 @@ from modulo_usuarios.serializers.auth_serializer import (
     RefreshTokenSerializer,
 )
 
-
 class LoginView(APIView):
-    """
-    POST /api/auth/login/
-    Autentica al usuario y devuelve access + refresh token.
-    """
     permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer.is_valid(raise_exception=True)
 
         data = serializer.validated_data
         user = data["user"]
 
-        # Actualizar último login
-        user.ultimo_login = timezone.now()
-        user.save(update_fields=["ultimo_login"])
+        # last_login correcto
+        user.last_login = timezone.now()
+        user.save(update_fields=["last_login"])
 
         registrar_auditoria(
             usuario=user,
@@ -43,17 +38,16 @@ class LoginView(APIView):
 
         return Response(
             {
-                "access_token" : data["access_token"],
+                "access_token": data["access_token"],
                 "refresh_token": data["refresh_token"],
                 "usuario": {
-                    "id"     : user.id,
+                    "id": user.id,
                     "usuario": user.usuario,
-                    "rol"    : user.rol.nombre if user.rol else None,
+                    "rol": user.rol.nombre if user.rol else None,
                 },
             },
             status=status.HTTP_200_OK,
         )
-
 
 class LogoutView(APIView):
     """
