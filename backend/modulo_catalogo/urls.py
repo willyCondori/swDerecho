@@ -7,6 +7,11 @@ from .views.catalogo_view import (
     EntidadJuridicaViewSet,
     ArticuloViewSet,
 )
+from .views.carga_articulos_view import (
+    CargaArticulosView,
+    EstadoCargaView,
+    FuentesDisponiblesView,
+)
 
 router = DefaultRouter()
 
@@ -17,4 +22,7 @@ router.register(r"articulos", ArticuloViewSet, basename="articulos")
 
 urlpatterns = [
     path("", include(router.urls)),
+    path("cargar-articulos/", CargaArticulosView.as_view()),
+    path("cargar-articulos/estado/", EstadoCargaView.as_view()),
+    path("cargar-articulos/fuentes/", FuentesDisponiblesView.as_view()),
 ]

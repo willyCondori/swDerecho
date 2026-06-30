@@ -16,7 +16,7 @@ const NAV_ITEMS = [
   {
     section: 'Catálogo',
     items: [
-      { to: '/catalogo',    icon: 'ti-book',      label: 'Artículos' },
+      { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Artículos' },
       { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
       { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
     ],

@@ -54,7 +54,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         rol  = getattr(user.rol, "nombre", "").lower() if user.rol else ""
 
         # Abogado solo ve sus propios casos
-        if rol not in ["admin"]:
+        if rol not in ["Administrador"]:
             qs = qs.filter(usuario=user)
 
         # --- filtros opcionales via query params ---

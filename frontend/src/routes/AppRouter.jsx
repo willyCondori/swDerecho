@@ -11,6 +11,7 @@ import { lazy, Suspense } from 'react'
 const CasosPage      = lazy(() => import('../modules/casos/pages/CasosPage'))
 const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage'))
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
+const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/CargaArticulosPage'))
 
 function PageLoader() {
   return (
@@ -64,6 +65,9 @@ export default function AppRouter() {
         {/* Admin only */}
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<AppLayout />}>
+            <Route path="/catalogo/cargar" element={
+                <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
+              } />
             <Route path="/auditoria/*" element={<PageLoader />} />
             <Route path="/usuarios/*"  element={<PageLoader />} />
           </Route>
