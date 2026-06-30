@@ -26,13 +26,9 @@ class Usuario(AbstractBaseUser):
                        null=True,
                        blank=True,
                    )
-    ultimo_login = models.DateTimeField(null=True, blank=True)
     estado       = models.BooleanField(default=True)
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
-
-    # AbstractBaseUser requiere este campo
-    password     = models.CharField(max_length=255)
 
     USERNAME_FIELD  = "usuario"
     REQUIRED_FIELDS = []
@@ -45,7 +41,6 @@ class Usuario(AbstractBaseUser):
         indexes  = [
             models.Index(fields=["rol"],         name="idx_usuarios_rol"),
             models.Index(fields=["estado"],      name="idx_usuarios_estado"),
-            models.Index(fields=["ultimo_login"],name="idx_usuarios_login"),
         ]
 
     def __str__(self):

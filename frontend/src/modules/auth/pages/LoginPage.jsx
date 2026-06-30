@@ -30,12 +30,16 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+      console.log("🚀 SUBMIT EJECUTADO")  // 👈 AGREGA ESTO
+
     const errs = validate()
     if (Object.keys(errs).length) {
       setFieldErrors(errs)
       return
     }
     const result = await login(form)
+      console.log("RESULT:", result) // 👈 IMPORTANTE
+
     if (result.success) navigate('/dashboard')
   }
 

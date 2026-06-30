@@ -20,7 +20,6 @@ class PerfilUsuario(models.Model):
     apellidos = models.TextField()           # AES-256
     email     = models.TextField(unique=True)# AES-256
     telefono  = models.TextField(blank=True, null=True)  # AES-256
-    ci        = models.TextField(unique=True)             # AES-256
     # ---------------------------------
     estado    = models.BooleanField(default=True)
     created_at= models.DateTimeField(auto_now_add=True)
@@ -31,7 +30,6 @@ class PerfilUsuario(models.Model):
         indexes  = [
             models.Index(fields=["usuario"], name="idx_perfil_usuario"),
             models.Index(fields=["email"],   name="idx_perfil_email"),
-            models.Index(fields=["ci"],      name="idx_perfil_ci"),
         ]
 
     def __str__(self):
