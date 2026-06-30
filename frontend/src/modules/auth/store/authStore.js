@@ -66,8 +66,9 @@ const useAuthStore = create(
 
       // ── Helpers ─────────────────────────────────────────────
       isAuthenticated: () => !!get().accessToken,
-      isAdmin:  () => get().user?.rol?.nombre?.toLowerCase() === 'admin',
-      rol:      () => get().user?.rol?.nombre?.toLowerCase() || '',
+      isAdmin: () => get().user?.rol?.toLowerCase() === 'administrador',
+
+      rol: () => get().user?.rol?.toLowerCase() || '',
     }),
     {
       name:    'auth-store',

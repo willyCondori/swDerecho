@@ -10,13 +10,13 @@ class EsAdmin(BasePermission):
             and request.user.estado
             and hasattr(request.user, "rol")
             and request.user.rol is not None
-            and request.user.rol.nombre.lower() == "admin"
+            and request.user.rol.nombre.lower() == "administrador"
         )
 
 
 class EsAbogado(BasePermission):
     """Usuarios con rol 'abogado' o 'admin'."""
-    ROLES_PERMITIDOS = {"admin", "abogado"}
+    ROLES_PERMITIDOS = {"administrador", "abogado"}
 
     def has_permission(self, request, view):
         return (
@@ -32,6 +32,11 @@ class EsAbogado(BasePermission):
 class EsUsuarioAutenticado(BasePermission):
     """Cualquier usuario autenticado y activo."""
     def has_permission(self, request, view):
+        print("========== DEBUG ==========")
+        print("user:", request.user)
+        print("authenticated:", request.user.is_authenticated)
+        print("estado:", getattr(request.user, "estado", None))
+        print("===========================")
         return (
             request.user
             and request.user.is_authenticated
@@ -49,7 +54,7 @@ class EsPropietarioOAdmin(BasePermission):
         if not request.user or not request.user.is_authenticated:
             return False
         rol = getattr(request.user.rol, "nombre", "").lower() if request.user.rol else ""
-        if rol == "admin":
+        if rol == "Administrador":
             return True
         # El objeto puede tener 'usuario' o 'user'
         owner = getattr(obj, "usuario", getattr(obj, "user", None))

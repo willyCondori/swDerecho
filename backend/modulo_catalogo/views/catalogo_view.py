@@ -22,7 +22,8 @@ from modulo_catalogo.serializers.catalogo_serializer import (
     RamaDerechoSerializer,
 )
 
-
+from rest_framework.decorators import action
+from rest_framework.response import Response
 # ---------------------------------------------------------------------------
 # RamaDerecho
 # ---------------------------------------------------------------------------
@@ -65,6 +66,15 @@ class RamaDerechoViewSet(AuditoriaMixin, ModelViewSet):
         return Response(RamaDerechoListSerializer(qs, many=True).data)
 
 
+    @action(detail=False, methods=["get"])
+    def debug(self, request):
+        return Response({
+            "is_authenticated": request.user.is_authenticated,
+            "usuario": str(request.user),
+            "estado": getattr(request.user, "estado", None),
+            "rol": getattr(getattr(request.user, "rol", None), "nombre", None),
+        })
+
 # ---------------------------------------------------------------------------
 # Norma
 # ---------------------------------------------------------------------------
@@ -105,6 +115,15 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
     def lista(self, request):
         qs = self.get_queryset()
         return Response(NormaListSerializer(qs, many=True).data)
+    
+    @action(detail=False, methods=["get"])
+    def debug(self, request):
+        return Response({
+            "is_authenticated": request.user.is_authenticated,
+            "usuario": str(request.user),
+            "estado": getattr(request.user, "estado", None),
+            "rol": getattr(getattr(request.user, "rol", None), "nombre", None),
+        })
 
 
 # ---------------------------------------------------------------------------
