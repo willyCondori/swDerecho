@@ -143,7 +143,7 @@ class UsuarioReadSerializer(serializers.ModelSerializer):
         model  = Usuario
         fields = [
             "id", "usuario", "rol", "perfil",
-            "ultimo_login", "estado", "created_at",
+            "estado", "created_at",
         ]
 
 
