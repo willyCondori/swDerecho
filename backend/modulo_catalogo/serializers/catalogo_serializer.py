@@ -217,7 +217,7 @@ class ArticuloListSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Articulo
         fields = [
-            "id", "numero_articulo", "titulo",
+            "id", "numero_articulo", "titulo", "contenido",
             "norma_sigla", "rama_nombre",
             "jerarquia_normativa", "frecuencia_historica",
         ]

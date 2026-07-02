@@ -1,0 +1,288 @@
+/* modules/usuarios/components/UsuarioForm.module.css */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+/* ── Encabezado ─────────────────────────────────── */
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #1e1b2e;
+  margin: 0;
+}
+
+.subtitle {
+  font-size: 0.95rem;
+  color: #6b6478;
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Tarjeta ────────────────────────────────────── */
+.card {
+  background: #ffffff;
+  border: 1px solid #e7e3f0;
+  border-radius: 16px;
+  padding: 28px;
+  box-shadow: 0 1px 2px rgba(30, 27, 46, 0.04);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1e1b2e;
+  margin: 0 0 20px;
+}
+
+.cardTitleIcon {
+  color: #6d4fe0;
+  font-size: 1.15rem;
+}
+
+/* ── Campos ─────────────────────────────────────── */
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-bottom: 8px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #3a3450;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid #ddd7ea;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 0.92rem;
+  color: #1e1b2e;
+  background: #fbfaff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+}
+
+.textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  outline: none;
+  border-color: #6d4fe0;
+  box-shadow: 0 0 0 3px rgba(109, 79, 224, 0.15);
+}
+
+.input:disabled,
+.select:disabled {
+  background: #f1eff7;
+  color: #948ea3;
+  cursor: not-allowed;
+}
+
+.fieldError {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #d1435b;
+}
+
+/* ── Checkbox ───────────────────────────────────── */
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  background: #f7f5fc;
+  border-radius: 10px;
+  margin-bottom: 20px;
+}
+
+.checkbox {
+  margin-top: 3px;
+  width: 16px;
+  height: 16px;
+  accent-color: #6d4fe0;
+  flex-shrink: 0;
+}
+
+.checkboxLabel {
+  font-size: 0.85rem;
+  color: #4c455c;
+  line-height: 1.5;
+}
+
+/* ── Acciones ───────────────────────────────────── */
+.submitRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.btnPrimary,
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease, opacity 0.15s ease;
+}
+
+.btnPrimary {
+  background: #6d4fe0;
+  color: #ffffff;
+}
+
+.btnPrimary:hover:not(:disabled) {
+  background: #5c3fd0;
+}
+
+.btnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background: #ffffff;
+  color: #3a3450;
+  border-color: #ddd7ea;
+}
+
+.btnSecondary:hover {
+  background: #f7f5fc;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Mensajes de estado ─────────────────────────── */
+.errorBox,
+.successBox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-radius: 12px;
+  padding: 14px 16px;
+  font-size: 0.9rem;
+}
+
+.errorBox {
+  background: #fdeeef;
+  color: #a92f45;
+  border: 1px solid #f6c9d0;
+}
+
+.successBox {
+  background: #eefaf1;
+  color: #227a4b;
+  border: 1px solid #bfe8cc;
+}
+
+.loadingText {
+  color: #6b6478;
+  font-size: 0.95rem;
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* ── Resultado (usuario creado) ─────────────────── */
+.resultCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #e7e3f0;
+  border-radius: 16px;
+  padding: 40px 28px;
+}
+
+.resultIcon {
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #eefaf1;
+  color: #22a35a;
+  font-size: 1.6rem;
+}
+
+.resultTitle {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e1b2e;
+  margin: 0;
+}
+
+.resultSubtitle {
+  font-size: 0.9rem;
+  color: #6b6478;
+  margin: 0;
+}
+
+.resultActions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+@media (max-width: 640px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+  .resultActions {
+    flex-direction: column;
+    width: 100%;
+  }
+}

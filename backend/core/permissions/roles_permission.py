@@ -32,11 +32,6 @@ class EsAbogado(BasePermission):
 class EsUsuarioAutenticado(BasePermission):
     """Cualquier usuario autenticado y activo."""
     def has_permission(self, request, view):
-        print("========== DEBUG ==========")
-        print("user:", request.user)
-        print("authenticated:", request.user.is_authenticated)
-        print("estado:", getattr(request.user, "estado", None))
-        print("===========================")
         return (
             request.user
             and request.user.is_authenticated
