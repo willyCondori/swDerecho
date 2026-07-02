@@ -16,9 +16,10 @@ const NAV_ITEMS = [
   {
     section: 'Catálogo',
     items: [
-      { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Artículos' },
+      { to: '/catalogo/articulos', icon: 'ti-book',      label: 'Artículos' },
       { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
       { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
+      { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Cargar Documentos' },
     ],
   },
   {
@@ -99,7 +100,7 @@ export default function AppLayout() {
             <div className={styles.userAvatar}>{getInitials(user)}</div>
             <div className={styles.userInfo}>
               <p className={styles.userName}>{user?.usuario || '—'}</p>
-              <p className={styles.userRole}>{user?.rol?.nombre || 'Sin rol'}</p>
+              <p className={styles.userRole}>{typeof user?.rol === 'string' ? user.rol : user?.rol?.nombre || 'Sin rol'}</p>
             </div>
             <button
               className={styles.logoutBtn}

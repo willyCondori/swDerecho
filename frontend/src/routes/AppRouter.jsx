@@ -11,7 +11,9 @@ import { lazy, Suspense } from 'react'
 const CasosPage      = lazy(() => import('../modules/casos/pages/CasosPage'))
 const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage'))
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
-const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/CargaArticulosPage'))
+const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
+const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
+const VerUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
 
 function PageLoader() {
   return (
@@ -65,11 +67,14 @@ export default function AppRouter() {
         {/* Admin only */}
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<AppLayout />}>
+            <Route path="/catalogo/articulos" element={
+                <Suspense fallback={<PageLoader />}><VerArticulos /></Suspense>
+              } />
             <Route path="/catalogo/cargar" element={
                 <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
               } />
             <Route path="/auditoria/*" element={<PageLoader />} />
-            <Route path="/usuarios/*"  element={<PageLoader />} />
+            <Route path="/usuarios/*"  element={<VerUsuarios />} />
           </Route>
         </Route>
       </Route>
