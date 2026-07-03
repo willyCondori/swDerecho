@@ -22,13 +22,12 @@ class PerfilUsuarioReadSerializer(serializers.ModelSerializer):
     apellidos = serializers.SerializerMethodField()
     email     = serializers.SerializerMethodField()
     telefono  = serializers.SerializerMethodField()
-    ci        = serializers.SerializerMethodField()
 
     class Meta:
         model  = PerfilUsuario
         fields = [
             "id", "usuario", "nombres", "apellidos",
-            "email", "telefono", "ci", "estado",
+            "email", "telefono", "estado",
             "created_at", "updated_at",
         ]
 
@@ -42,7 +41,6 @@ class PerfilUsuarioReadSerializer(serializers.ModelSerializer):
     def get_apellidos(self, obj): return self._safe_decrypt(obj.apellidos)
     def get_email(self, obj):     return self._safe_decrypt(obj.email)
     def get_telefono(self, obj):  return self._safe_decrypt(obj.telefono)
-    def get_ci(self, obj):        return self._safe_decrypt(obj.ci)
 
 
 class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
@@ -53,11 +51,10 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
     apellidos = serializers.CharField(max_length=150)
     email     = serializers.EmailField(max_length=150)
     telefono  = serializers.CharField(max_length=50, required=False, allow_blank=True)
-    ci        = serializers.CharField(max_length=50)
 
     class Meta:
         model  = PerfilUsuario
-        fields = ["nombres", "apellidos", "email", "telefono", "ci", "estado"]
+        fields = ["nombres", "apellidos", "email", "telefono", "estado"]
 
     # --- validaciones individuales ---
 
@@ -91,23 +88,6 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
                 continue
         return value
 
-    def validate_ci(self, value):
-        value = value.strip()
-        if not re.match(r"^\d{5,10}[A-Za-z]?$", value):
-            raise serializers.ValidationError(
-                "El CI debe contener entre 5 y 10 dígitos con un complemento de letra opcional."
-            )
-        qs = PerfilUsuario.objects.exclude(
-            pk=self.instance.pk if self.instance else None
-        )
-        for perfil in qs:
-            try:
-                if decrypt(perfil.ci) == value:
-                    raise serializers.ValidationError("Este CI ya está registrado.")
-            except Exception:
-                continue
-        return value
-
     def validate_telefono(self, value):
         if value:
             value = value.strip()
@@ -118,7 +98,7 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
     # --- cifrado antes de guardar ---
 
     def _encrypt_fields(self, validated_data: dict) -> dict:
-        campos_sensibles = ["nombres", "apellidos", "email", "telefono", "ci"]
+        campos_sensibles = ["nombres", "apellidos", "email", "telefono"]
         for campo in campos_sensibles:
             if campo in validated_data and validated_data[campo]:
                 validated_data[campo] = encrypt(validated_data[campo])

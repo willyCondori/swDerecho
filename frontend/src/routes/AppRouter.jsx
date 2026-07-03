@@ -13,7 +13,10 @@ const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage')
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
-const VerUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
+const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
+const VerUsuarios        = lazy(() => import('../modules/usuarios/pages/UsuariosPage'))
+const PerfilUsuarios       = lazy(() => import('../modules/usuarios/pages/PerfilUsuarioPage'))
+const EditarUsuarios       = lazy(() => import('../modules/usuarios/pages/EditarUsuarioPage'))
 
 function PageLoader() {
   return (
@@ -74,7 +77,20 @@ export default function AppRouter() {
                 <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
               } />
             <Route path="/auditoria/*" element={<PageLoader />} />
-            <Route path="/usuarios/*"  element={<VerUsuarios />} />
+
+            {/* Usuarios — rutas explícitas en vez del wildcard */}
+            <Route path="/usuarios" element={
+                <Suspense fallback={<PageLoader />}><VerUsuarios /></Suspense>
+              } />
+            <Route path="/usuarios/nuevo" element={
+                <Suspense fallback={<PageLoader />}><CrearUsuarios /></Suspense>
+              } />
+            <Route path="/usuarios/:id" element={
+                <Suspense fallback={<PageLoader />}><PerfilUsuarios /></Suspense>
+              } />
+            <Route path="/usuarios/:id/editar" element={
+                <Suspense fallback={<PageLoader />}><EditarUsuarios /></Suspense>
+              } />
           </Route>
         </Route>
       </Route>
