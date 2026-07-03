@@ -1,6 +1,5 @@
-// modules/usuarios/hooks/useCrearUsuario.js
 import { useState } from 'react'
-import usuariosService from '../services/usuariosService'
+import usuariosApi from '../../../api/usuariosApi'
 
 const FORM_INICIAL = {
   usuario: '',
@@ -8,21 +7,26 @@ const FORM_INICIAL = {
   confirmarPassword: '',
   rolId: '',
   estado: true,
+
+  perfil: {
+    nombres: '',
+    apellidos: '',
+    email: '',
+    telefono: '',
+  },
 }
 
 function extraerMensajeError(err) {
   const data = err.response?.data
   if (!data) return 'No se pudo crear el usuario.'
   if (typeof data.detail === 'string') return data.detail
+
   const primerCampo = Object.values(data)[0]
   if (Array.isArray(primerCampo)) return primerCampo[0]
+
   return 'No se pudo crear el usuario.'
 }
 
-/**
- * Maneja el formulario de alta de usuario: estado de campos,
- * validación y llamada a POST /api/usuarios/.
- */
 export function useCrearUsuario() {
   const [form, setForm] = useState(FORM_INICIAL)
   const [fieldErrors, setFieldErrors] = useState({})
@@ -32,19 +36,58 @@ export function useCrearUsuario() {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
-    if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
+
+    // 👇 PERFIL
+    if (name in form.perfil) {
+      setForm((prev) => ({
+        ...prev,
+        perfil: {
+          ...prev.perfil,
+          [name]: value,
+        },
+      }))
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      }))
+    }
+
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: null }))
+    }
   }
 
   const validar = () => {
     const errores = {}
-    if (!form.usuario.trim()) errores.usuario = 'El nombre de usuario es obligatorio.'
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    const phoneRegex = /^[67]\d{7}$/
+
+    if (!form.usuario.trim()) errores.usuario = 'Usuario requerido'
     if (!form.password) errores.password = 'La contraseña es obligatoria.'
-    else if (form.password.length < 8) errores.password = 'Debe tener al menos 8 caracteres.'
+    else if (form.password.length < 8)
+      errores.password = 'Debe tener al menos 8 caracteres.'
+
     if (form.password !== form.confirmarPassword) {
       errores.confirmarPassword = 'Las contraseñas no coinciden.'
     }
+
     if (!form.rolId) errores.rolId = 'Selecciona un rol.'
+
+    // 👇 PERFIL VALIDACIÓN BÁSICA
+    if (!form.perfil.nombres.trim()) errores.nombres = 'Nombre requerido'
+    if (!form.perfil.apellidos.trim()) errores.apellidos = 'Apellido requerido'
+    if (!form.perfil.email.trim()) {
+      errores.email = 'Email requerido'
+    } else if (!emailRegex.test(form.perfil.email)) {
+      errores.email = 'Email inválido'
+    }
+
+    if (!form.perfil.telefono) {
+      errores.telefono = 'Teléfono requerido'
+    } else if (!phoneRegex.test(form.perfil.telefono)) {
+      errores.telefono = 'Teléfono inválido (8 dígitos, inicia 6/7)'
+    }
     return errores
   }
 
@@ -57,13 +100,17 @@ export function useCrearUsuario() {
 
     setEnviando(true)
     setError(null)
+
     try {
-      const { data } = await usuariosService.crear({
+      const { data } = await usuariosApi.crearUsuario({
         usuario: form.usuario.trim(),
         password: form.password,
-        rol: form.rolId,
+        password_confirm: form.confirmarPassword, // ✔ FIX
+        rol_id: form.rolId, // ✔ FIX
         estado: form.estado,
+        perfil: form.perfil, // ✔ FIX
       })
+
       setCreado(data)
       return true
     } catch (err) {

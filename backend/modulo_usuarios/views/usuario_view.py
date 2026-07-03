@@ -90,8 +90,10 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # Admin ve todos; abogado solo se ve a sí mismo
-        if self.request.user.rol and self.request.user.rol.nombre.lower() != "admin":
+        # Admin y Abogado ven todos; el resto (ej. Asistente) solo se ve a sí mismo
+        ROLES_VEN_TODOS = ["administrador", "abogado"]
+        rol_nombre = self.request.user.rol.nombre.lower() if self.request.user.rol else None
+        if rol_nombre not in ROLES_VEN_TODOS:
             qs = qs.filter(pk=self.request.user.pk)
         estado = self.request.query_params.get("estado")
         if estado is not None:
@@ -130,7 +132,7 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
         usuario = self.get_object()
         # Solo el propio usuario o admin puede editar
         if usuario != request.user and (
-            not request.user.rol or request.user.rol.nombre.lower() != "admin"
+            not request.user.rol or request.user.rol.nombre.lower() != "Administrador"
         ):
             return Response(
                 {"detail": "No tiene permiso para editar el perfil de otro usuario."},
@@ -151,7 +153,7 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="activar")
     def activar(self, request, pk=None):
         """GET /api/usuarios/{id}/activar/ — reactiva un usuario inactivo."""
-        if not request.user.rol or request.user.rol.nombre.lower() != "admin":
+        if not request.user.rol or request.user.rol.nombre != "Administrador":
             return Response(status=status.HTTP_403_FORBIDDEN)
         instance        = self.get_object()
         instance.estado = True

@@ -1,6 +1,6 @@
 // modules/usuarios/hooks/usePerfilUsuario.js
 import { useCallback, useEffect, useState } from 'react'
-import usuariosService from '../services/usuariosService'
+import usuariosApi from '../../../api/usuariosApi'
 
 const FORM_INICIAL = {
   nombreCompleto: '',
@@ -39,7 +39,7 @@ export function usePerfilUsuario(usuarioId) {
     if (!usuarioId) return
     let activo = true
     setCargando(true)
-    usuariosService.obtener(usuarioId)
+    usuariosApi.obtenerUsuario(usuarioId)
       .then(({ data }) => {
         if (!activo) return
         const perfil = data.perfil ?? {}
