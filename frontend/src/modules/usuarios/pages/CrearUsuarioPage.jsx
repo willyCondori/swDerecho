@@ -61,10 +61,10 @@ export default function CrearUsuarioPage() {
             </button>
             <button
               className={styles.btnPrimary}
-              onClick={() => navigate(`/usuarios/${creado.id}/perfil`)}
+              onClick={() => navigate(`/usuarios`)}
             >
               <i className="ti ti-id-badge-2" aria-hidden="true" />
-              Completar perfil
+              ver otros registros
             </button>
           </div>
         </div>

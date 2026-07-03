@@ -1,6 +1,6 @@
 // modules/usuarios/hooks/useRoles.js
 import { useEffect, useState } from 'react'
-import { rolesService } from '../services/usuariosService'
+import usuariosApi from '../../../api/usuariosApi'
 
 /**
  * Carga el listado compacto de roles activos (GET /api/roles/lista/)
@@ -14,7 +14,7 @@ export function useRoles() {
   useEffect(() => {
     let activo = true
     setLoading(true)
-    rolesService.lista()
+    usuariosApi.listarRoles()
       .then(({ data }) => {
         if (activo) setRoles(data ?? [])
       })
