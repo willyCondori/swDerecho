@@ -1,7 +1,7 @@
 // modules/usuarios/pages/EditarUsuarioPage.jsx
 import { useNavigate, useParams } from 'react-router-dom'
 import useEditarUsuario from '../hooks/useEditarUsuario'
-import EditarUsuarioForm from '../components/EditarUsuarioForm'
+import UsuarioForm from '../components/UsuarioForm'
 import styles from './UsuarioForm.module.css'
 
 export default function EditarUsuarioPage() {
@@ -55,7 +55,8 @@ export default function EditarUsuarioPage() {
               <i className="ti ti-check" aria-hidden="true" /> Cambios guardados correctamente.
             </div>
           )}
-          <EditarUsuarioForm
+          <UsuarioForm
+            mode="editar"
             usuario={usuario}
             form={form}
             fieldErrors={fieldErrors}

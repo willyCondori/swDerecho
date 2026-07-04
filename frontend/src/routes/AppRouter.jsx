@@ -17,6 +17,10 @@ const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearU
 const VerUsuarios        = lazy(() => import('../modules/usuarios/pages/UsuariosPage'))
 const PerfilUsuarios       = lazy(() => import('../modules/usuarios/pages/PerfilUsuarioPage'))
 const EditarUsuarios       = lazy(() => import('../modules/usuarios/pages/EditarUsuarioPage'))
+const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage'))
+const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
+
+
 
 function PageLoader() {
   return (
@@ -59,7 +63,6 @@ export default function AppRouter() {
           } />
 
           {/* Rutas pendientes de implementar */}
-          <Route path="/clientes/*"      element={<PageLoader />} />
           <Route path="/catalogo/*"      element={<PageLoader />} />
           <Route path="/documentos/*"    element={<PageLoader />} />
           <Route path="/plantillas/*"    element={<PageLoader />} />
@@ -90,6 +93,12 @@ export default function AppRouter() {
               } />
             <Route path="/usuarios/:id/editar" element={
                 <Suspense fallback={<PageLoader />}><EditarUsuarios /></Suspense>
+              } />
+            <Route path="/clientes" element={
+                <Suspense fallback={<PageLoader />}><ClientesPage /></Suspense>
+              } />
+            <Route path="/clientes/nuevo" element={
+                <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
               } />
           </Route>
         </Route>
