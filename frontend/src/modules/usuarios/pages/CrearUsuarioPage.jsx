@@ -1,7 +1,7 @@
 // modules/usuarios/pages/CrearUsuarioPage.jsx
 import { useNavigate } from 'react-router-dom'
 import { useCrearUsuario } from '../hooks/useCrearUsuario'
-import CrearUsuarioForm from '../components/CrearUsuarioForm'
+import UsuarioForm from '../components/UsuarioForm'
 import styles from '../pages/UsuarioForm.module.css'
 
 export default function CrearUsuarioPage() {
@@ -18,17 +18,28 @@ export default function CrearUsuarioPage() {
 
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <h1 className={styles.title}>Crear nuevo usuario</h1>
-        <p className={styles.subtitle}>
-          Registra las credenciales de acceso y asigna el rol que
-          definirá sus permisos dentro del sistema.
-        </p>
-      </header>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-2)' }}>
+        <button
+          type="button"
+          onClick={() => navigate('/usuarios')}
+          aria-label="Volver"
+          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem' }}
+        >
+          <i className="ti ti-arrow-left" aria-hidden="true" />
+        </button>
+        <header className={styles.header} style={{ marginBottom: 0 }}>
+          <h1 className={styles.title}>Crear nuevo usuario</h1>
+          <p className={styles.subtitle}>
+            Registra las credenciales de acceso y asigna el rol que
+            definirá sus permisos dentro del sistema.
+          </p>
+        </header>
+      </div>
 
       {!creado ? (
         <>
-          <CrearUsuarioForm
+          <UsuarioForm
+            mode="crear"
             form={form}
             fieldErrors={fieldErrors}
             enviando={enviando}
