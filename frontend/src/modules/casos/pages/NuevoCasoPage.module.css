@@ -1,0 +1,110 @@
+/* modules/casos/pages/NuevoCasoPage.module.css */
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4, 24px);
+  max-width: 680px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3, 16px);
+}
+
+.backBtn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: var(--text-secondary, #6b7280);
+}
+
+.title { font-size: 1.5rem; font-weight: 700; margin: 0; }
+.subtitle { color: var(--text-secondary, #6b7280); margin: 2px 0 0; font-size: 0.9rem; }
+
+/* ── Tabs de modo ───────────────────────── */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-subtle, #f3f4f6);
+  border-radius: 8px;
+  margin-bottom: var(--sp-4, 24px);
+}
+.tab {
+  padding: 8px 16px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.tabActive {
+  background: #fff;
+  color: var(--text-primary, #111827);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3, 16px);
+}
+.fullWidth { grid-column: 1 / -1; }
+
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary, #374151); }
+.input, .select, .textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.textarea { resize: vertical; min-height: 140px; }
+.fieldError { font-size: 0.78rem; color: #dc2626; }
+
+/* ── Dropzone PDF ───────────────────────── */
+.dropzone {
+  border: 2px dashed var(--border-color, #e5e7eb);
+  border-radius: 10px;
+  padding: 32px 16px;
+  text-align: center;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+}
+.dropzone:hover { background: var(--bg-hover, #f9fafb); }
+.dropzoneIcon { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+.fileName {
+  margin-top: 10px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-primary, #111827);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.submitRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2, 8px);
+  margin-top: var(--sp-5, 28px);
+}
+
+.errorBanner {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: var(--sp-3, 16px);
+}
