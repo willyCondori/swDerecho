@@ -19,7 +19,7 @@ const PerfilUsuarios       = lazy(() => import('../modules/usuarios/pages/Perfil
 const EditarUsuarios       = lazy(() => import('../modules/usuarios/pages/EditarUsuarioPage'))
 const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage'))
 const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
-
+const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
 
 
 function PageLoader() {
@@ -100,6 +100,9 @@ export default function AppRouter() {
             <Route path="/clientes/nuevo" element={
                 <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
               } />
+            <Route path="/clientes/:id" element={
+                <Suspense fallback={<PageLoader />}><ClienteCasosPage /></Suspense>
+              } />              
           </Route>
         </Route>
       </Route>
