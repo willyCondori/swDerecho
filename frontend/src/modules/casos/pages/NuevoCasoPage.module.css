@@ -1,110 +1,105 @@
 /* modules/casos/pages/NuevoCasoPage.module.css */
 
 .root {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4, 24px);
+  composes: root from '../../../styles/shared.module.css';
   max-width: 680px;
 }
 
-.headerRow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3, 16px);
-}
+.headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.tabs { composes: tabs from '../../../styles/shared.module.css'; }
+.tab { composes: tab from '../../../styles/shared.module.css'; }
+.tabActive { composes: tabActive from '../../../styles/shared.module.css'; }
+.formGrid { composes: formGrid from '../../../styles/shared.module.css'; }
+.fullWidth { composes: fullWidth from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.select { composes: select from '../../../styles/shared.module.css'; }
+.textarea { composes: textarea from '../../../styles/shared.module.css'; }
+.fieldError { composes: fieldError from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.btnLink { composes: btnLink from '../../../styles/shared.module.css'; }
+.submitRow { composes: submitRow from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+.formCard { composes: formCard from '../../../styles/shared.module.css'; }
+.card { composes: formCard from '../../../styles/shared.module.css'; }
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
 
-.backBtn {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 1.2rem;
-  color: var(--text-secondary, #6b7280);
-}
-
-.title { font-size: 1.5rem; font-weight: 700; margin: 0; }
-.subtitle { color: var(--text-secondary, #6b7280); margin: 2px 0 0; font-size: 0.9rem; }
-
-/* ── Tabs de modo ───────────────────────── */
-.tabs {
-  display: inline-flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg-subtle, #f3f4f6);
-  border-radius: 8px;
-  margin-bottom: var(--sp-4, 24px);
-}
-.tab {
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: none;
-  background: transparent;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-secondary, #6b7280);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.tabActive {
-  background: #fff;
-  color: var(--text-primary, #111827);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
-}
-
-.formGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--sp-3, 16px);
-}
-.fullWidth { grid-column: 1 / -1; }
-
-.field { display: flex; flex-direction: column; gap: 6px; }
-.label { font-size: 0.85rem; font-weight: 600; color: var(--text-primary, #374151); }
-.input, .select, .textarea {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  font-size: 0.9rem;
-  font-family: inherit;
-}
-.textarea { resize: vertical; min-height: 140px; }
-.fieldError { font-size: 0.78rem; color: #dc2626; }
-
-/* ── Dropzone PDF ───────────────────────── */
+/* ── Dropzone PDF ───────────────────────────────────────── */
 .dropzone {
-  border: 2px dashed var(--border-color, #e5e7eb);
-  border-radius: 10px;
-  padding: 32px 16px;
+  border: 2px dashed var(--c-border);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-8) var(--sp-4);
   text-align: center;
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--c-text-muted);
+  background: var(--c-bg-surface);
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
-.dropzone:hover { background: var(--bg-hover, #f9fafb); }
-.dropzoneIcon { font-size: 1.8rem; margin-bottom: 8px; display: block; }
+
+.dropzone:hover {
+  background: var(--c-bg-hover);
+  border-color: var(--c-border-strong);
+}
+
+.dropzoneIcon {
+  font-size: 28px;
+  margin-bottom: var(--sp-2);
+  display: block;
+  color: var(--c-text-muted);
+}
+
 .fileName {
-  margin-top: 10px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
+  margin-top: var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--sp-2);
 }
 
-.submitRow {
+.clienteSeleccionado {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--sp-2, 8px);
-  margin-top: var(--sp-5, 28px);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3);
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  color: var(--c-text-primary);
 }
 
-.errorBanner {
-  background: #fee2e2;
-  color: #dc2626;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  margin-bottom: var(--sp-3, 16px);
+.dropdownResultados {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin-top: 4px;
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.dropdownItem {
+  padding: var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--c-text-secondary);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.dropdownItem:hover {
+  background: var(--c-bg-hover);
+  color: var(--c-text-primary);
 }

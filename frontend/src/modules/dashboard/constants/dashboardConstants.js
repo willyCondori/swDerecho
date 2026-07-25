@@ -4,7 +4,6 @@ export const PIPELINE_STEPS = [
   { key: 'chunking',   label: 'Chunking',         icon: 'ti-scissors' },
   { key: 'embeddings', label: 'Embeddings',        icon: 'ti-vector' },
   { key: 'ranking',    label: 'Ranking jurídico',  icon: 'ti-sort-descending' },
-  { key: 'llm',        label: 'LLM (GPT4All)',     icon: 'ti-message-circle' },
 ]
 
 export const PIPELINE_WIDTH = {
@@ -25,6 +24,4 @@ export const TOP_ARTICULOS_MOCK = [
 export const QUICK_ACCESS_ITEMS = [
   { icon: 'ti-folder-plus', label: 'Nuevo caso',      path: '/casos/nuevo' },
   { icon: 'ti-user-plus',   label: 'Nuevo cliente',   path: '/clientes/nuevo' },
-  { icon: 'ti-upload',      label: 'Subir plantilla', path: '/plantillas' },
-  { icon: 'ti-chart-bar',   label: 'Ver ranking IA',  path: '/ia' },
 ]

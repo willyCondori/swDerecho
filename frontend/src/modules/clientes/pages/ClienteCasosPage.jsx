@@ -70,7 +70,6 @@ export default function ClienteCasosPage() {
                 key={caso.id}
                 className={styles.listItem}
                 onClick={() => navigate(`/casos/${caso.id}`)}
-                style={{ cursor: 'pointer' }}
               >
                 <div className={styles.codigoRow}>
                   <span className={styles.codigo}>{caso.codigo}</span>
