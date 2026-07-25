@@ -53,7 +53,9 @@ const casosApi = {
   },
 
   analizar(id) {
-    return api.post(`/api/casos/${id}/analizar/`)
+    return api.post(`/api/casos/${id}/analizar/`, null, {
+      timeout: 300000,
+    })
   },
 }
 

@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     "rest_framework_simplejwt",
 
     "drf_spectacular",
+    "pgvector",
 
 ]
 
@@ -173,7 +174,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 SENTENCE_TRANSFORMER_MODEL = config(
     'SENTENCE_TRANSFORMER_MODEL',
-    default='sentence-transformers/paraphrase-mpnet-base-v2'
+    default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
 )
 
 LOGGING = {

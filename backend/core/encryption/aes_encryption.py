@@ -62,3 +62,20 @@ def decrypt(ciphertext: str) -> str:
     ct     = raw[12:]
     aesgcm = AESGCM(key)
     return aesgcm.decrypt(nonce, ct, None).decode("utf-8")
+
+# core/encryption/aes_encryption.py
+# ... tus funciones encrypt/decrypt existentes arriba ...
+
+def safe_decrypt(value, fallback="[cifrado]"):
+    """
+    Descifra un valor de forma segura. Si el valor es falsy o el
+    descifrado falla (dato corrupto, clave rotada, etc.), devuelve
+    el fallback en vez de propagar la excepción.
+
+    Centraliza el patrón try/except que antes estaba duplicado en
+    cada serializer.
+    """
+    try:
+        return decrypt(value) if value else value
+    except Exception:
+        return fallback

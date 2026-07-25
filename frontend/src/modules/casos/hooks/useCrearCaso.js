@@ -12,7 +12,6 @@ const initialForm = {
 const initialClienteForm = {
   nombres: '',
   apellidos: '',
-  email: '',
   telefono: '',
 }
 
@@ -31,7 +30,6 @@ function validate(form, clienteForm, modo, archivo) {
   // Datos del cliente
   if (!clienteForm.nombres.trim()) errors.nombres = 'Los nombres son obligatorios.'
   if (!clienteForm.apellidos.trim()) errors.apellidos = 'Los apellidos son obligatorios.'
-  if (!clienteForm.email.trim()) errors.email = 'El email es obligatorio.'
   if (!clienteForm.telefono.trim()) errors.telefono = 'El teléfono es obligatorio.'
 
   return errors
@@ -90,6 +88,7 @@ export default function useCrearCaso() {
       try {
         const res = await clientesApi.crear(clienteForm)
         cliente = res.data
+        console.log('cliente creado:', cliente)  // ← agregá esto
       } catch (e) {
         console.error('Error creando cliente:', e, e?.response?.data)
         const apiErrors = e?.response?.data
@@ -109,14 +108,14 @@ export default function useCrearCaso() {
         data = new FormData()
         data.append('titulo', form.titulo)
         data.append('descripcion', form.descripcion || '')
-        data.append('cliente', cliente.id)
+        data.append('cliente_id', cliente.id)
         data.append('archivo_pdf', archivo)
         config = { headers: { 'Content-Type': 'multipart/form-data' } }
       } else {
         data = {
           titulo: form.titulo,
           descripcion: form.descripcion,
-          cliente: cliente.id,
+          cliente_id: cliente.id,
         }
       }
 
