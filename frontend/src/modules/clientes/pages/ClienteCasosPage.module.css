@@ -1,0 +1,152 @@
+.root {
+  padding: var(--sp-4, 24px);
+  max-width: 1200px;
+  margin: 0 auto;
+  color: black;
+}
+
+.loaderWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  color: var(--c-text-muted);
+  font-size: 13px;
+}
+
+.headerRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.backBtn {
+  border: 1px solid var(--c-border-strong);
+  background: white;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.headerInfo {
+  flex: 1;
+  color: black;
+}
+
+.codigoRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.codigo {
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--c-text-muted);
+}
+
+.title {
+  font-size: 22px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.badge {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.badgeOk {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.badgePending {
+  background: rgba(234, 179, 8, 0.15);
+  color: #ca8a04;
+}
+
+.badgeMuted {
+  background: var(--c-border-strong);
+  color: var(--c-text-muted);
+}
+
+.errorBanner {
+  background: rgba(239, 68, 68, 0.1);
+  color: #dc2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+
+.card {
+  border: 1px solid var(--c-border-strong);
+  border-radius: 12px;
+  padding: 18px;
+  background: var(--c-surface, #fff);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.descripcion {
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.emptyText {
+  font-size: 13px;
+  color: var(--c-text-muted);
+  font-style: italic;
+  margin: 0;
+}
+
+.list {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.listItem {
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 8px;
+  padding: 12px 14px;
+  transition: background 0.15s ease;
+}
+
+.listItem:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.btnSecondary {
+  background: transparent;
+  border: 1px solid var(--c-border-strong);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+}

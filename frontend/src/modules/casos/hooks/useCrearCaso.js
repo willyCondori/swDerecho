@@ -7,6 +7,7 @@ import clientesApi from '../../../api/clientesApi'
 const initialForm = {
   titulo: '',
   descripcion: '',
+  rama_id: '',
 }
 
 const initialClienteForm = {
@@ -15,7 +16,7 @@ const initialClienteForm = {
   telefono: '',
 }
 
-function validate(form, clienteForm, modo, archivo) {
+function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistenteId) {
   const errors = {}
 
   // Datos del caso
@@ -28,9 +29,13 @@ function validate(form, clienteForm, modo, archivo) {
   }
 
   // Datos del cliente
-  if (!clienteForm.nombres.trim()) errors.nombres = 'Los nombres son obligatorios.'
-  if (!clienteForm.apellidos.trim()) errors.apellidos = 'Los apellidos son obligatorios.'
-  if (!clienteForm.telefono.trim()) errors.telefono = 'El teléfono es obligatorio.'
+  if (modoCliente === 'nuevo') {
+    if (!clienteForm.nombres.trim()) errors.nombres = 'Los nombres son obligatorios.'
+    if (!clienteForm.apellidos.trim()) errors.apellidos = 'Los apellidos son obligatorios.'
+    if (!clienteForm.telefono.trim()) errors.telefono = 'El teléfono es obligatorio.'
+  } else {
+    if (!clienteExistenteId) errors.clienteExistente = 'Selecciona un cliente existente.'
+  }
 
   return errors
 }
@@ -39,13 +44,16 @@ export default function useCrearCaso() {
   const navigate = useNavigate()
   const [form, setForm] = useState(initialForm)
   const [clienteForm, setClienteForm] = useState(initialClienteForm)
+  const [modoCliente, setModoCliente] = useState('nuevo') // 'nuevo' | 'existente'
+  const [clienteExistenteId, setClienteExistenteId] = useState(null)
+  const [clienteExistenteNombre, setClienteExistenteNombre] = useState('')
   const [modo, setModo] = useState('texto') // 'texto' | 'pdf'
   const [archivo, setArchivo] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState(null)
 
-  const camposCliente = ['nombres', 'apellidos', 'email', 'telefono']
+  const camposCliente = ['nombres', 'apellidos', 'telefono']
 
   const onChange = (e) => {
     const { name, value } = e.target
@@ -73,9 +81,24 @@ export default function useCrearCaso() {
     setFieldErrors({})
   }
 
+  const cambiarModoCliente = (nuevoModoCliente) => {
+    setModoCliente(nuevoModoCliente)
+    setClienteExistenteId(null)
+    setClienteExistenteNombre('')
+    setFieldErrors({})
+  }
+
+  const seleccionarClienteExistente = (id, nombre) => {
+    setClienteExistenteId(id)
+    setClienteExistenteNombre(nombre)
+    if (fieldErrors.clienteExistente) {
+      setFieldErrors((prev) => ({ ...prev, clienteExistente: undefined }))
+    }
+  }
+
   const onSubmit = async (e) => {
     e.preventDefault()
-    const errors = validate(form, clienteForm, modo, archivo)
+    const errors = validate(form, clienteForm, modo, archivo, modoCliente, clienteExistenteId)
     setFieldErrors(errors)
     if (Object.keys(errors).length > 0) return
 
@@ -83,24 +106,29 @@ export default function useCrearCaso() {
     setError(null)
 
     try {
-      // 1) Crear el cliente primero
-      let cliente
-      try {
-        const res = await clientesApi.crear(clienteForm)
-        cliente = res.data
-        console.log('cliente creado:', cliente)  // ← agregá esto
-      } catch (e) {
-        console.error('Error creando cliente:', e, e?.response?.data)
-        const apiErrors = e?.response?.data
-        if (apiErrors && typeof apiErrors === 'object') {
-          setFieldErrors(apiErrors)
-        } else {
-          setError('No se pudo crear el cliente.')
+      let clienteId
+
+      if (modoCliente === 'nuevo') {
+        // 1) Crear el cliente primero
+        try {
+          const res = await clientesApi.crear(clienteForm)
+          clienteId = res.data.id
+        } catch (e) {
+          console.error('Error creando cliente:', e, e?.response?.data)
+          const apiErrors = e?.response?.data
+          if (apiErrors && typeof apiErrors === 'object') {
+            setFieldErrors(apiErrors)
+          } else {
+            setError('No se pudo crear el cliente.')
+          }
+          return
         }
-        return
+      } else {
+        // Cliente ya existente, seleccionado del buscador
+        clienteId = clienteExistenteId
       }
 
-      // 2) Crear el caso usando el id del cliente recién creado
+      // 2) Crear el caso usando el id del cliente (nuevo o existente)
       let data
       let config = {}
 
@@ -108,14 +136,16 @@ export default function useCrearCaso() {
         data = new FormData()
         data.append('titulo', form.titulo)
         data.append('descripcion', form.descripcion || '')
-        data.append('cliente_id', cliente.id)
+        data.append('cliente_id', clienteId)
         data.append('archivo_pdf', archivo)
+        if (form.rama_id) data.append('rama_detectada_id', form.rama_id)
         config = { headers: { 'Content-Type': 'multipart/form-data' } }
       } else {
         data = {
           titulo: form.titulo,
           descripcion: form.descripcion,
-          cliente_id: cliente.id,
+          cliente_id: clienteId,
+          ...(form.rama_id ? { rama_detectada_id: form.rama_id } : {}),
         }
       }
 
@@ -143,9 +173,14 @@ export default function useCrearCaso() {
     fieldErrors,
     enviando,
     error,
+    modoCliente,
+    clienteExistenteId,
+    clienteExistenteNombre,
     onChange,
     onArchivoChange,
     cambiarModo,
+    cambiarModoCliente,
+    seleccionarClienteExistente,
     onSubmit,
   }
 }
