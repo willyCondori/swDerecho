@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views.caso_view import CasoViewSet
 
 router = DefaultRouter()
-router.register(r"casos", CasoViewSet, basename="casos")
+router.register(r"", CasoViewSet, basename="casos")
 
 urlpatterns = [
     path("", include(router.urls)),
