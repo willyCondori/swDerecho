@@ -1,0 +1,356 @@
+/* modules/usuarios/pages/UsuariosPage.module.css */
+
+/* ── Layout general ─────────────────────────────── */
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+/* ── Header ─────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.title {
+  font-size: var(--fs-2xl);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.subtitle {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+  margin-top: var(--sp-1);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* ── Botones ────────────────────────────── */
+.btnPrimary,
+.btnSecondary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-4);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+  white-space: nowrap;
+}
+
+/* Primary */
+.btnPrimary {
+  background: var(--c-purple-600);
+  border: none;
+  color: var(--c-purple-50);
+}
+.btnPrimary:hover {
+  background: var(--c-purple-700);
+}
+
+/* Secondary */
+.btnSecondary {
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  color: var(--c-text-secondary);
+}
+.btnSecondary:hover {
+  background: var(--c-bg-hover);
+  color: var(--c-text-primary);
+}
+
+/* Danger */
+.btnDanger {
+  background: transparent;
+  border: 1px solid rgba(163, 45, 45, 0.3);
+  color: #F7C1C1;
+  border-radius: var(--radius-md);
+  padding: 0 var(--sp-3);
+  height: 34px;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+.btnDanger:hover {
+  background: rgba(163, 45, 45, 0.15);
+  color: #fff;
+}
+
+/* ── Toolbar ────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+/* ── Tabs ─────────────────────────────── */
+.tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+}
+
+.tab {
+  padding: 6px 14px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: transparent;
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-muted);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.tabActive {
+  background: var(--c-bg-surface);
+  color: var(--c-text-primary);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Search ─────────────────────────────── */
+.searchBox {
+  position: relative;
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+.searchInput {
+  width: 100%;
+  height: 34px;
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--sp-3) 0 32px;
+  font-size: var(--fs-sm);
+  color: var(--c-text-primary);
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color var(--transition-fast);
+}
+
+.searchInput::placeholder {
+  color: var(--c-text-muted);
+}
+
+.searchInput:focus {
+  border-color: var(--c-border-focus);
+}
+
+.searchIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--c-text-muted);
+}
+
+.resultCount {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+/* ── Card / Tabla ───────────────────────────── */
+.card {
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+
+.table thead th {
+  text-align: left;
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--c-text-muted);
+  background: var(--c-bg-surface);
+  border-bottom: 1px solid var(--c-border);
+}
+
+.table tbody tr {
+  border-bottom: 1px solid var(--c-border);
+  transition: background var(--transition-fast);
+  cursor: pointer;
+}
+
+.table tbody tr:hover {
+  background: rgba(83, 74, 183, 0.04);
+}
+
+.table td {
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--c-text-secondary);
+}
+
+/* ── Usuario cell ───────────────────────────── */
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--c-purple-800);
+  color: var(--c-purple-300);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: var(--fw-medium);
+  font-size: var(--fs-xs);
+}
+
+.userName {
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.userEmail {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+/* ── Badges ───────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--fs-xs);
+  font-weight: var(--fw-medium);
+}
+
+.badgeRol {
+  background: var(--c-bg-surface);
+  color: var(--c-text-secondary);
+  border: 1px solid var(--c-border);
+}
+
+.activo {
+  background: rgba(99, 153, 34, 0.15);
+  color: var(--c-green-300);
+  border: 1px solid rgba(99, 153, 34, 0.3);
+}
+
+.inactivo {
+  background: rgba(163, 45, 45, 0.15);
+  color: #F7C1C1;
+  border: 1px solid rgba(163, 45, 45, 0.3);
+}
+
+/* ── Actions ───────────────────────────── */
+.actionsCell {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+.iconBtn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  border: 1px solid var(--c-border);
+  background: none;
+  color: var(--c-text-muted);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.iconBtn:hover {
+  background: var(--c-bg-hover);
+  color: var(--c-text-primary);
+}
+
+/* ── Empty state ───────────────────────────── */
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-10) var(--sp-4);
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 36px;
+  color: var(--c-text-muted);
+}
+
+.emptyText {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+/* ── Skeleton ───────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--c-bg-hover) 0%,
+    var(--c-bg-active) 50%,
+    var(--c-bg-hover) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s infinite;
+  border-radius: var(--radius-sm);
+  height: 14px;
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ── Pagination ───────────────────────────── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-top: 1px solid var(--c-border);
+}
+
+.pageInfo {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+.pageControls {
+  display: flex;
+  gap: var(--sp-2);
+}
