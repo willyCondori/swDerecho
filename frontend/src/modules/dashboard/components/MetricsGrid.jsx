@@ -26,21 +26,21 @@ export default function MetricsGrid({ loading, stats }) {
               value={completos}
               icon="ti-cpu"
               iconColorCls={styles.green}
-              delta="procesados con GPT4All"
+              delta="Procesados"
             />
             <MetricCard
               label="Con PDF"
               value={conPdf}
               icon="ti-file-text"
               iconColorCls={styles.amber}
-              delta="documentos subidos"
+              delta="Documentos subidos"
             />
             <MetricCard
               label="Pendientes"
               value={pendientes}
               icon="ti-clock"
               iconColorCls={styles.blue}
-              delta={pendientes > 0 ? 'requieren análisis' : 'todo al día'}
+              delta={pendientes > 0 ? 'Requieren análisis' : 'Todo al día'}
               deltaCls={pendientes > 0 ? styles.down : styles.neutral}
             />
           </>
