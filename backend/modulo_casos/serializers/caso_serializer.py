@@ -1,4 +1,3 @@
-import re
 import uuid
 
 from rest_framework import serializers
@@ -10,7 +9,6 @@ from modulo_casos.models.resultado_caso import ResultadoCaso
 from modulo_catalogo.models.rama import RamaDerecho
 from modulo_clientes.models.cliente import Cliente
 from modulo_clientes.serializers.cliente_serializer import ClienteListSerializer
-from modulo_usuarios.models.usuario import Usuario
 from modulo_usuarios.serializers.usuario_serializer import UsuarioReadSerializer
 
 
@@ -97,18 +95,54 @@ class ResultadoCasoSerializer(serializers.ModelSerializer):
 
 
 # ---------------------------------------------------------------------------
+# Validaciones compartidas de título/descripción del Caso
+# ---------------------------------------------------------------------------
+
+class CasoTituloDescripcionMixin:
+    """
+    Reglas de validación de título/descripción compartidas entre
+    CasoCreateSerializer y CasoUpdateSerializer, para que no se
+    puedan violar los mismos límites en un endpoint y no en el otro.
+    """
+    TITULO_MIN = 5
+    TITULO_MAX = 500
+    DESCRIPCION_MIN = 50
+
+    def validate_titulo(self, value):
+        value = value.strip()
+        if len(value) < self.TITULO_MIN:
+            raise serializers.ValidationError(
+                f"El título debe tener al menos {self.TITULO_MIN} caracteres."
+            )
+        if len(value) > self.TITULO_MAX:
+            raise serializers.ValidationError(
+                f"El título no puede exceder {self.TITULO_MAX} caracteres."
+            )
+        return value
+
+    def validate_descripcion(self, value):
+        if value:
+            value = value.strip()
+            if len(value) < self.DESCRIPCION_MIN:
+                raise serializers.ValidationError(
+                    f"La descripción debe tener al menos {self.DESCRIPCION_MIN} caracteres."
+                )
+        return value
+
+
+# ---------------------------------------------------------------------------
 # Caso
 # ---------------------------------------------------------------------------
 
 class CasoReadSerializer(serializers.ModelSerializer):
-    usuario          = UsuarioReadSerializer(read_only=True)
-    cliente          = ClienteListSerializer(read_only=True)
-    rama_detectada   = serializers.StringRelatedField()
-    hechos           = serializers.SerializerMethodField()
-    petitorios       = serializers.SerializerMethodField()
-    resultado        = ResultadoCasoSerializer(read_only=True)
-    tiene_documento  = serializers.SerializerMethodField()
-    tiene_generado   = serializers.SerializerMethodField()
+    usuario         = UsuarioReadSerializer(read_only=True)
+    cliente         = ClienteListSerializer(read_only=True)
+    rama_detectada  = serializers.StringRelatedField()
+    hechos          = serializers.SerializerMethodField()
+    petitorios      = serializers.SerializerMethodField()
+    resultado       = ResultadoCasoSerializer(read_only=True)
+    tiene_documento = serializers.SerializerMethodField()
+    tiene_generado  = serializers.SerializerMethodField()
 
     class Meta:
         model  = Caso
@@ -135,23 +169,26 @@ class CasoReadSerializer(serializers.ModelSerializer):
         return obj.documentos_generados.exists()
 
 
-class CasoCreateSerializer(serializers.ModelSerializer):
+class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializer):
     """
     Creación de caso. El abogado puede:
       a) Redactar el caso en 'descripcion' (campo de texto).
       b) Subir un PDF (se procesa en modulo_documentos; aquí 'descripcion' queda vacío).
     Al menos uno de los dos es obligatorio → se valida en validate().
+
+    Requiere 'request' en el context (usado para asignar el usuario
+    autenticado como propietario del caso).
     """
-    cliente_id       = serializers.PrimaryKeyRelatedField(
-                           queryset=Cliente.objects.filter(estado=True),
-                           source="cliente",
-                       )
-    rama_detectada_id= serializers.PrimaryKeyRelatedField(
-                           queryset=RamaDerecho.objects.filter(estado=True),
-                           source="rama_detectada",
-                           required=False,
-                           allow_null=True,
-                       )
+    cliente_id = serializers.PrimaryKeyRelatedField(
+        queryset=Cliente.objects.filter(estado=True),
+        source="cliente",
+    )
+    rama_detectada_id = serializers.PrimaryKeyRelatedField(
+        queryset=RamaDerecho.objects.filter(estado=True),
+        source="rama_detectada",
+        required=False,
+        allow_null=True,
+    )
 
     class Meta:
         model  = Caso
@@ -160,26 +197,9 @@ class CasoCreateSerializer(serializers.ModelSerializer):
             "cliente_id", "rama_detectada_id", "estado",
         ]
 
-    def validate_titulo(self, value):
-        value = value.strip()
-        if len(value) < 5:
-            raise serializers.ValidationError("El título debe tener al menos 5 caracteres.")
-        if len(value) > 500:
-            raise serializers.ValidationError("El título no puede exceder 500 caracteres.")
-        return value
-
-    def validate_descripcion(self, value):
-        if value:
-            value = value.strip()
-            if len(value) < 50:
-                raise serializers.ValidationError(
-                    "La descripción del caso debe tener al menos 50 caracteres."
-                )
-        return value
-
     def validate(self, attrs):
-        # descripcion puede venir vacía solo si en la vista se recibe también un archivo PDF
-        # La vista pasa el flag 'tiene_pdf' en el contexto cuando se adjunta un documento.
+        # descripcion puede venir vacía solo si en la vista se recibió también
+        # un archivo PDF. La vista pasa el flag 'tiene_pdf' en el contexto.
         tiene_pdf = self.context.get("tiene_pdf", False)
         if not attrs.get("descripcion") and not tiene_pdf:
             raise serializers.ValidationError(
@@ -188,9 +208,13 @@ class CasoCreateSerializer(serializers.ModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        # Generar código único automáticamente
+        request = self.context.get("request")
+        if request is None or not request.user.is_authenticated:
+            raise serializers.ValidationError(
+                "No se pudo determinar el usuario autenticado para crear el caso."
+            )
         validated_data["codigo"] = self._generar_codigo()
-        validated_data["usuario"] = self.context["request"].user
+        validated_data["usuario"] = request.user
         return super().create(validated_data)
 
     @staticmethod
@@ -198,42 +222,28 @@ class CasoCreateSerializer(serializers.ModelSerializer):
         prefijo = "CASO"
         sufijo  = uuid.uuid4().hex[:8].upper()
         codigo  = f"{prefijo}-{sufijo}"
-        # Garantizar unicidad (colisión extremadamente improbable)
+        # Garantizar unicidad (colisión extremadamente improbable, pero se
+        # verifica de todas formas antes de persistir).
         while Caso.objects.filter(codigo=codigo).exists():
             sufijo = uuid.uuid4().hex[:8].upper()
             codigo = f"{prefijo}-{sufijo}"
         return codigo
 
 
-class CasoUpdateSerializer(serializers.ModelSerializer):
+class CasoUpdateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializer):
     """Actualización parcial: solo título, descripción y estado."""
     class Meta:
         model  = Caso
         fields = ["titulo", "descripcion", "estado"]
 
-    def validate_titulo(self, value):
-        value = value.strip()
-        if len(value) < 5:
-            raise serializers.ValidationError("El título debe tener al menos 5 caracteres.")
-        return value
-
-    def validate_descripcion(self, value):
-        if value:
-            value = value.strip()
-            if len(value) < 50:
-                raise serializers.ValidationError(
-                    "La descripción debe tener al menos 50 caracteres."
-                )
-        return value
-
 
 class CasoListSerializer(serializers.ModelSerializer):
     """Versión compacta para listados y búsquedas con filtros."""
-    cliente_nombre   = serializers.SerializerMethodField()
-    usuario_nombre   = serializers.CharField(source="usuario.usuario", read_only=True)
-    rama_detectada   = serializers.StringRelatedField()
-    tiene_documento  = serializers.SerializerMethodField()
-    tiene_resultado  = serializers.SerializerMethodField()
+    cliente_nombre  = serializers.SerializerMethodField()
+    usuario_nombre  = serializers.CharField(source="usuario.usuario", read_only=True)
+    rama_detectada  = serializers.StringRelatedField()
+    tiene_documento = serializers.SerializerMethodField()
+    tiene_resultado = serializers.SerializerMethodField()
 
     class Meta:
         model  = Caso
@@ -245,13 +255,12 @@ class CasoListSerializer(serializers.ModelSerializer):
         ]
 
     def get_cliente_nombre(self, obj):
-        from core.encryption.aes_encryption import decrypt
-        try:
-            n = decrypt(obj.cliente.nombres)
-            a = decrypt(obj.cliente.apellidos)
-            return f"{n} {a}".strip()
-        except Exception:
+        from core.encryption.aes_encryption import safe_decrypt
+        nombres   = safe_decrypt(obj.cliente.nombres, fallback=None)
+        apellidos = safe_decrypt(obj.cliente.apellidos, fallback=None)
+        if nombres is None or apellidos is None:
             return f"Cliente #{obj.cliente_id}"
+        return f"{nombres} {apellidos}".strip()
 
     def get_tiene_documento(self, obj):
         return obj.documentos.filter(tipo_archivo="pdf").exists()

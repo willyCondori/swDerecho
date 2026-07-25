@@ -1,4 +1,3 @@
-from django.db.models import Q
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -6,11 +5,11 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin
-from core.permissions.roles_permission import EsAbogado, EsAdmin, EsPropietarioOAdmin
+from core.permissions.roles_permission import EsAbogado, EsAdmin
 from modulo_casos.models.caso import Caso
-from modulo_casos.models.hecho import Hecho, HechoCaso
-from modulo_casos.models.petitorio import Petitorio, PetitorioCaso
-from modulo_casos.models.resultado_caso import ResultadoCaso
+from modulo_casos.models.hecho import Hecho
+from modulo_casos.models.petitorio import Petitorio
+from modulo_casos.serializers.caso_con_cliente_serializer import CasoConClienteSerializer
 from modulo_casos.serializers.caso_serializer import (
     CasoCreateSerializer,
     CasoListSerializer,
@@ -21,21 +20,24 @@ from modulo_casos.serializers.caso_serializer import (
     ResultadoCasoSerializer,
 )
 
+ROL_ADMINISTRADOR = "administrador"
+
 
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/casos/                   — lista con filtros [abogado, admin]
-    POST   /api/casos/                   — crear caso (texto o PDF)
-    GET    /api/casos/{id}/              — detalle completo
-    PATCH  /api/casos/{id}/             — editar título/descripción/estado
-    DELETE /api/casos/{id}/             — soft-delete [admin]
-    POST   /api/casos/{id}/subir_pdf/   — adjuntar PDF al caso
-    GET    /api/casos/{id}/hechos/      — lista hechos del caso
-    GET    /api/casos/{id}/petitorios/  — lista petitorios del caso
-    GET    /api/casos/{id}/resultado/   — resultado IA del caso
-    GET    /api/casos/{id}/articulos/   — artículos del ranking
-    POST   /api/casos/{id}/analizar/    — disparar pipeline IA
-    GET    /api/casos/mis_casos/        — casos del usuario autenticado
+    GET    /api/casos/                    — lista con filtros [abogado, admin]
+    POST   /api/casos/                    — crear caso (texto o PDF), cliente ya existente
+    POST   /api/casos/crear_con_cliente/  — crea cliente + caso en una transacción atómica
+    GET    /api/casos/{id}/               — detalle completo
+    PATCH  /api/casos/{id}/               — editar título/descripción/estado
+    DELETE /api/casos/{id}/               — soft-delete [admin]
+    POST   /api/casos/{id}/subir_pdf/     — adjuntar PDF al caso
+    GET    /api/casos/{id}/hechos/        — lista hechos del caso
+    GET    /api/casos/{id}/petitorios/    — lista petitorios del caso
+    GET    /api/casos/{id}/resultado/     — resultado IA del caso
+    GET    /api/casos/{id}/articulos/     — artículos del ranking
+    POST   /api/casos/{id}/analizar/      — disparar pipeline IA
+    GET    /api/casos/mis_casos/          — casos del usuario autenticado
     """
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["codigo", "titulo", "descripcion"]
@@ -53,16 +55,17 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         user = self.request.user
         rol  = getattr(user.rol, "nombre", "").lower() if user.rol else ""
 
-        # Abogado solo ve sus propios casos
-        if rol not in ["Administrador"]:
+        # Abogado solo ve sus propios casos; admin ve todos.
+        # (rol ya viene en minúsculas, la comparación debe ser en minúsculas también)
+        if rol != ROL_ADMINISTRADOR:
             qs = qs.filter(usuario=user)
 
         # --- filtros opcionales via query params ---
-        rama_id    = self.request.query_params.get("rama_id")
-        cliente_id = self.request.query_params.get("cliente_id")
-        fecha_desde= self.request.query_params.get("fecha_desde")
-        fecha_hasta= self.request.query_params.get("fecha_hasta")
-        tiene_pdf  = self.request.query_params.get("tiene_pdf")
+        rama_id     = self.request.query_params.get("rama_id")
+        cliente_id  = self.request.query_params.get("cliente_id")
+        fecha_desde = self.request.query_params.get("fecha_desde")
+        fecha_hasta = self.request.query_params.get("fecha_hasta")
+        tiene_pdf   = self.request.query_params.get("tiene_pdf")
 
         if rama_id:
             qs = qs.filter(rama_detectada_id=rama_id)
@@ -97,21 +100,54 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         POST /api/casos/
+        Crea un caso para un cliente que YA existe (cliente_id requerido).
         Acepta opcionalmente un archivo PDF junto al texto.
-        Si se adjunta PDF, se procesa como documento del caso.
         """
         tiene_pdf  = "archivo_pdf" in request.FILES
         serializer = self.get_serializer(
             data=request.data,
             context={**self.get_serializer_context(), "tiene_pdf": tiene_pdf},
         )
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
         caso = serializer.save()
         self._auditar("CREATE", registro_id=caso.pk)
 
-        # Si se adjuntó PDF, guardarlo como documento del caso
+        if tiene_pdf:
+            self._guardar_pdf(request, caso)
+
+        return Response(
+            CasoReadSerializer(caso, context=self.get_serializer_context()).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=False, methods=["post"], url_path="crear_con_cliente")
+    def crear_con_cliente(self, request):
+        """
+        POST /api/casos/crear_con_cliente/
+        Crea el cliente y el caso en una sola operación atómica: si el
+        caso falla al crearse, el cliente recién insertado se revierte
+        también (ver CasoConClienteSerializer).
+
+        Body: nombres, apellidos,
+              titulo, descripcion, archivo_pdf (opcional, multipart).
+        """
+        tiene_pdf  = "archivo_pdf" in request.FILES
+        serializer = CasoConClienteSerializer(
+            data=request.data,
+            context={**self.get_serializer_context(), "tiene_pdf": tiene_pdf},
+        )
+        serializer.is_valid(raise_exception=True)
+        resultado = serializer.save()
+        caso = resultado["caso"]
+
+        self._auditar("CREATE", registro_id=caso.pk, metadata={"cliente_id": resultado["cliente"].pk})
+
+        # El PDF se guarda DESPUÉS de confirmar la transacción de
+        # cliente+caso. Si esto falla, el cliente y el caso ya quedaron
+        # creados correctamente (correcto: la falta de PDF no debe
+        # revertir un caso válido); el usuario puede reintentar subirlo
+        # con POST /api/casos/{id}/subir_pdf/.
         if tiene_pdf:
             self._guardar_pdf(request, caso)
 
@@ -133,11 +169,11 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             },
             context={"request": request},
         )
-        if doc_ser.is_valid():
-            doc_ser.save()
+        doc_ser.is_valid(raise_exception=True)
+        doc_ser.save()
 
     def destroy(self, request, *args, **kwargs):
-        instance        = self.get_object()
+        instance = self.get_object()
         instance.estado = False
         instance.save(update_fields=["estado"])
         self._auditar("DELETE", registro_id=instance.pk)
@@ -153,7 +189,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         qs         = Caso.objects.filter(usuario=request.user, estado=True).order_by("-created_at")
         page       = self.paginate_queryset(qs)
         serializer = CasoListSerializer(
-            page or qs, many=True, context=self.get_serializer_context()
+            page if page is not None else qs, many=True, context=self.get_serializer_context()
         )
         if page is not None:
             return self.get_paginated_response(serializer.data)
@@ -178,15 +214,15 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     @action(detail=True, methods=["get"], url_path="hechos")
     def hechos(self, request, pk=None):
         """GET /api/casos/{id}/hechos/"""
-        caso    = self.get_object()
-        hechos  = Hecho.objects.filter(casos_hecho__caso=caso).order_by("casos_hecho__orden")
+        caso   = self.get_object()
+        hechos = Hecho.objects.filter(casos_hecho__caso=caso).order_by("casos_hecho__orden")
         return Response(HechoSerializer(hechos, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="petitorios")
     def petitorios(self, request, pk=None):
         """GET /api/casos/{id}/petitorios/"""
-        caso      = self.get_object()
-        petitorios= Petitorio.objects.filter(casos_petitorio__caso=caso)
+        caso       = self.get_object()
+        petitorios = Petitorio.objects.filter(casos_petitorio__caso=caso)
         return Response(PetitorioSerializer(petitorios, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="resultado")
@@ -224,35 +260,24 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     def analizar(self, request, pk=None):
         """
         POST /api/casos/{id}/analizar/
-        Encola el pipeline IA completo:
+        Ejecuta el pipeline IA completo de forma síncrona:
         chunking → embeddings → ranking → LLM → resultados → docx
         """
         from modulo_ia.serializers.ia_serializer import AnalisisCasoSerializer
 
         caso       = self.get_object()
         serializer = AnalisisCasoSerializer(data={"caso_id": caso.pk})
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
 
-        # Encolar tarea Celery
-        try:
-            from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
-            task = ejecutar_analisis_caso.delay(caso.pk)
-            self._auditar(
-                "ANALYZE",
-                registro_id=caso.pk,
-                metadata={"task_id": task.id},
-            )
-            return Response(
-                {
-                    "detail" : "Análisis encolado correctamente.",
-                    "task_id": task.id,
-                    "caso_id": caso.pk,
-                },
-                status=status.HTTP_202_ACCEPTED,
-            )
-        except Exception as e:
-            return Response(
-                {"detail": f"Error al encolar el análisis: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
+        ejecutar_analisis_caso(caso.pk)
+
+        self._auditar("ANALYZE", registro_id=caso.pk)
+
+        return Response(
+            {
+                "detail" : "Análisis completado correctamente.",
+                "caso_id": caso.pk,
+            },
+            status=status.HTTP_200_OK,
+        )

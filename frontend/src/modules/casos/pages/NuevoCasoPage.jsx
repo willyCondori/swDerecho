@@ -1,16 +1,24 @@
 // modules/casos/pages/NuevoCasoPage.jsx
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCrearCaso from '../hooks/useCrearCaso'
+import catalogoApi from '../../../api/catalogoApi'
 import styles from './NuevoCasoPage.module.css'
 
 export default function NuevoCasoPage() {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
+  const [ramas, setRamas] = useState([])
   const {
     form, clienteForm, modo, archivo, fieldErrors, enviando, error,
     onChange, onArchivoChange, cambiarModo, onSubmit,
   } = useCrearCaso()
+
+  useEffect(() => {
+    catalogoApi.listaRamas()
+      .then(({ data }) => setRamas(data))
+      .catch((e) => console.error('Error cargando ramas:', e))
+  }, [])
 
   return (
     <div className={styles.root}>
@@ -44,12 +52,6 @@ export default function NuevoCasoPage() {
               <label className={styles.label}>Apellidos</label>
               <input className={styles.input} name="apellidos" value={clienteForm.apellidos} onChange={onChange} placeholder="Apellidos" />
               {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Email</label>
-              <input className={styles.input} type="email" name="email" value={clienteForm.email} onChange={onChange} placeholder="ejemplo@correo.com" />
-              {fieldErrors.email && <span className={styles.fieldError}>{fieldErrors.email}</span>}
             </div>
 
             <div className={styles.field}>
@@ -101,6 +103,22 @@ export default function NuevoCasoPage() {
                 placeholder="Ej. Demanda por incumplimiento de contrato"
               />
               {fieldErrors.titulo && <span className={styles.fieldError}>{fieldErrors.titulo}</span>}
+            </div>
+
+            <div className={`${styles.field} ${styles.fullWidth}`}>
+              <label className={styles.label}>Rama del derecho</label>
+              <select
+                className={styles.input}
+                name="rama_id"
+                value={form.rama_id || ''}
+                onChange={onChange}
+              >
+                <option value="">Detectar automáticamente</option>
+                {ramas.map((r) => (
+                  <option key={r.id} value={r.id}>{r.nombre}</option>
+                ))}
+              </select>
+              {fieldErrors.rama_id && <span className={styles.fieldError}>{fieldErrors.rama_id}</span>}
             </div>
 
             {modo === 'texto' ? (
