@@ -18,16 +18,16 @@ export default function CrearUsuarioPage() {
 
   return (
     <div className={styles.root}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-2)' }}>
+      <div className={styles.headerRow}>
         <button
           type="button"
+          className={styles.backBtn}
           onClick={() => navigate('/usuarios')}
           aria-label="Volver"
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem' }}
         >
           <i className="ti ti-arrow-left" aria-hidden="true" />
         </button>
-        <header className={styles.header} style={{ marginBottom: 0 }}>
+        <header className={styles.header}>
           <h1 className={styles.title}>Crear nuevo usuario</h1>
           <p className={styles.subtitle}>
             Registra las credenciales de acceso y asigna el rol que

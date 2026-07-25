@@ -1,152 +1,55 @@
-.root {
-  padding: var(--sp-4, 24px);
-  max-width: 1200px;
-  margin: 0 auto;
-  color: black;
-}
+/* modules/clientes/pages/ClienteCasosPage.module.css */
 
-.loaderWrap {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 60vh;
-  color: var(--c-text-muted);
-  font-size: 13px;
-}
-
-.headerRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.backBtn {
-  border: 1px solid var(--c-border-strong);
-  background: white;
-  border-radius: 8px;
-  width: 36px;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-
-.headerInfo {
-  flex: 1;
-  color: black;
-}
-
-.codigoRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
-}
-
-.codigo {
-  font-size: 12px;
-  font-family: monospace;
-  color: var(--c-text-muted);
-}
-
-.title {
-  font-size: 22px;
-  font-weight: 600;
-  margin: 0;
-}
-
-.badge {
-  font-size: 11px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  font-weight: 500;
-}
-
-.badgeOk {
-  background: rgba(34, 197, 94, 0.15);
-  color: #16a34a;
-}
-
-.badgePending {
-  background: rgba(234, 179, 8, 0.15);
-  color: #ca8a04;
-}
-
-.badgeMuted {
-  background: var(--c-border-strong);
-  color: var(--c-text-muted);
-}
-
-.errorBanner {
-  background: rgba(239, 68, 68, 0.1);
-  color: #dc2626;
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  border-radius: 8px;
-  padding: 10px 14px;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
+.root { composes: root from '../../../styles/shared.module.css'; }
+.loaderWrap { composes: loaderWrap from '../../../styles/shared.module.css'; }
+.headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
+.headerInfo { composes: headerInfo from '../../../styles/shared.module.css'; }
+.codigoRow { composes: codigoRow from '../../../styles/shared.module.css'; }
+.codigo { composes: codigo from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.badge { composes: badge from '../../../styles/shared.module.css'; }
+.badgeOk { composes: badgeOk from '../../../styles/shared.module.css'; }
+.badgePending { composes: badgePending from '../../../styles/shared.module.css'; }
+.badgeMuted { composes: badgeMuted from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
 
 .card {
-  border: 1px solid var(--c-border-strong);
-  border-radius: 12px;
-  padding: 18px;
-  background: var(--c-surface, #fff);
+  composes: cardPadded from '../../../styles/shared.module.css';
 }
 
-.cardTitle {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-}
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
 
 .descripcion {
-  font-size: 13px;
-  line-height: 1.6;
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.emptyText {
-  font-size: 13px;
-  color: var(--c-text-muted);
-  font-style: italic;
-  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  color: var(--c-text-secondary);
+  margin: var(--sp-1) 0 0 0;
 }
 
 .list {
   margin: 0;
-  padding-left: 0;
+  padding: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--sp-2);
 }
 
 .listItem {
-  font-size: 13px;
+  font-size: var(--fs-sm);
   line-height: 1.5;
-  border: 1px solid var(--c-border-strong);
-  border-radius: 8px;
-  padding: 12px 14px;
-  transition: background 0.15s ease;
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-bg-surface);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
 .listItem:hover {
-  background: rgba(0, 0, 0, 0.03);
-}
-
-.btnSecondary {
-  background: transparent;
-  border: 1px solid var(--c-border-strong);
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
-  cursor: pointer;
+  background: var(--c-bg-hover);
+  border-color: var(--c-border-strong);
 }

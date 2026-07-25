@@ -61,8 +61,7 @@ export default function LoginPage() {
           </h1>
           <p className={styles.panelDesc}>
             Procesamiento semántico de casos legales bolivianos.
-            Ranking automático de artículos aplicables y generación
-            de jurisprudencia con GPT4All local.
+            Ranking automático de artículos aplicables.
           </p>
           <div className={styles.panelStats}>
             <div className={styles.statItem}>
