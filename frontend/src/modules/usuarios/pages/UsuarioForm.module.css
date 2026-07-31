@@ -1,122 +1,45 @@
-/* modules/usuarios/components/UsuarioForm.module.css */
+/* modules/usuarios/pages/UsuarioForm.module.css */
 
-/* ─────────────────────────────────────────────
-   Layout general
-───────────────────────────────────────────── */
 .root {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-5);
+  composes: root from '../../../styles/shared.module.css';
   max-width: 720px;
   margin: 0 auto;
-  padding: var(--sp-6) var(--sp-4) var(--sp-10);
+  padding: 0 0 var(--sp-6);
 }
 
-/* ─────────────────────────────────────────────
-   Header
-───────────────────────────────────────────── */
-.header {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-1);
-}
-
-.title {
-  font-size: var(--fs-2xl);
-  font-weight: var(--fw-bold);
-  color: var(--c-text-primary);
-  margin: 0;
-  line-height: 1.2;
-}
-
-.subtitle {
-  font-size: var(--fs-sm);
-  color: var(--c-text-muted);
-  margin: 0;
-  line-height: 1.5;
-}
-
-/* ─────────────────────────────────────────────
-   Card
-───────────────────────────────────────────── */
-.card {
-  background: var(--c-bg-elevated);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-lg);
-  padding: var(--sp-5);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-}
-
-.cardTitle {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-base);
-  font-weight: var(--fw-medium);
-  color: var(--c-text-primary);
-  margin-bottom: var(--sp-4);
-}
+.header { composes: header from '../../../styles/shared.module.css'; }
+.headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.card { composes: formCard from '../../../styles/shared.module.css'; }
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
+.formGrid { composes: formGrid from '../../../styles/shared.module.css'; }
+.fullWidth { composes: fullWidth from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.select { composes: select from '../../../styles/shared.module.css'; }
+.textarea { composes: textarea from '../../../styles/shared.module.css'; }
+.fieldError { composes: fieldError from '../../../styles/shared.module.css'; }
+.submitRow { composes: submitRow from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
 
 .cardTitleIcon {
   color: var(--c-purple-500);
-  font-size: 1.1rem;
+  font-size: 15px;
 }
 
-/* ─────────────────────────────────────────────
-   Formulario
-───────────────────────────────────────────── */
-.formGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--sp-4);
-}
-
-.fullWidth {
-  grid-column: 1 / -1;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-}
-
-.label {
-  font-size: var(--fs-xs);
-  font-weight: var(--fw-medium);
-  color: var(--c-text-secondary);
-}
-
-/* ─────────────────────────────────────────────
-   Inputs
-───────────────────────────────────────────── */
 .input,
 .select,
 .textarea {
-  width: 100%;
-  height: 36px;
-
-  background: var(--c-bg-surface) !important;
-
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-md);
-
-  color: var(--c-text-primary);
-  font-size: var(--fs-sm);
-
-  padding: 0 var(--sp-3);
-  font-family: var(--font-sans);
-
-  outline: none;
-  transition: border-color var(--transition-fast),
-              box-shadow var(--transition-fast),
-              background var(--transition-fast);
-
-  /* 🔥 clave para evitar blanco del navegador */
   -webkit-appearance: none;
   -moz-appearance: none;
   appearance: none;
 }
+
 .input:-webkit-autofill,
 .input:-webkit-autofill:hover,
 .input:-webkit-autofill:focus,
@@ -126,56 +49,10 @@
   border: 1px solid var(--c-border) !important;
 }
 
-.textarea {
-  height: auto;
-  min-height: 90px;
-  padding: var(--sp-3);
-  resize: vertical;
-}
-
-.input:focus,
-.select:focus,
-.textarea:focus {
-  border-color: var(--c-border-focus);
-  box-shadow: 0 0 0 3px rgba(83, 74, 183, 0.15);
-}
-
-.input:disabled,
-.select:disabled,
-.textarea:disabled {
-  background: var(--c-bg-hover);
-  color: var(--c-text-muted);
-  cursor: not-allowed;
-}
-
 .inputError {
   border-color: var(--c-red-400) !important;
 }
 
-/* Reutilizando tu clase .fieldError que ya tenías definida */
-.fieldError {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-xs);
-  color: var(--c-red-400);
-  margin-top: 4px;
-}
-
-/* ─────────────────────────────────────────────
-   Errores
-───────────────────────────────────────────── */
-.fieldError {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: var(--fs-xs);
-  color: var(--c-red-400);
-}
-
-/* ─────────────────────────────────────────────
-   Checkbox
-───────────────────────────────────────────── */
 .checkboxRow {
   display: flex;
   align-items: flex-start;
@@ -199,59 +76,6 @@
   line-height: 1.5;
 }
 
-/* ─────────────────────────────────────────────
-   Acciones
-───────────────────────────────────────────── */
-.submitRow {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--sp-3);
-  margin-top: var(--sp-4);
-}
-
-.btnPrimary,
-.btnSecondary {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  border-radius: var(--radius-md);
-  padding: 0 var(--sp-4);
-  height: 36px;
-  font-size: var(--fs-sm);
-  font-weight: var(--fw-medium);
-  cursor: pointer;
-  border: 1px solid transparent;
-  transition: all var(--transition-fast);
-}
-
-/* Primary */
-.btnPrimary {
-  background: var(--c-purple-600);
-  color: var(--c-purple-50);
-}
-
-.btnPrimary:hover:not(:disabled) {
-  background: var(--c-purple-700);
-}
-
-.btnPrimary:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-/* Secondary */
-.btnSecondary {
-  background: var(--c-bg-elevated);
-  border: 1px solid var(--c-border);
-  color: var(--c-text-secondary);
-}
-
-.btnSecondary:hover {
-  background: var(--c-bg-hover);
-  color: var(--c-text-primary);
-}
-
-/* Spinner */
 .spinner {
   width: 14px;
   height: 14px;
@@ -262,34 +86,27 @@
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-/* ─────────────────────────────────────────────
-   Estados
-───────────────────────────────────────────── */
-.errorBox,
+.errorBox {
+  composes: errorBanner from '../../../styles/shared.module.css';
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
 .successBox {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  border-radius: var(--radius-md);
-  padding: var(--sp-3) var(--sp-4);
-  font-size: var(--fs-sm);
-}
-
-.errorBox {
-  background: rgba(163, 45, 45, 0.12);
-  color: var(--c-red-300);
-  border: 1px solid rgba(163, 45, 45, 0.3);
-}
-
-.successBox {
   background: rgba(99, 153, 34, 0.12);
   color: var(--c-green-300);
   border: 1px solid rgba(99, 153, 34, 0.3);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  font-size: var(--fs-sm);
+  margin-bottom: var(--sp-3);
 }
 
 .loadingText {
@@ -299,18 +116,13 @@
   padding: var(--sp-8) 0;
 }
 
-/* ─────────────────────────────────────────────
-   Resultado
-───────────────────────────────────────────── */
 .resultCard {
+  composes: formCard from '../../../styles/shared.module.css';
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--sp-3);
   text-align: center;
-  background: var(--c-bg-elevated);
-  border: 1px solid var(--c-border);
-  border-radius: var(--radius-lg);
   padding: var(--sp-8) var(--sp-5);
 }
 
@@ -323,7 +135,7 @@
   border-radius: var(--radius-full);
   background: rgba(99, 153, 34, 0.15);
   color: var(--c-green-300);
-  font-size: 1.5rem;
+  font-size: 24px;
 }
 
 .resultTitle {
@@ -345,39 +157,8 @@
   margin-top: var(--sp-3);
 }
 
-.btnPrimary {
-  /* ... tus estilos actuales ... */
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  justify-content: center;
-  transition: all 0.2s ease;
-}
-
-.btnPrimary:hover:not(:disabled) {
-  background: var(--c-purple-700);
-  transform: translateY(-1px); /* Efecto de elevación al pasar el mouse */
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-
-.btnPrimary:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-/* ─────────────────────────────────────────────
-   Responsive
-───────────────────────────────────────────── */
 @media (max-width: 640px) {
-  .formGrid {
-    grid-template-columns: 1fr;
-  }
-
-  .submitRow {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .resultActions {
-    flex-direction: column;
-    width: 100%;
-  }
+  .formGrid { grid-template-columns: 1fr; }
+  .submitRow { flex-direction: column; align-items: stretch; }
+  .resultActions { flex-direction: column; width: 100%; }
 }

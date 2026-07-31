@@ -3,7 +3,80 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCrearCaso from '../hooks/useCrearCaso'
 import catalogoApi from '../../../api/catalogoApi'
+import clientesApi from '../../../api/clientesApi'
 import styles from './NuevoCasoPage.module.css'
+
+function BuscadorCliente({ clienteExistenteId, clienteExistenteNombre, onSeleccionar, error }) {
+  const [query, setQuery] = useState('')
+  const [resultados, setResultados] = useState([])
+  const [buscando, setBuscando] = useState(false)
+  const [mostrarLista, setMostrarLista] = useState(false)
+
+  useEffect(() => {
+    if (query.trim().length < 2) {
+      setResultados([])
+      return
+    }
+    const timeoutId = setTimeout(() => {
+      setBuscando(true)
+      clientesApi.buscar(query.trim())
+        .then(({ data }) => setResultados(data))
+        .catch((e) => console.error('Error buscando clientes:', e))
+        .finally(() => setBuscando(false))
+    }, 350)
+    return () => clearTimeout(timeoutId)
+  }, [query])
+
+  if (clienteExistenteId) {
+    return (
+      <div className={styles.field}>
+        <label className={styles.label}>Cliente seleccionado</label>
+        <div className={styles.clienteSeleccionado}>
+          <span>{clienteExistenteNombre}</span>
+          <button type="button" className={styles.btnLink} onClick={() => onSeleccionar(null, '')}>
+            Cambiar
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.field} style={{ position: 'relative' }}>
+      <label className={styles.label}>Buscar cliente</label>
+      <input
+        className={styles.input}
+        value={query}
+        onChange={(e) => { setQuery(e.target.value); setMostrarLista(true) }}
+        onFocus={() => setMostrarLista(true)}
+        placeholder="Escribe al menos 2 letras del nombre..."
+      />
+      {error && <span className={styles.fieldError}>{error}</span>}
+
+      {mostrarLista && query.trim().length >= 2 && (
+        <div className={styles.dropdownResultados}>
+          {buscando && <div className={styles.dropdownItem}>Buscando...</div>}
+          {!buscando && resultados.length === 0 && (
+            <div className={styles.dropdownItem}>Sin resultados.</div>
+          )}
+          {!buscando && resultados.map((c) => (
+            <div
+              key={c.id}
+              className={styles.dropdownItem}
+              onClick={() => {
+                onSeleccionar(c.id, c.nombre_completo)
+                setMostrarLista(false)
+                setQuery('')
+              }}
+            >
+              {c.nombre_completo}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function NuevoCasoPage() {
   const navigate = useNavigate()
@@ -11,7 +84,9 @@ export default function NuevoCasoPage() {
   const [ramas, setRamas] = useState([])
   const {
     form, clienteForm, modo, archivo, fieldErrors, enviando, error,
-    onChange, onArchivoChange, cambiarModo, onSubmit,
+    modoCliente, clienteExistenteId, clienteExistenteNombre,
+    onChange, onArchivoChange, cambiarModo, cambiarModoCliente,
+    seleccionarClienteExistente, onSubmit,
   } = useCrearCaso()
 
   useEffect(() => {
@@ -41,35 +116,65 @@ export default function NuevoCasoPage() {
             <i className="ti ti-user-plus" aria-hidden="true" /> Datos del cliente
           </h2>
 
-          <div className={styles.formGrid}>
-            <div className={styles.field}>
-              <label className={styles.label}>Nombres</label>
-              <input className={styles.input} name="nombres" value={clienteForm.nombres} onChange={onChange} placeholder="Nombres" />
-              {fieldErrors.nombres && <span className={styles.fieldError}>{fieldErrors.nombres}</span>}
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Apellidos</label>
-              <input className={styles.input} name="apellidos" value={clienteForm.apellidos} onChange={onChange} placeholder="Apellidos" />
-              {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label}>Teléfono</label>
-              <input
-                className={styles.input}
-                type="text"
-                name="telefono"
-                value={clienteForm.telefono}
-                onChange={(e) => {
-                  const soloNumeros = e.target.value.replace(/[^0-9]/g, '')
-                  onChange({ target: { name: 'telefono', value: soloNumeros.slice(0, 8) } })
-                }}
-                placeholder="7########"
-              />
-              {fieldErrors.telefono && <span className={styles.fieldError}>{fieldErrors.telefono}</span>}
-            </div>
+          <div className={styles.tabs}>
+            <button
+              type="button"
+              className={`${styles.tab} ${modoCliente === 'nuevo' ? styles.tabActive : ''}`}
+              onClick={() => cambiarModoCliente('nuevo')}
+            >
+              <i className="ti ti-user-plus" aria-hidden="true" /> Cliente nuevo
+            </button>
+            <button
+              type="button"
+              className={`${styles.tab} ${modoCliente === 'existente' ? styles.tabActive : ''}`}
+              onClick={() => cambiarModoCliente('existente')}
+            >
+              <i className="ti ti-users" aria-hidden="true" /> Cliente existente
+            </button>
           </div>
+
+          {modoCliente === 'nuevo' ? (
+            <div className={styles.formGrid}>
+              <div className={styles.field}>
+                <label className={styles.label}>Nombres</label>
+                <input className={styles.input} name="nombres" value={clienteForm.nombres} onChange={onChange} placeholder="Nombres" />
+                {fieldErrors.nombres && <span className={styles.fieldError}>{fieldErrors.nombres}</span>}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Apellidos</label>
+                <input className={styles.input} name="apellidos" value={clienteForm.apellidos} onChange={onChange} placeholder="Apellidos" />
+                {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
+              </div>
+
+              <div className={styles.field}>
+                <label className={styles.label}>Teléfono</label>
+                <input
+                  className={styles.input}
+                  type="text"
+                  name="telefono"
+                  value={clienteForm.telefono}
+                  onChange={(e) => {
+                    const soloNumeros = e.target.value.replace(/[^0-9]/g, '')
+                    onChange({ target: { name: 'telefono', value: soloNumeros.slice(0, 8) } })
+                  }}
+                  placeholder="7########"
+                />
+                {fieldErrors.telefono && <span className={styles.fieldError}>{fieldErrors.telefono}</span>}
+              </div>
+            </div>
+          ) : (
+            <div className={styles.formGrid}>
+              <div className={`${styles.field} ${styles.fullWidth}`}>
+                <BuscadorCliente
+                  clienteExistenteId={clienteExistenteId}
+                  clienteExistenteNombre={clienteExistenteNombre}
+                  onSeleccionar={seleccionarClienteExistente}
+                  error={fieldErrors.clienteExistente}
+                />
+              </div>
+            </div>
+          )}
 
           <h2 className={styles.cardTitle} style={{ marginTop: 'var(--sp-4)' }}>
             <i className="ti ti-briefcase" aria-hidden="true" /> Datos del caso

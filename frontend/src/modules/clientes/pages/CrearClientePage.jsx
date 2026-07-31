@@ -10,17 +10,17 @@ export default function CrearClientePage() {
 
   return (
     <div className={styles.root}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-2)' }}>
+      <div className={styles.headerRow}>
         <button
           type="button"
+          className={styles.backBtn}
           onClick={() => navigate('/clientes')}
           aria-label="Volver"
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem' }}
         >
           <i className="ti ti-arrow-left" aria-hidden="true" />
         </button>
         <div>
-          <h1 className={styles.title} style={{ fontSize: '1.5rem' }}>Nuevo cliente</h1>
+          <h1 className={styles.title}>Nuevo cliente</h1>
           <p className={styles.subtitle}>Registra los datos de contacto del cliente.</p>
         </div>
       </div>
