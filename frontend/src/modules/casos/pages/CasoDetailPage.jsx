@@ -136,7 +136,7 @@ export default function CasoDetailPage() {
             </div>
           )}
 
-          {caso.resultado && (
+{/*          {caso.resultado && (
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>
                 <i className="ti ti-sparkles" aria-hidden="true" /> Resultado del análisis IA
@@ -168,7 +168,7 @@ export default function CasoDetailPage() {
               )}
             </div>
           )}
-
+*/}
         {articulos.length > 0 && (
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>
@@ -181,9 +181,11 @@ export default function CasoDetailPage() {
                     <span className={styles.articuloNumero}>
                       Art. {a.articulo?.numero_articulo} — {a.articulo?.norma_sigla}
                     </span>
+                    {/*
                     <span className={styles.articuloScore}>
                       {Math.round((a.score_total ?? 0) * 100)}% relevancia
                     </span>
+                    */}
                   </div>
                   {a.articulo?.titulo && (
                     <p className={styles.articuloTitulo}>{a.articulo.titulo}</p>

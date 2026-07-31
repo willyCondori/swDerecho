@@ -93,7 +93,6 @@ export default function ClientesPage() {
             <thead>
               <tr>
                 <th>Cliente</th>
-                <th>Email</th>
                 <th>Teléfono</th>
                 <th aria-label="Acciones" />
               </tr>
@@ -105,7 +104,6 @@ export default function ClientesPage() {
                 clientes.map((cliente) => (
                   <tr key={cliente.id} onClick={() => navigate(`/clientes/${cliente.id}`)}>
                     <td className={styles.clienteNombre}>{getNombreCompleto(cliente)}</td>
-                    <td className={styles.clienteMeta}>{cliente.email || '—'}</td>
                     <td className={styles.clienteMeta}>{cliente.telefono || '—'}</td>
                     <td>
                       <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>

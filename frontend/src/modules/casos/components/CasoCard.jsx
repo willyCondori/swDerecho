@@ -2,6 +2,9 @@
 import styles from '../pages/CasosPage.module.css'
 
 function getClienteNombre(caso) {
+  // Listado: CasoListSerializer ya manda el nombre armado como string plano
+  if (caso.cliente_nombre) return caso.cliente_nombre
+
   const cliente = caso.cliente
   if (!cliente) return 'Sin cliente asignado'
   if (typeof cliente === 'string') return cliente

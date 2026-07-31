@@ -1,4 +1,4 @@
-/* modules/casos/pages/CasoDetailPage.module.css */
+/* modules/clientes/pages/ClienteCasosPage.module.css */
 
 .root { composes: root from '../../../styles/shared.module.css'; }
 .loaderWrap { composes: loaderWrap from '../../../styles/shared.module.css'; }
@@ -13,14 +13,8 @@
 .badgePending { composes: badgePending from '../../../styles/shared.module.css'; }
 .badgeMuted { composes: badgeMuted from '../../../styles/shared.module.css'; }
 .errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
-.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
 .btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
-.btnLink { composes: btnLink from '../../../styles/shared.module.css'; }
 .emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
-
-.grid { composes: detailGrid from '../../../styles/shared.module.css'; }
-.mainCol { composes: mainCol from '../../../styles/shared.module.css'; }
-.sideCol { composes: sideCol from '../../../styles/shared.module.css'; }
 
 .card {
   composes: cardPadded from '../../../styles/shared.module.css';
@@ -30,32 +24,15 @@
 
 .descripcion {
   font-size: var(--fs-sm);
-  line-height: 1.6;
+  line-height: 1.5;
   color: var(--c-text-secondary);
-  white-space: pre-wrap;
-  margin: 0;
-}
-
-.pdfRow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  margin-top: var(--sp-3);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--c-border);
-}
-
-.pdfBadge {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  font-size: var(--fs-sm);
-  color: var(--c-text-secondary);
+  margin: var(--sp-1) 0 0 0;
 }
 
 .list {
   margin: 0;
-  padding-left: var(--sp-5);
+  padding: 0;
+  list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--sp-2);
@@ -64,37 +41,15 @@
 .listItem {
   font-size: var(--fs-sm);
   line-height: 1.5;
-  color: var(--c-text-secondary);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--c-bg-surface);
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
 }
 
-.resultBlock + .resultBlock {
-  margin-top: var(--sp-3);
-  padding-top: var(--sp-3);
-  border-top: 1px solid var(--c-border);
-}
-
-.resultLabel {
-  font-size: var(--fs-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--c-text-muted);
-  margin: 0 0 var(--sp-2) 0;
-}
-
-.sideText {
-  font-size: var(--fs-sm);
-  color: var(--c-text-secondary);
-  margin: 0;
-}
-
-.btnPrimary {
-  width: 100%;
-  justify-content: center;
-}
-
-.hintText {
-  font-size: var(--fs-xs);
-  color: var(--c-text-muted);
-  margin: var(--sp-3) 0 0 0;
-  line-height: 1.5;
+.listItem:hover {
+  background: var(--c-bg-hover);
+  border-color: var(--c-border-strong);
 }
