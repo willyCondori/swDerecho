@@ -21,19 +21,19 @@ export default function EditarUsuarioPage() {
   } = useEditarUsuario(id)
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
+    <div className={styles.root}>
+      <div className={styles.headerRow}>
         <button
           type="button"
+          className={styles.backBtn}
           onClick={() => navigate('/usuarios')}
           aria-label="Volver"
-          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '1.2rem' }}
         >
           <i className="ti ti-arrow-left" aria-hidden="true" />
         </button>
         <div>
-          <h1 style={{ margin: 0 }}>Editar usuario</h1>
-          <p style={{ margin: 0, color: 'var(--text-secondary, #6b7280)' }}>
+          <h1 className={styles.title}>Editar usuario</h1>
+          <p className={styles.subtitle}>
             {cargando ? 'Cargando...' : (usuario?.usuario ?? `#${id}`)}
           </p>
         </div>
@@ -51,7 +51,7 @@ export default function EditarUsuarioPage() {
       ) : (
         <>
           {guardadoOk && (
-            <div className={styles.card} style={{ marginBottom: 'var(--sp-3)', color: '#16a34a' }}>
+            <div className={styles.successBox}>
               <i className="ti ti-check" aria-hidden="true" /> Cambios guardados correctamente.
             </div>
           )}

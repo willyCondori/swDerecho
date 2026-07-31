@@ -10,15 +10,14 @@ const NAV_ITEMS = [
       { to: '/dashboard', icon: 'ti-layout-dashboard', label: 'Dashboard' },
       { to: '/casos',     icon: 'ti-folder',           label: 'Casos',     badge: null },
       { to: '/clientes',  icon: 'ti-users',            label: 'Clientes' },
-      { to: '/ia',        icon: 'ti-cpu',              label: 'Análisis IA', dot: true },
     ],
   },
   {
     section: 'Catálogo',
     items: [
       { to: '/catalogo/articulos', icon: 'ti-book',      label: 'Artículos' },
-      { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
-      { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
+//      { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
+//      { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
       { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Cargar Documentos' },
     ],
   },

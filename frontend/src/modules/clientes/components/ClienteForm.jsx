@@ -19,12 +19,6 @@ export default function ClienteForm({ form, fieldErrors, enviando, onChange, onS
           </div>
 
           <div className={styles.field}>
-            <label className={styles.label}>Email</label>
-            <input className={styles.input} type="email" name="email" value={form.email} onChange={onChange} placeholder="ejemplo@correo.com" />
-            {fieldErrors.email && <span className={styles.fieldError}>{fieldErrors.email}</span>}
-          </div>
-
-          <div className={styles.field}>
             <label className={styles.label}>Teléfono</label>
             <input
               className={styles.input}
