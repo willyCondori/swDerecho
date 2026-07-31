@@ -1,306 +1,264 @@
-# JurisIA — Sistema de Gestión y Análisis Jurídico Asistido por IA
+# JurisIA
 
-JurisIA es una plataforma para estudios de abogados que permite gestionar clientes y casos, y analizar automáticamente los hechos de un caso para recomendar los artículos legales más aplicables, mediante un pipeline de procesamiento de lenguaje natural (chunking, embeddings, clasificación de delitos y ranking jurídico ponderado).
+Plataforma de gestión de casos legales para estudios de abogacía en Bolivia, con un motor de recomendación de artículos jurídicos aplicables a cada caso, construido sobre similitud semántica, filtrado por rama del derecho y clasificación de tipo de delito.
 
 ---
 
 ## Tabla de contenidos
 
-- [Visión general](#visión-general)
+- [Descripción general](#descripción-general)
+- [Arquitectura](#arquitectura)
 - [Stack tecnológico](#stack-tecnológico)
-- [Arquitectura general](#arquitectura-general)
-- [Estructura del backend](#estructura-del-backend)
-- [Estructura del frontend](#estructura-del-frontend)
-- [Pipeline de Análisis IA](#pipeline-de-análisis-ia)
-- [Modelo de datos (resumen)](#modelo-de-datos-resumen)
+- [Estructura del proyecto](#estructura-del-proyecto)
+- [Modelo de datos](#modelo-de-datos)
+- [Pipeline de análisis de casos](#pipeline-de-análisis-de-casos)
+- [Motor de ranking de artículos](#motor-de-ranking-de-artículos)
+- [API — Endpoints principales](#api--endpoints-principales)
+- [Frontend — Módulos principales](#frontend--módulos-principales)
 - [Instalación y puesta en marcha](#instalación-y-puesta-en-marcha)
-- [Variables de entorno](#variables-de-entorno)
-- [Flujos principales](#flujos-principales)
-- [Limitaciones conocidas / roadmap](#limitaciones-conocidas--roadmap)
-- [Convenciones del proyecto](#convenciones-del-proyecto)
+- [Variables de entorno relevantes](#variables-de-entorno-relevantes)
+- [Roles y permisos](#roles-y-permisos)
+- [Seguridad y cifrado de datos](#seguridad-y-cifrado-de-datos)
+- [Estado actual y limitaciones conocidas](#estado-actual-y-limitaciones-conocidas)
+- [Roadmap](#roadmap)
 
 ---
 
-## Visión general
+## Descripción general
 
-El sistema permite a un abogado (o administrador):
+JurisIA permite a un despacho de abogados:
 
-1. Registrar **clientes** (con datos cifrados en reposo: nombres, apellidos, teléfono, fecha de nacimiento).
-2. Crear un **caso**, ya sea redactando el relato de los hechos como texto libre o adjuntando un **PDF**.
-3. Disparar un **análisis con IA** sobre el caso, que:
-   - Divide el texto en fragmentos (*chunks*).
-   - Genera *embeddings* vectoriales de cada fragmento.
-   - Detecta entidades jurídicas relevantes (víctima, menor de edad, cónyuge, etc.).
-   - Clasifica el tipo de delito por coincidencia de palabras clave (sin LLM, por ahora).
-   - Compara contra los artículos del catálogo normativo cargado (Constitución, Código Penal, etc.) usando búsqueda vectorial (pgvector + HNSW).
-   - Genera un **ranking ponderado** de los artículos más aplicables al caso.
-5. Revisar el historial de **casos por cliente**, y la **auditoría** de acciones sensibles (creación, edición, eliminación, análisis).
+- Registrar clientes y casos, ya sea redactando una descripción de los hechos o adjuntando un PDF.
+- Ejecutar un pipeline de análisis que **fragmenta el texto del caso, lo vectoriza, lo compara contra un catálogo de artículos jurídicos (Código Penal, Constitución Política del Estado, y potencialmente otras normas) y genera un ranking de los artículos más aplicables**, con un desglose transparente de por qué cada artículo fue seleccionado.
+- Consultar el detalle de cada caso: cliente asociado, descripción, hechos, petitorios, resultado del análisis y el listado de artículos recomendados con su score de relevancia.
+- Administrar el catálogo de normas, ramas del derecho, artículos y entidades jurídicas.
+- Gestionar usuarios con distintos roles (abogado, administrador) y mantener un registro de auditoría de las acciones sobre casos y clientes.
+
+---
+
+## Arquitectura
+
+```
+┌─────────────────────────┐         ┌──────────────────────────────┐
+│        Frontend          │  HTTP   │           Backend              │
+│   React + Vite (SPA)     │ ◄─────► │   Django + Django REST Framework│
+│   React Router           │  JSON   │   PostgreSQL + pgvector          │
+└─────────────────────────┘         └──────────────────────────────┘
+                                                    │
+                                                    ▼
+                                     ┌──────────────────────────────┐
+                                     │     Pipeline de análisis IA    │
+                                     │  Chunking → Embeddings →       │
+                                     │  Detección de entidades →      │
+                                     │  Ranking de artículos          │
+                                     └──────────────────────────────┘
+```
+
+El backend expone una API REST modular (un módulo Django por dominio: casos, clientes, usuarios, catálogo, documentos, auditoría, IA). El frontend es una SPA en React que consume esa API, con rutas protegidas según el rol del usuario autenticado.
+
+El pipeline de análisis corre actualmente **de forma síncrona dentro del mismo proceso de Django** (sin cola de tareas en segundo plano), pero está preparado para desacoplarse a un worker asíncrono en el futuro.
 
 ---
 
 ## Stack tecnológico
 
 ### Backend
-- **Python 3.10** + **Django 5.2** + **Django REST Framework**
-- **PostgreSQL** con extensión **pgvector** (búsqueda de similitud vectorial, índice HNSW)
-- **Celery** (tareas asíncronas) — *actualmente el pipeline corre en modo síncrono porque no hay Redis/broker configurado en desarrollo*
-- **sentence-transformers** (`paraphrase-multilingual-mpnet-base-v2`, 768 dimensiones) para generación de embeddings
-- **pypdf** para extracción de texto de documentos PDF
-- **drf-spectacular** para documentación OpenAPI/Swagger (`/api/docs/`)
-- Cifrado simétrico (AES) para campos sensibles de clientes (`core/encryption/aes_encryption.py`)
+- **Python 3.10**
+- **Django 5.2** + **Django REST Framework**
+- **PostgreSQL** con la extensión **pgvector** (búsqueda vectorial por similitud de coseno, indexada con HNSW)
+- **sentence-transformers** para la generación de embeddings de texto (modelo multilingüe, compatible con español)
+- **pypdf** para extracción de texto de documentos PDF adjuntos
+- **drf-spectacular** para documentación OpenAPI/Swagger
+- Cifrado simétrico (AES) para datos sensibles de clientes (nombres, apellidos, teléfono, fecha de nacimiento)
 
 ### Frontend
-- **React** + **Vite**
-- **React Router** (rutas protegidas, lazy loading con `React.lazy` + `Suspense`)
-- **Axios** para consumo de la API
-- CSS Modules por página/componente
-- Iconos [Tabler Icons](https://tabler.io/icons) (`ti ti-*`)
+- **React** (Vite como bundler/dev server)
+- **React Router** para el ruteo, con carga diferida (`React.lazy`) de páginas
+- **Axios** como cliente HTTP
+- CSS Modules para estilos por componente
+- Iconos Tabler Icons (`ti ti-*`)
 
 ---
 
-## Arquitectura general
+## Estructura del proyecto
 
-```
-┌─────────────────────┐        ┌──────────────────────────┐
-│   Frontend (React)   │ <----> │   Backend (Django REST)   │
-│  localhost:5173       │  HTTP  │   localhost:8000           │
-└─────────────────────┘        └──────────────────────────┘
-                                          │
-                                          ▼
-                                ┌──────────────────┐
-                                │   PostgreSQL       │
-                                │   + pgvector        │
-                                └──────────────────┘
-                                          │
-                                          ▼
-                                ┌──────────────────┐
-                                │  Modelo de          │
-                                │  embeddings          │
-                                │  (sentence-           │
-                                │  transformers)       │
-                                └──────────────────┘
-```
-
-El backend está organizado en **módulos Django independientes** (apps), cada uno con su propio conjunto de modelos, serializers, vistas y URLs, registrados bajo un prefijo propio en `config/urls.py`.
-
----
-
-## Estructura del backend
+### Backend (`/backend`)
 
 ```
 backend/
-├── config/
-│   ├── settings.py          # Configuración global, incluye SENTENCE_TRANSFORMER_MODEL
-│   └── urls.py               # Registro de todos los módulos bajo /api/<modulo>/
-│
+├── config/                    # Settings y urls raíz del proyecto Django
 ├── core/
-│   ├── encryption/            # Cifrado/descifrado AES de campos sensibles
-│   └── permissions/            # Roles (EsAbogado, EsAdmin) y mixin de auditoría
-│
-├── modulo_usuarios/            # Autenticación, roles, perfiles de usuario
-├── modulo_clientes/
-│   ├── models/cliente.py       # Cliente (nombres/apellidos/teléfono cifrados)
-│   ├── serializers/            # ClienteReadSerializer, ClienteWriteSerializer, ClienteListSerializer
-│   └── views/cliente_view.py   # CRUD + /buscar/ + /lista/ + /{id}/casos/
-│
-├── modulo_casos/
-│   ├── models/
-│   │   ├── caso.py
-│   │   ├── hecho.py
-│   │   ├── petitorio.py
-│   │   └── resultado_caso.py    # Resultado del análisis IA (resumen, fortalezas, etc.)
-│   ├── serializers/
-│   │   ├── caso_serializer.py         # Create/Read/Update/List + Hecho/Petitorio/Resultado
-│   │   └── caso_con_cliente_serializer.py  # Crea cliente + caso en una transacción
-│   └── views/caso_view.py       # CRUD + /crear_con_cliente/ + /subir_pdf/ + /analizar/ + ...
-│
-├── modulo_catalogo/
-│   ├── models/
-│   │   ├── rama.py               # RamaDerecho (ej. Penal, Derecho Constitucional)
-│   │   ├── norma.py               # Norma (ej. CP, CPE) con sigla
-│   │   ├── articulo.py            # Articulo + ArticuloEntidad (relación M2M con entidades)
-│   │   └── entidad.py              # EntidadJuridica (catálogo: Víctima, Imputado, etc.)
-│   └── serializers/catalogo_serializer.py
-│
-├── modulo_ia/
-│   ├── models/
-│   │   ├── chunk.py                # ChunkCaso (fragmentos de texto del caso)
-│   │   ├── embedding.py            # EmbeddingChunk, EmbeddingArticulo, EntidadDetectadaCaso
-│   │   └── resultado.py            # ResultadoArticulo (ranking con sub-scores)
-│   ├── services/
-│   │   ├── chunking_service.py            # Parte el texto/PDF en fragmentos
-│   │   ├── embedding_service.py            # Genera embeddings vía sentence-transformers
-│   │   ├── entidad_service.py               # Detecta entidades jurídicas por matching de texto
-│   │   ├── clasificador_delito_service.py   # Clasifica el tipo de delito por palabras clave
-│   │   └── ranking_service.py               # Orquesta el ranking ponderado final
-│   ├── tasks/analisis_task.py       # Tarea Celery: pipeline completo del análisis
-│   └── serializers/ia_serializer.py
-│
-├── modulo_documentos/          # Documentos adjuntos a un caso (PDF), generación de docx
-└── modulo_auditoria/             # Registro de auditoría (quién hizo qué y cuándo)
+│   ├── encryption/             # Utilidades de cifrado/descifrado (AES)
+│   └── permissions/             # Mixins de auditoría y permisos por rol
+├── modulo_usuarios/             # Autenticación, usuarios, roles
+├── modulo_clientes/              # CRUD de clientes, búsqueda por nombre
+├── modulo_casos/                # CRUD de casos, hechos, petitorios, resultados
+├── modulo_catalogo/               # Ramas del derecho, normas, artículos, entidades jurídicas
+├── modulo_documentos/              # Documentos adjuntos (PDF) asociados a casos
+├── modulo_ia/                     # Pipeline de análisis: chunking, embeddings, ranking
+└── modulo_auditoria/                # Registro de auditoría de acciones (crear/editar/eliminar/analizar)
 ```
 
-### Convención de rutas (routers)
+### Frontend (`/frontend` o `/src`)
 
-Cada módulo registra su `ViewSet` con un `DefaultRouter` **en la raíz** (`""`), y es `config/urls.py` quien antepone el prefijo real (`api/casos/`, `api/clientes/`, etc.). Esto evita duplicar el prefijo (ej. `api/casos/casos/`).
-
-```python
-# modulo_casos/urls.py
-router = DefaultRouter()
-router.register(r"", CasoViewSet, basename="casos")
-
-urlpatterns = [path("", include(router.urls))]
 ```
-
-```python
-# config/urls.py
-path("api/casos/", include("modulo_casos.urls")),
+src/
+├── api/                         # Clientes Axios por módulo (casosApi, clientesApi, catalogoApi, ...)
+├── components/
+│   └── layout/                  # AppLayout, PrivateRoute
+├── modules/
+│   ├── auth/                    # Login
+│   ├── dashboard/                 # Panel principal
+│   ├── casos/
+│   │   ├── pages/                # Listado, creación y detalle de casos
+│   │   └── hooks/                 # useCasos, useCrearCaso, useCasoDetail
+│   ├── clientes/
+│   │   ├── pages/                 # Listado, creación y detalle (casos del cliente)
+│   │   └── hooks/                  # useClientes, useClienteCasos
+│   ├── catalogo/                    # Gestión de artículos y carga masiva
+│   └── usuarios/                     # Gestión de usuarios
+└── routes/
+    └── AppRouter.jsx               # Definición de rutas, protegidas por PrivateRoute
 ```
 
 ---
 
-## Estructura del frontend
+## Modelo de datos
 
-```
-frontend/
-├── src/
-│   ├── api/                      # Wrappers de axios por módulo (casosApi, clientesApi, catalogoApi...)
-│   ├── routes/AppRouter.jsx       # Definición de rutas, lazy loading, rutas protegidas/admin-only
-│   ├── components/layout/         # AppLayout, PrivateRoute
-│   └── modules/
-│       ├── auth/pages/LoginPage.jsx
-│       ├── dashboard/pages/DashboardPage.jsx
-│       ├── casos/
-│       │   ├── hooks/
-│       │   │   ├── useCasos.js         # Listado con filtros y paginación
-│       │   │   ├── useCrearCaso.js      # Creación (cliente nuevo o existente + rama + texto/PDF)
-│       │   │   └── useCasoDetail.js     # Detalle, subir PDF, disparar análisis
-│       │   └── pages/
-│       │       ├── CasosPage.jsx
-│       │       ├── NuevoCasoPage.jsx
-│       │       └── CasoDetailPage.jsx
-│       ├── clientes/
-│       │   ├── hooks/useClientes.js, useClienteCasos.js
-│       │   └── pages/ClientesPage.jsx, CrearClientePage.jsx, ClienteCasosPage.jsx
-│       ├── catalogo/pages/articulos/    # Ver y cargar artículos del catálogo normativo
-│       └── usuarios/pages/               # CRUD de usuarios (solo admin)
-```
+### Entidades principales
 
-### Patrón hook + página
+| Modelo | Descripción |
+|---|---|
+| `Cliente` | Datos de contacto del cliente. Campos sensibles (nombres, apellidos, teléfono, fecha de nacimiento) se almacenan cifrados. |
+| `Caso` | Caso legal: título, descripción, cliente asociado, abogado (`usuario`) responsable, rama del derecho detectada/asignada, código único autogenerado. |
+| `Hecho` / `Petitorio` | Hechos y petitorios asociados a un caso (relación N:M vía tablas intermedias con orden). |
+| `ResultadoCaso` | Resultado del análisis de un caso: resumen, fortalezas, debilidades, estrategias, observaciones (relación 1:1 con `Caso`). |
+| `RamaDerecho` | Rama del derecho (ej. Penal, Derecho Constitucional). |
+| `Norma` | Norma jurídica (ej. Código Penal, Constitución Política del Estado), con sigla. |
+| `Articulo` | Artículo de una norma: número, título, contenido, jerarquía normativa (escala 0–1), frecuencia histórica de uso, rama y norma asociadas. |
+| `EntidadJuridica` | Catálogo de entidades jurídicas relevantes (ej. "Víctima", "Menor de edad", "Servidor Público"), usadas para enriquecer el ranking. |
+| `ArticuloEntidad` | Relación N:M entre artículos y entidades jurídicas. |
+| `ChunkCaso` | Fragmento de texto de un caso, generado durante el chunking previo al análisis. |
+| `EmbeddingChunk` / `EmbeddingArticulo` | Vectores de embedding (768 dimensiones) de cada chunk de caso y de cada artículo, almacenados con `pgvector`. |
+| `EntidadDetectadaCaso` | Entidades jurídicas detectadas en el texto de un caso durante el análisis. |
+| `ResultadoArticulo` | Fila del ranking: artículo, caso, posición, score total y desglose de sub-scores. |
+| `Documento` | Documento adjunto a un caso (PDF), con su tipo. |
 
-Cada página compleja delega su estado y lógica de red a un **hook custom** (`useXxx.js`), manteniendo el componente de página enfocado solo en el render. Los hooks manejan: carga de datos, validación de formularios, estados de error/loading, y llamadas a la API.
+### Jerarquía normativa
+
+`Articulo.jerarquia_normativa` usa una escala fija de 0 a 1, donde el valor más alto corresponde a la norma de mayor rango:
+
+| Valor | Nivel |
+|---|---|
+| 1.0 | Constitución Política del Estado |
+| 0.9 | Ley Orgánica |
+| 0.8 | Código (Penal, Civil, etc.) |
+| 0.7 | Ley Ordinaria |
+| 0.6 | Decreto Supremo |
+| 0.5 | Resolución Ministerial |
+| 0.4 | Ordenanza Municipal |
 
 ---
 
-## Pipeline de Análisis IA
+## Pipeline de análisis de casos
 
-El análisis de un caso corre la función `ejecutar_analisis_caso(caso_id)` (`modulo_ia/tasks/analisis_task.py`), disparada desde `POST /api/casos/{id}/analizar/`. Actualmente se ejecuta **de forma síncrona** dentro del propio request HTTP (no hay Celery worker ni broker configurado en desarrollo).
+Al disparar el análisis de un caso (`POST /api/casos/{id}/analizar/`), se ejecutan los siguientes pasos de forma secuencial:
 
-```
-Caso
- │
- ├─▶ 1. Chunking (ChunkingService)
- │      - Prioriza el texto extraído del PDF adjunto (vía pypdf); si no hay
- │        PDF con texto extraíble, usa la descripción redactada.
- │      - Parte el texto en fragmentos (~800 caracteres, con 150 de solapamiento).
- │
- ├─▶ 2. Embeddings (EmbeddingService)
- │      - Vectoriza cada chunk con sentence-transformers
- │        (paraphrase-multilingual-mpnet-base-v2, 768 dimensiones).
- │      - Persiste en EmbeddingChunk (OneToOne con ChunkCaso).
- │
- ├─▶ 3. Detección de entidades (EntidadDetectionService)
- │      - Matching de texto simple contra el catálogo EntidadJuridica
- │        (Víctima, Menor de edad, Cónyuge, Servidor Público, etc.).
- │      - Alimenta el score_entidades del ranking.
- │
- ├─▶ 4. Ranking jurídico (RankingService)
- │      - Compara los embeddings del caso contra EmbeddingArticulo
- │        usando pgvector + CosineDistance (índice HNSW).
- │      - Si el caso tiene rama_detectada asignada, filtra candidatos
- │        solo de esa rama (evita ruido de otras normas).
- │      - Clasifica el delito del caso por palabras clave
- │        (ClasificadorDelitoService) y bonifica artículos cuyo título
- │        entre paréntesis (ej. "(ROBO AGRAVADO)") coincide con la
- │        categoría detectada.
- │      - Combina 5 sub-scores con pesos fijos y aplica un umbral
- │        mínimo de relevancia antes de quedarse con el TOP_N.
- │      - Persiste en ResultadoArticulo.
- │
- └─▶ 6. Se crea/actualiza ResultadoCaso (marca el caso como "analizado").
-```
+1. **Chunking** — El texto del caso (la descripción redactada, o el texto extraído del PDF adjunto si existe) se divide en fragmentos de ~800 caracteres con solapamiento de 150 caracteres entre fragmentos consecutivos, respetando límites de párrafo cuando es posible.
 
-### Fórmula de ranking (`RankingService`)
+2. **Embeddings** — Cada fragmento se vectoriza con un modelo de `sentence-transformers` multilingüe (768 dimensiones), normalizado para comparación por similitud de coseno.
 
-```
-score_total = 0.60 × score_semantico
-            + 0.15 × score_delito
-            + 0.10 × score_entidades
-            + 0.10 × score_jerarquia
-            + 0.05 × score_frecuencia
-```
+3. **Detección de entidades jurídicas** — Se identifica qué entidades del catálogo (`EntidadJuridica`) aparecen mencionadas en el texto del caso, mediante coincidencia de texto contra el catálogo cargado.
 
-| Sub-score | Fuente | Descripción |
+4. **Ranking de artículos** — Ver sección siguiente.
+
+5. **Generación de resultado** — Se crea o actualiza el `ResultadoCaso` asociado. Los campos de resumen, fortalezas, debilidades y estrategias quedan disponibles como estructura de datos para completarse en una etapa posterior del proyecto; su generación automática no forma parte del alcance actual.
+
+El análisis es **idempotente**: volver a analizar un caso reemplaza los chunks, embeddings y ranking previos, permitiendo reanalizar después de editar la descripción o adjuntar un nuevo PDF.
+
+---
+
+## Motor de ranking de artículos
+
+El componente central del sistema es el `RankingService`, que para cada caso:
+
+1. Compara los embeddings de sus chunks contra los embeddings de los artículos del catálogo, usando `pgvector` con índice HNSW para eficiencia en la búsqueda de vecinos más cercanos.
+2. Si el caso tiene una **rama del derecho** asignada (manual o detectada), acota la comparación solo a los artículos de esa rama, evitando que normas de otras materias contaminen el resultado.
+3. Combina el score semántico con otros cuatro sub-scores, según una fórmula ponderada:
+
+| Sub-score | Peso | Descripción |
 |---|---|---|
-| `score_semantico` | pgvector (CosineDistance) | Similitud del embedding del chunk contra el embedding del artículo. |
-| `score_delito` | `ClasificadorDelitoService` | Coincidencia entre el delito detectado por palabras clave en el caso y el título del artículo (ej. "ROBO", "HOMICIDIO"). |
-| `score_entidades` | `EntidadDetectionService` | Proporción de entidades jurídicas del caso que también están asociadas al artículo. |
-| `score_jerarquia` | Campo `jerarquia_normativa` del artículo | Constitución = 1.0, Código = 0.8, Ley Ordinaria = 0.7, etc. |
-| `score_frecuencia` | Campo `frecuencia_historica` del artículo | Normalizado contra el máximo del conjunto de candidatos. |
+| **Semántico** | 60% | Similitud de coseno entre el embedding del caso y el del artículo. |
+| **Delito** | 15% | Clasificación del tipo de delito descrito en el caso (por coincidencia de palabras clave contra categorías definidas por rama), comparado contra la categoría del artículo (extraída de su título). |
+| **Entidades** | 10% | Proporción de entidades jurídicas detectadas en el caso que también están asociadas al artículo. |
+| **Jerarquía** | 10% | Jerarquía normativa del artículo (escala 0–1 descrita arriba). |
+| **Frecuencia** | 5% | Frecuencia histórica de uso del artículo, normalizada contra el máximo del conjunto de candidatos. |
 
-Además:
+4. Selecciona los `TOP_N` artículos con mayor score total usando una cola de prioridad de tamaño fijo (evita ordenar el universo completo de candidatos), y aplica un **umbral mínimo de score** para no forzar una lista completa cuando no hay suficientes artículos realmente relevantes.
+5. Persiste el resultado en `ResultadoArticulo`, con el desglose completo de cada sub-score para trazabilidad.
 
-- **`CANDIDATOS_POR_CHUNK = 50`**: cuántos vecinos más cercanos se piden a la base por cada chunk.
-- **`TOP_N_ARTICULOS = 15`**: máximo de artículos en el resultado final.
-- **`UMBRAL_MINIMO_SCORE_TOTAL`**: corta la lista antes de forzar 15 resultados si no hay suficientes artículos realmente relevantes (evita relleno con artículos genéricos de responsabilidad civil, fijación de la pena, etc.).
-- Se usa una **cola de prioridad (heap) de tamaño fijo** para quedarse con el top-N sin ordenar el universo completo de candidatos.
+### Clasificador de delito
 
-### Clasificador de delito (`ClasificadorDelitoService`)
-
-Vive en un archivo separado del `RankingService` para poder escalar a otras ramas del derecho sin tocar la lógica de ranking:
-
-```python
-GRUPOS_POR_RAMA = {
-    "Penal": GRUPOS_PENAL,
-    # "Civil": GRUPOS_CIVIL,   ← agregar aquí cuando se sumen más normas
-}
-```
-
-Cada grupo de delito define:
-- `titulos`: variantes del título del artículo tal como aparece entre paréntesis en el texto legal (ej. `["ROBO", "ROBO AGRAVADO"]`).
-- `keywords`: palabras/fragmentos coloquiales y jurídicos que suelen aparecer en el relato de hechos de ese tipo de caso.
-
-Es un clasificador de reglas (sin LLM ni modelo entrenado), pensado como solución intermedia hasta integrar un clasificador real o el LLM planeado.
+Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el sistema clasifica el texto del caso contra grupos de delitos definidos por palabras clave específicas del ámbito penal (ej. "ROBO", "HURTO", "HOMICIDIO", "LESIONES", "VIOLACIÓN", "SECUESTRO", "ESTAFA", "AMENAZAS"), y extrae la categoría de cada artículo a partir de su título (ej. "(ROBO AGRAVADO)"). Esta lógica vive en un servicio separado del ranking, pensado para escalar a otras ramas del derecho agregando nuevos diccionarios de clasificación sin modificar la lógica central.
 
 ---
 
-## Modelo de datos (resumen)
+## API — Endpoints principales
 
-```
-Cliente ──┐
-          │ 1
-          │
-          ▼ N
-        Caso ──────┬─── Hecho (M2M vía HechoCaso, con orden)
-          │          ├─── Petitorio (M2M vía PetitorioCaso)
-          │          ├─── ResultadoCaso (1:1 — resumen IA)
-          │          ├─── ChunkCaso (1:N — fragmentos)
-          │          │       └─ EmbeddingChunk (1:1)
-          │          │       └─ EntidadDetectadaCaso (1:N)
-          │          ├─── ResultadoArticulo (1:N — ranking)
-          │          ├─── Documento (PDF adjunto)
-          │          └─── rama_detectada → RamaDerecho
-          │
-          ▼
-       Usuario (abogado a cargo)
+### Casos (`/api/casos/`)
 
-Articulo ──┬── Norma (ej. CP, CPE)
-           ├── RamaDerecho (ej. Penal, Constitucional)
-           ├── ArticuloEntidad (M2M) → EntidadJuridica
-           └── EmbeddingArticulo (1:1)
-```
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/casos/` | Lista de casos, con filtros (`rama_id`, `cliente_id`, `fecha_desde`, `fecha_hasta`, `tiene_pdf`, `search`). Un abogado solo ve sus propios casos; un administrador ve todos. |
+| `POST` | `/api/casos/` | Crea un caso para un cliente ya existente. Acepta texto y/o PDF. |
+| `POST` | `/api/casos/crear_con_cliente/` | Crea cliente y caso en una sola transacción atómica. |
+| `GET` | `/api/casos/{id}/` | Detalle completo del caso (incluye cliente, hechos, petitorios, resultado). |
+| `PATCH` | `/api/casos/{id}/` | Edita título, descripción, estado o rama del caso. |
+| `DELETE` | `/api/casos/{id}/` | Soft-delete (solo administrador). |
+| `POST` | `/api/casos/{id}/subir_pdf/` | Adjunta o reemplaza el PDF del caso. |
+| `GET` | `/api/casos/{id}/hechos/` | Hechos del caso. |
+| `GET` | `/api/casos/{id}/petitorios/` | Petitorios del caso. |
+| `GET` | `/api/casos/{id}/resultado/` | Resultado del análisis. |
+| `GET` | `/api/casos/{id}/articulos/` | Ranking de artículos aplicables, con desglose de scores. |
+| `POST` | `/api/casos/{id}/analizar/` | Dispara el pipeline de análisis completo. |
+| `GET` | `/api/casos/mis_casos/` | Casos del usuario autenticado. |
 
-**Nota de seguridad:** `Cliente.nombres`, `apellidos`, `telefono` y `fecha_nacimiento` se almacenan **cifrados** (`core/encryption/aes_encryption.py`) y se descifran únicamente al serializar la respuesta (`safe_decrypt`).
+### Clientes (`/api/clientes/`)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/api/clientes/` | Lista de clientes activos. |
+| `POST` | `/api/clientes/` | Crea un cliente. |
+| `GET` | `/api/clientes/{id}/` | Detalle del cliente (datos descifrados). |
+| `PATCH` | `/api/clientes/{id}/` | Actualiza un cliente. |
+| `DELETE` | `/api/clientes/{id}/` | Soft-delete (solo si no tiene casos activos; solo administrador). |
+| `GET` | `/api/clientes/lista/` | Listado compacto (`id`, `nombre_completo`) para selects. |
+| `GET` | `/api/clientes/{id}/casos/` | Casos asociados al cliente. |
+| `GET` | `/api/clientes/buscar/?q=` | Búsqueda por nombre/apellido descifrado (mínimo 2 caracteres). |
+
+### Catálogo (`/api/catalogo/`)
+
+Gestión de ramas del derecho, normas, artículos y carga masiva de artículos desde fuentes externas.
+
+### Usuarios (`/api/usuarios/`)
+
+Autenticación (login, refresh de token) y gestión de usuarios del sistema.
+
+### Documentación interactiva
+
+La API expone documentación OpenAPI en `/api/schema/` y una interfaz Swagger en `/api/docs/`.
+
+---
+
+## Frontend — Módulos principales
+
+- **`modules/casos`** — Listado de casos con filtros y paginación, formulario de creación (con selección de cliente nuevo o existente, y rama del derecho), y página de detalle que muestra el caso completo junto con el resultado del análisis y el ranking de artículos aplicables.
+- **`modules/clientes`** — Listado de clientes con búsqueda, formulario de creación, y página de detalle que muestra los casos asociados a ese cliente (con navegación directa al detalle de cada caso).
+- **`modules/catalogo`** — Visualización y carga de artículos del catálogo jurídico.
+- **`modules/usuarios`** — Gestión de usuarios del sistema (crear, editar, ver perfil), reservado a administradores.
+- **`modules/dashboard`** — Panel principal con resumen de actividad.
+
+Las rutas administrativas (usuarios, catálogo, auditoría) están protegidas mediante un `PrivateRoute` con la prop `adminOnly`, que restringe el acceso según el rol del usuario autenticado.
 
 ---
 
@@ -312,23 +270,15 @@ Articulo ──┬── Norma (ej. CP, CPE)
 cd backend
 python -m venv env
 env\Scripts\activate          # Windows
-# source env/bin/activate     # Linux/Mac
+# source env/bin/activate     # Linux/macOS
 
 pip install -r requirements.txt
 
-# Variables de entorno (ver sección siguiente)
-
+# Configurar la base de datos PostgreSQL con la extensión pgvector habilitada
 python manage.py migrate
+
 python manage.py runserver
 ```
-
-El servidor queda disponible en `http://127.0.0.1:8000/`. Documentación interactiva de la API en `http://127.0.0.1:8000/api/docs/`.
-
-**Primera carga de datos necesaria:**
-1. Cargar ramas del derecho (`RamaDerecho`) y normas (`Norma`) vía el panel de administración o fixtures.
-2. Cargar el catálogo de artículos (`Articulo`) — hay una sección "Cargar Documentos" en el frontend para esto.
-3. Poblar `ArticuloEntidad` (relación artículo ↔ entidad jurídica) para que `score_entidades` no quede siempre en 0. Ver script de población en la sección de mantenimiento del pipeline IA.
-4. Generar embeddings de todos los artículos activos (`EmbeddingArticulo`) tras cualquier cambio del modelo de `sentence-transformers` configurado.
 
 ### Frontend
 
@@ -338,68 +288,55 @@ npm install
 npm run dev
 ```
 
-Disponible en `http://localhost:5173/`.
-
-### Notas para desarrollo en Windows
-
-- El pipeline de IA corre **en modo síncrono** (sin `.delay()`) porque no hay Redis/broker configurado. Si se instala Celery + Redis más adelante, hay que volver a usar `ejecutar_analisis_caso.delay(caso.pk)` en `CasoViewSet.analizar()` y correr un worker aparte:
-  ```bash
-  celery -A config worker -l info --pool=solo
-  ```
-  (`--pool=solo` es necesario en Windows).
-- El análisis puede tardar más de 30 segundos (carga del modelo de embeddings + comparación vectorial). El método `casosApi.analizar()` en el frontend debe usar un timeout extendido (`timeout: 300000` o similar) en vez del timeout global de axios.
+La aplicación queda disponible en `http://localhost:5173`, consumiendo la API en `http://localhost:8000`.
 
 ---
 
-## Variables de entorno
-
-Configurar en `.env` o directamente en `config/settings.py` según el entorno:
+## Variables de entorno relevantes
 
 | Variable | Descripción |
 |---|---|
-| `SENTENCE_TRANSFORMER_MODEL` | Modelo de embeddings. Debe ser **multilingüe** para textos en español (ej. `sentence-transformers/paraphrase-multilingual-mpnet-base-v2`, 768 dimensiones). |
-| `DATABASE_URL` / config de `DATABASES` | Conexión a PostgreSQL con extensión `pgvector` habilitada. |
-| `CELERY_BROKER_URL` | Solo necesario si se activa el modo asíncrono con Celery + Redis. |
-| Claves de cifrado (AES) | Usadas por `core/encryption/aes_encryption.py` para cifrar campos sensibles de `Cliente`. |
+| `SENTENCE_TRANSFORMER_MODEL` | Modelo de `sentence-transformers` usado para generar embeddings. Debe ser un modelo multilingüe compatible con español para un desempeño adecuado del ranking. |
+| Configuración de base de datos | Host, puerto, usuario, contraseña y nombre de la base PostgreSQL (debe tener la extensión `pgvector` instalada). |
+| Claves de cifrado | Clave usada por `core.encryption` para cifrar/descifrar los campos sensibles de `Cliente`. |
 
-**Importante:** si se cambia `SENTENCE_TRANSFORMER_MODEL`, hay que **regenerar todos los embeddings existentes** (tanto de artículos como de casos ya analizados), porque vectores generados con modelos distintos no son comparables entre sí.
-
----
-
-## Flujos principales
-
-### 1. Crear un caso
-
-`NuevoCasoPage` → `useCrearCaso` permite:
-- Elegir **cliente nuevo** (crea el cliente primero vía `POST /api/clientes/clientes/`) o **cliente existente** (buscador con autocompletado vía `GET /api/clientes/buscar/`).
-- Seleccionar la **rama del derecho** (o dejar en blanco para detección automática futura).
-- Redactar el caso como **texto** o adjuntar un **PDF**.
-- Al enviar, crea el caso vía `POST /api/casos/` con `cliente_id`, `rama_detectada_id` (opcional), `titulo`, `descripcion` y/o `archivo_pdf`.
-
-### 2. Analizar un caso
-
-`CasoDetailPage` → botón "Analizar caso con IA" → `POST /api/casos/{id}/analizar/` → corre el pipeline completo (ver sección anterior) → al finalizar, se recarga el caso (`reload()`) para mostrar el ranking de artículos actualizado.
-
-### 3. Ver casos de un cliente
-
-`ClientesPage` → clic en una fila → `/clientes/:id` (`ClienteCasosPage`) → lista los casos de ese cliente vía `GET /api/clientes/{id}/casos/` → clic en un caso → `/casos/:id` (detalle completo).
+> Si se cambia `SENTENCE_TRANSFORMER_MODEL` después de tener artículos ya cargados, es necesario **regenerar los embeddings de todo el catálogo de artículos**, ya que vectores generados por modelos distintos no son comparables entre sí.
 
 ---
 
-## Limitaciones conocidas / roadmap
+## Roles y permisos
 
-- [ ] El **modo síncrono** del análisis bloquea el request HTTP mientras corre todo el pipeline; migrar a Celery + Redis para no depender de timeouts largos en el frontend.
-- [ ] El **clasificador de delito** (`ClasificadorDelitoService`) es basado en reglas/palabras clave; cubre bien Robo, Hurto, Homicidio, Lesiones, Violación, Secuestro, Estafa y Amenazas para la rama Penal, pero debe extenderse (o reemplazarse por un clasificador entrenado / LLM) a medida que se agreguen más ramas del derecho.
-- [ ] Confirmar si la **Ley 348** (violencia hacia la mujer, Bolivia) está cargada como norma separada del Código Penal genérico, para priorizarla correctamente en casos de violencia intrafamiliar.
-- [ ] El **umbral de corte del ranking** (`UMBRAL_MINIMO_SCORE_TOTAL`) está calibrado de forma manual con casos de prueba; conviene revisarlo con más ejemplos reales de distintos tipos de delito.
-- [ ] Poblar y mantener actualizado `ArticuloEntidad` cada vez que se cargan artículos nuevos al catálogo.
+| Rol | Permisos |
+|---|---|
+| **Abogado** | Crear, ver y editar sus propios casos y clientes. Analizar casos. Sin acceso a gestión de usuarios, catálogo ni auditoría. |
+| **Administrador** | Todo lo anterior, más: ver y gestionar los casos de todos los abogados, eliminar clientes y casos, gestionar usuarios, cargar/editar el catálogo de artículos, y consultar el registro de auditoría. |
+
+Los permisos se aplican a nivel de `ViewSet` (mixins `EsAbogado`, `EsAdmin`) y también filtran el `queryset` según el usuario autenticado (un abogado solo ve sus propios casos en los listados).
 
 ---
 
-## Convenciones del proyecto
+## Seguridad y cifrado de datos
 
-- **Nombres de campos en API**: los serializers de creación (`CasoCreateSerializer`, `ClienteWriteSerializer`) suelen exponer el campo como `<relacion>_id` (ej. `cliente_id`, `rama_detectada_id`) aunque el modelo tenga el FK con otro nombre (`source=`). Confirmar siempre el nombre exacto del campo contra el serializer antes de armar el payload del frontend.
-- **Soft-delete**: los modelos con campo `estado` (booleano) usan soft-delete — `destroy()` marca `estado=False` en vez de eliminar el registro.
-- **Auditoría**: las acciones sensibles (crear, editar, eliminar, analizar) se registran vía `AuditoriaMixin._auditar()` o `registrar_auditoria()`, en la tabla de auditoría del módulo correspondiente.
-- **Patrón hook + página** en el frontend: la lógica de red/estado vive en `hooks/useXxx.js`; las páginas (`pages/XxxPage.jsx`) solo consumen el hook y renderizan.
-- **CSS Modules**: cada página tiene su propio `Xxx.module.css`; los estilos no se comparten entre páginas salvo variables CSS globales (`--c-text-muted`, `--c-border-strong`, `--c-purple-500`, etc.).
+- Los campos sensibles del cliente (nombres, apellidos, teléfono, fecha de nacimiento) se almacenan **cifrados en la base de datos** (`core.encryption.aes_encryption`), y se descifran únicamente al servirlos a través de los serializers de lectura.
+- Toda acción relevante sobre casos y clientes (creación, edición, eliminación, análisis) queda registrada en el módulo de **auditoría**, con el usuario responsable, la acción, el registro afectado y metadata adicional.
+- El acceso a la API requiere autenticación mediante tokens, con endpoint de refresh de sesión.
+
+---
+
+## Estado actual y limitaciones conocidas
+
+- El pipeline de análisis corre **de forma síncrona** dentro del proceso de Django (no hay un worker asíncrono en producción todavía), por lo que el tiempo de respuesta de `POST /api/casos/{id}/analizar/` depende directamente del tiempo que tome el pipeline completo.
+- El catálogo de artículos actualmente cubre principalmente el **Código Penal** y la **Constitución Política del Estado**. El sistema está preparado para incorporar más normas y ramas del derecho sin cambios estructurales.
+- El clasificador de tipo de delito funciona por coincidencia de palabras clave, no por un modelo entrenado; su cobertura depende de mantener actualizado el diccionario de términos por categoría de delito.
+- La generación automática de resumen, fortalezas, debilidades y estrategias del caso (campos de `ResultadoCaso`) está definida a nivel de modelo y API, pero su contenido no se genera automáticamente en la versión actual; queda como estructura lista para completarse en una fase posterior del proyecto.
+- La detección de entidades jurídicas usa coincidencia de texto simple contra el catálogo (`EntidadJuridica`), no reconocimiento de entidades nombradas (NER) propiamente dicho.
+
+---
+
+## Roadmap
+
+- [ ] Mover el pipeline de análisis a ejecución asíncrona (cola de tareas en segundo plano).
+- [ ] Ampliar el catálogo a otras ramas del derecho (Civil, Familia, Laboral) y sus respectivos clasificadores de delito/materia.
+- [ ] Completar la generación automática de resumen jurídico, fortalezas, debilidades y estrategias del caso.
+- [ ] Mejorar la detección de entidades jurídicas más allá de coincidencia de texto exacto.
+- [ ] Exportación de resultados de análisis a documentos generados (Word/PDF).
