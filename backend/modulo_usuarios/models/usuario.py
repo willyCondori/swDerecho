@@ -14,6 +14,14 @@ class UsuarioManager(BaseUserManager):
 
     def create_superuser(self, usuario, password=None, **extra_fields):
         extra_fields.setdefault("estado", True)
+
+        if extra_fields.get("rol") is None:
+            rol_admin, _ = Rol.objects.get_or_create(
+                nombre="Administrador",
+                defaults={"descripcion": "Administrador del sistema", "estado": True},
+            )
+            extra_fields["rol"] = rol_admin
+
         return self.create_user(usuario, password, **extra_fields)
 
 
@@ -46,13 +54,22 @@ class Usuario(AbstractBaseUser):
     def __str__(self):
         return self.usuario
 
-    # Permisos mínimos requeridos por Django admin
+    @property
+    def is_admin(self):
+        """True solo si el usuario tiene el rol 'Administrador' y está activo."""
+        return bool(
+            self.estado
+            and self.rol_id is not None
+            and self.rol.nombre == "Administrador"
+        )
+
+    # Permisos requeridos por Django admin.
     def has_perm(self, perm, obj=None):
-        return True
+        return self.is_admin
 
     def has_module_perms(self, app_label):
-        return True
+        return self.is_admin
 
     @property
     def is_staff(self):
-        return self.estado
+        return self.is_admin
