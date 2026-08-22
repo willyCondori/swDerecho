@@ -13,6 +13,10 @@ from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsAdmin
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.carga_pdf_service import JERARQUIA_POR_FUENTE
+from modulo_catalogo.services.background_tasks import (
+    lanzar_carga_en_background,
+    obtener_progreso,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +53,24 @@ FUENTES_INFO = {
 
 
 class CargaArticulosView(APIView):
+    """
+    POST /api/catalogo/cargar-pdf/
+
+    IMPORTANTE — cambio de comportamiento respecto a la versión síncrona:
+    Este endpoint YA NO espera a que termine todo el procesamiento del
+    PDF. Guarda el archivo, arranca la carga en un hilo de background,
+    y devuelve el task_id de inmediato (202 Accepted). El frontend debe
+    hacer polling a GET /api/catalogo/cargar-pdf/estado/{task_id}/
+    hasta que "estado" sea "SUCCESS" o "FAILURE".
+
+    Esto es lo que arregla el bug de "el backend termina bien pero el
+    frontend muestra error": antes, con PDFs grandes (Civil ~1570
+    artículos), el procesamiento completo corría dentro del mismo
+    request HTTP y tardaba minutos — tiempo suficiente para que algo
+    del lado del cliente (timeout de fetch/axios) cortara la conexión
+    antes de que la respuesta llegara, aunque los artículos ya se
+    hubieran guardado en la BD durante el loop.
+    """
     permission_classes = [EsAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
@@ -71,8 +93,6 @@ class CargaArticulosView(APIView):
         sobrescribir = data.get("sobrescribir", False)
 
         existentes = serializer.context.get("existentes", 0)
-
-        # usuario seguro
         usuario = request.user
 
         # ─────────────────────────────
@@ -104,39 +124,37 @@ class CargaArticulosView(APIView):
             )
 
         # ─────────────────────────────
-        # PROCESAMIENTO DIRECTO (SIN CELERY)
+        # LEER CONTENIDO Y LANZAR EN BACKGROUND
+        # (ya no se procesa acá — se dispara el hilo y se responde ya)
         # ─────────────────────────────
         try:
-            from modulo_catalogo.services.carga_pdf_service import (
-                cargar_articulos_desde_bytes,
-            )
-
             with open(ruta_archivo, "rb") as f:
                 contenido = f.read()
 
-            resultado = cargar_articulos_desde_bytes(
+            task_id = lanzar_carga_en_background(
                 contenido_pdf=contenido,
                 fuente=fuente,
                 norma_id=norma.id,
                 rama_id=rama.id,
-                task=None,  # antes Celery
                 sobrescribir=sobrescribir,
             )
 
         except Exception as e:
-            logger.exception("Error procesando PDF")
+            logger.exception("Error lanzando la carga del PDF en background")
             try:
                 os.remove(ruta_archivo)
             except Exception:
                 pass
 
             return Response(
-                {"detail": f"Error procesando PDF: {e}"},
+                {"detail": f"Error al iniciar el procesamiento del PDF: {e}"},
                 status=500,
             )
 
         # ─────────────────────────────
-        # AUDITORÍA (CORREGIDA)
+        # AUDITORÍA (registra que se INICIÓ la carga, no el resultado final —
+        # eso lo audita el hilo en background si querés, o el frontend puede
+        # loguearlo aparte cuando el polling confirme SUCCESS)
         # ─────────────────────────────
         try:
             registrar_auditoria(
@@ -146,7 +164,7 @@ class CargaArticulosView(APIView):
                 registro_id=norma.id,
                 request=request,
                 metadata={
-                    "accion": "carga_masiva_pdf",
+                    "accion": "carga_masiva_pdf_iniciada",
                     "fuente": fuente,
                     "norma_id": norma.id,
                     "norma_nombre": norma.nombre,
@@ -155,26 +173,22 @@ class CargaArticulosView(APIView):
                     "sobrescribir": sobrescribir,
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
-                    "articulos_creados": getattr(resultado, "guardados", None),
+                    "task_id": task_id,
                 },
             )
         except Exception:
             logger.warning("Error en auditoría (no crítico)")
 
         # ─────────────────────────────
-        # RESPUESTA FINAL
+        # RESPUESTA INMEDIATA — sin esperar el procesamiento
         # ─────────────────────────────
         respuesta = {
-            "detail": "PDF procesado correctamente",
+            "detail": "Carga de PDF iniciada. Consultá el progreso con el task_id.",
+            "task_id": task_id,
             "fuente": fuente,
             "norma": norma.nombre,
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
-            "resultado": (
-                resultado.resumen()
-                if hasattr(resultado, "resumen")
-                else None
-            ),
         }
 
         if existentes:
@@ -182,22 +196,64 @@ class CargaArticulosView(APIView):
                 f"Ya existían {existentes} artículos en esta norma+rama"
             )
 
-        return Response(respuesta, status=status.HTTP_200_OK)
+        return Response(respuesta, status=status.HTTP_202_ACCEPTED)
 
 
-# ─────────────────────────────────────────────
-# ESTADO (YA NO ES NECESARIO CELERY)
-# ─────────────────────────────────────────────
-class EstadoCargaView(APIView):
+class EstadoCargaPDFView(APIView):
+    """
+    GET /api/catalogo/cargar-pdf/estado/{task_id}/
+
+    El frontend hace polling acá (cada 1-2 segundos, por ejemplo) hasta
+    que "estado" sea "SUCCESS" o "FAILURE".
+
+    Respuesta mientras está en curso:
+        {"task_id": "...", "estado": "STARTED", "progreso": 45, "paso": "Procesando artículo 180/364..."}
+
+    Respuesta al terminar OK:
+        {"task_id": "...", "estado": "SUCCESS", "resumen": {...}}  # resumen = ResultadoCarga.resumen()
+
+    Respuesta si falló:
+        {"task_id": "...", "estado": "FAILURE", "error": "..."}
+
+    Si el task_id no existe o ya expiró del cache (2 horas):
+        404 {"detail": "Tarea no encontrada o expirada."}
+    """
     permission_classes = [EsAdmin]
 
-    def get(self, request):
-        return Response(
-            {
-                "detail": "Celery eliminado. El procesamiento ahora es síncrono.",
-                "estado": "NO_ASYNC",
-            }
-        )
+    def get(self, request, task_id=None):
+        # Acepta el task_id tanto por la URL (/estado/<task_id>/) como
+        # por query param (/estado/?task_id=...) — el log mostró que el
+        # frontend actual usa query param, así que cubrimos los dos casos.
+        task_id = task_id or request.query_params.get("task_id")
+
+        if not task_id:
+            return Response(
+                {"detail": "Parámetro task_id requerido."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        info = obtener_progreso(task_id)
+
+        if info is None:
+            return Response(
+                {"detail": "Tarea no encontrada o expirada."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        estado = info.get("state", "PENDING")
+        meta = info.get("meta", {})
+
+        respuesta = {"task_id": task_id, "estado": estado}
+
+        if estado == "SUCCESS":
+            respuesta["resumen"] = meta.get("resumen")
+        elif estado == "FAILURE":
+            respuesta["error"] = meta.get("error")
+        else:
+            respuesta["progreso"] = meta.get("progreso", 0)
+            respuesta["paso"] = meta.get("paso", "procesando")
+
+        return Response(respuesta, status=status.HTTP_200_OK)
 
 
 # ─────────────────────────────────────────────
