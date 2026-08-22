@@ -46,6 +46,16 @@ class ResultadoArticulo(models.Model):
                            help_text="Frecuencia histórica normalizada.",
                        )
     posicion         = models.PositiveIntegerField(help_text="Posición en el ranking.")
+    es_sugerencia    = models.BooleanField(
+                           default=False,
+                           help_text=(
+                               "True si el artículo se incluyó como sugerencia "
+                               "complementaria (ej. figura transversal como "
+                               "tentativa, legítima defensa) en vez de haber "
+                               "superado el umbral principal de relevancia por "
+                               "mérito propio."
+                           ),
+                       )
 
     class Meta:
         db_table        = "resultado_articulos"

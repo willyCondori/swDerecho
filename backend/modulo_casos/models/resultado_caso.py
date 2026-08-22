@@ -4,7 +4,7 @@ from .caso import Caso
 
 class ResultadoCaso(models.Model):
     """
-    Resultado del análisis completo generado por GPT4All.
+    Resultado del análisis completo generado por r.
     Se genera una sola vez por caso (OneToOne).
     """
     caso          = models.OneToOneField(

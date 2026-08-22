@@ -139,13 +139,21 @@ class RankingService:
         return round((articulo.frecuencia_historica or 0) / max_frecuencia, 6)
 
     @classmethod
-    def _armar_candidato(cls, articulo, score_semantico, score_delito, entidades_del_caso, max_frecuencia):
+    def _armar_candidato(cls, articulo, score_semantico, score_delito, entidades_del_caso, max_frecuencia, es_sugerencia=False):
         """
         Construye la tupla de candidato (score_float, articulo_id,
-        score_total_decimal, sub_scores) para un artículo dado, con la
-        misma fórmula ponderada usada para todos los candidatos.
-        Extraído a un método propio para reutilizarlo tanto en el flujo
-        semántico normal como en el de figuras transversales forzadas.
+        score_total_decimal, sub_scores, es_sugerencia) para un artículo
+        dado, con la misma fórmula ponderada usada para todos los
+        candidatos. Extraído a un método propio para reutilizarlo tanto
+        en el flujo semántico normal como en el de figuras transversales
+        forzadas.
+
+        es_sugerencia=False para artículos que superan el umbral
+        principal por mérito propio; True para los que entran por regla
+        (figuras transversales) con un umbral más bajo. El orden de
+        los elementos de la tupla no afecta la seguridad del heap: el
+        articulo_id (índice 1) es siempre único, así que heapq nunca
+        necesita comparar más allá de ese índice para desempatar.
         """
         sub_scores = {
             "score_semantico": Decimal(str(round(score_semantico, 6))),
@@ -161,7 +169,7 @@ class RankingService:
             + PESO_JERARQUIA * sub_scores["score_jerarquia"]
             + PESO_FRECUENCIA* sub_scores["score_frecuencia"]
         )
-        return (float(score_total), articulo.id, score_total, sub_scores)
+        return (float(score_total), articulo.id, score_total, sub_scores, es_sugerencia)
 
     @classmethod
     def calcular_ranking(cls, caso):
@@ -239,7 +247,8 @@ class RankingService:
                 # son un "tipo de delito", su relevancia ya viene de la regla
                 # que las detectó, no de coincidir con una categoría penal.
                 candidato = cls._armar_candidato(
-                    articulo, score_semantico, 0.0, entidades_del_caso, max_frecuencia
+                    articulo, score_semantico, 0.0, entidades_del_caso, max_frecuencia,
+                    es_sugerencia=True,
                 )
                 if candidato[0] >= UMBRAL_MINIMO_FIGURA_TRANSVERSAL:
                     candidatos_figura.append(candidato)
@@ -248,24 +257,35 @@ class RankingService:
             candidatos.extend(candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS])
 
         heap = []
-        for score_float, articulo_id, score_total, sub_scores in candidatos:
-            item = (score_float, articulo_id, score_total, sub_scores)
+        for score_float, articulo_id, score_total, sub_scores, es_sugerencia in candidatos:
+            item = (score_float, articulo_id, score_total, sub_scores, es_sugerencia)
             if len(heap) < TOP_N_ARTICULOS:
                 heapq.heappush(heap, item)
             elif score_float > heap[0][0]:
                 heapq.heapreplace(heap, item)
 
-        top_ordenado = sorted(heap, key=lambda item: item[0], reverse=True)
+        # Orden final: primero los resultados más acertados (es_sugerencia=False,
+        # False < True en Python así que quedan primero de forma natural),
+        # y dentro de cada grupo, de mayor a menor score. Así el frontend
+        # siempre recibe la lista con los principales antes que las
+        # sugerencias complementarias, sin depender de que el score de una
+        # sugerencia nunca supere al de un principal (podría pasar en algún
+        # caso límite y no queremos que eso reordene los grupos).
+        top_ordenado = sorted(
+            heap,
+            key=lambda item: (item[4], -item[0]),
+        )
 
         from modulo_ia.models.resultado import ResultadoArticulo
         ResultadoArticulo.objects.filter(caso=caso).delete()
 
         resultados = []
-        for posicion, (_, articulo_id, score_total, sub_scores) in enumerate(top_ordenado, start=1):
+        for posicion, (_, articulo_id, score_total, sub_scores, es_sugerencia) in enumerate(top_ordenado, start=1):
             data = {
                 "caso": caso.pk,
                 "articulo": articulo_id,
                 "posicion": posicion,
+                "es_sugerencia": es_sugerencia,
                 "score_total": score_total.quantize(CUANTIZADOR, rounding=ROUND_HALF_UP),
                 **sub_scores,
             }
