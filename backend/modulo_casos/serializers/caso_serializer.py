@@ -106,7 +106,7 @@ class CasoTituloDescripcionMixin:
     """
     TITULO_MIN = 5
     TITULO_MAX = 500
-    DESCRIPCION_MIN = 50
+    DESCRIPCION_MIN = 5
 
     def validate_titulo(self, value):
         value = value.strip()
