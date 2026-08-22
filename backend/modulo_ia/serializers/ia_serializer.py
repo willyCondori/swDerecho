@@ -116,7 +116,7 @@ class ResultadoArticuloSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ResultadoArticulo
         fields = [
-            "id", "caso", "articulo", "posicion",
+            "id", "caso", "articulo", "posicion", "es_sugerencia",
             "score_total",
             "score_semantico", "score_delito",
             "score_entidades", "score_jerarquia", "score_frecuencia",
@@ -137,7 +137,7 @@ class ResultadoArticuloWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ResultadoArticulo
         fields = [
-            "caso", "articulo", "posicion",
+            "caso", "articulo", "posicion", "es_sugerencia",
             "score_total", "score_semantico", "score_delito",
             "score_entidades", "score_jerarquia", "score_frecuencia",
         ]
