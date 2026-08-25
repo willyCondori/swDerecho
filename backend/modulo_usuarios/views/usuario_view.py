@@ -16,7 +16,7 @@ from modulo_usuarios.serializers.usuario_serializer import (
     UsuarioUpdateSerializer,
     PerfilUsuarioWriteSerializer,
 )
-
+from core.permissions.roles import ve_todo
 
 # ---------------------------------------------------------------------------
 # Rol
@@ -90,10 +90,8 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
 
     def get_queryset(self):
         qs = super().get_queryset()
-        # Admin y Abogado ven todos; el resto (ej. Asistente) solo se ve a sí mismo
-        ROLES_VEN_TODOS = ["administrador", "abogado"]
-        rol_nombre = self.request.user.rol.nombre.lower() if self.request.user.rol else None
-        if rol_nombre not in ROLES_VEN_TODOS:
+        # Admin y Abogado ven todos;
+        if not ve_todo(self.request.user):
             qs = qs.filter(pk=self.request.user.pk)
         estado = self.request.query_params.get("estado")
         if estado is not None:
