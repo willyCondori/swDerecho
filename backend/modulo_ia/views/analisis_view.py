@@ -22,7 +22,10 @@ from modulo_ia.serializers.ia_serializer import (
     EntidadDetectadaSerializer,
     ResultadoArticuloSerializer,
 )
+from core.permissions.roles import ve_todo
 
+
+ROLES_VEN_TODOS = ["Administrador", "Abogado"]
 
 # ---------------------------------------------------------------------------
 # ChunkCaso — solo lectura (los chunks los genera el servicio internamente)
@@ -45,10 +48,10 @@ class ChunkCasoViewSet(ReadOnlyModelViewSet):
     def get_queryset(self):
         qs      = ChunkCaso.objects.select_related("caso").order_by("caso", "orden")
         user    = self.request.user
-        rol     = getattr(user.rol, "nombre", "").lower() if user.rol else ""
+        rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
-        if rol != "admin":
+        if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
             qs = qs.filter(caso_id=caso_id)
@@ -102,14 +105,14 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
             .order_by("caso", "posicion")
         )
         user    = self.request.user
-        rol     = getattr(user.rol, "nombre", "").lower() if user.rol else ""
+        rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
-        if rol != "admin":
+        if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
             qs = qs.filter(caso_id=caso_id)
-        return qs
+        return qsroles
 
     @action(detail=False, methods=["get"], url_path="por_caso")
     def por_caso(self, request):
