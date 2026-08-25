@@ -196,7 +196,7 @@
   display: flex;
   cursor: pointer;
   padding: var(--sp-1);
-  border-radius: var(--radius));
+  border-radius: var(--radius);
   transition: color var(--transition-fast);
 }
 
@@ -254,7 +254,7 @@
   display: flex;
   cursor: pointer;
   padding: var(--sp-1);
-  border-radius: var(--radius));
+  border-radius: var(--radius);
   transition: color var(--transition-fast);
 }
 

@@ -66,6 +66,13 @@ export default function CasoDetailPage() {
           </div>
           <h1 className={styles.title}>{caso.titulo}</h1>
         </div>
+        <button
+          type="button"
+          className={styles.btnSecondary}
+          onClick={() => navigate(`/casos/${id}/editar`)}
+        >
+          <i className="ti ti-edit" aria-hidden="true" /> Editar
+        </button>
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
