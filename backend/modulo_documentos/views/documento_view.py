@@ -3,6 +3,7 @@ import os
 
 from django.conf import settings
 from django.http import FileResponse
+from backend.core.permissions.roles import ve_todo
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -28,14 +29,15 @@ from modulo_documentos.serializers.documento_serializer import (
     TipoDocSerializer,
 )
 
-
+ROLES_VEN_TODOS = ["Administrador", "Abogado"]
+    
 # ---------------------------------------------------------------------------
 # TipoDoc
 # ---------------------------------------------------------------------------
 
 class TipoDocViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/tipo-doc/       — lista
+    GET    /api/tipo-doc/       — lista.
     POST   /api/tipo-doc/       — crear [admin]
     PATCH  /api/tipo-doc/{id}/  — editar [admin]
     DELETE /api/tipo-doc/{id}/  — eliminar [admin]
@@ -82,10 +84,10 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
     def get_queryset(self):
         qs      = super().get_queryset()
         user    = self.request.user
-        rol     = getattr(user.rol, "nombre", "").lower() if user.rol else ""
+        rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
-        if rol != "admin":
+        if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
             qs = qs.filter(caso_id=caso_id)
@@ -225,8 +227,8 @@ class DocumentoGeneradoViewSet(ModelViewSet):
     def get_queryset(self):
         qs   = super().get_queryset()
         user = self.request.user
-        rol  = getattr(user.rol, "nombre", "").lower() if user.rol else ""
-        if rol != "admin":
+        rol  = getattr(user.rol, "nombre", "") if user.rol else ""
+        if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         caso_id = self.request.query_params.get("caso_id")
         if caso_id:
