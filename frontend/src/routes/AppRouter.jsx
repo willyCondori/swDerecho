@@ -11,6 +11,7 @@ import { lazy, Suspense } from 'react'
 const CasosPage      = lazy(() => import('../modules/casos/pages/CasosPage'))
 const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage'))
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
+const EditarCasoPage = lazy(() => import('../modules/casos/pages/EditarCasoPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
 const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
@@ -60,6 +61,9 @@ export default function AppRouter() {
           } />
           <Route path="/casos/:id" element={
             <Suspense fallback={<PageLoader />}><CasoDetailPage /></Suspense>
+          } />
+          <Route path="/casos/:id/editar" element={
+            <Suspense fallback={<PageLoader />}><EditarCasoPage /></Suspense>
           } />
 
           {/* Rutas pendientes de implementar */}

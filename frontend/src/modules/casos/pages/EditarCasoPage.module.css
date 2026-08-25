@@ -1,0 +1,102 @@
+/* modules/casos/pages/EditarCasoPage.module.css */
+
+.root {
+  composes: root from '../../../styles/shared.module.css';
+  max-width: 680px;
+}
+
+.headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.formGrid { composes: formGrid from '../../../styles/shared.module.css'; }
+.fullWidth { composes: fullWidth from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.textarea { composes: textarea from '../../../styles/shared.module.css'; }
+.fieldError { composes: fieldError from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.submitRow { composes: submitRow from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+.card { composes: formCard from '../../../styles/shared.module.css'; }
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
+
+.loaderWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40vh;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.codigo {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+.hintText {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  margin-top: var(--sp-1);
+  display: block;
+}
+
+/* ── Checkbox de estado (mismo patrón que CargaArticulosPage) ─────── */
+.checkboxRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  margin-top: var(--sp-4);
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  accent-color: var(--c-primary, var(--c-blue-500));
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.checkboxLabel {
+  font-size: var(--fs-xs);
+  color: var(--c-text-secondary);
+  line-height: 1.5;
+  cursor: pointer;
+}
+
+.checkboxLabel strong {
+  color: var(--c-text-primary);
+}
+
+/* ── Bloque de datos de solo lectura (cliente, rama) ───────────────── */
+.readonlyBlock {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px dashed var(--c-border);
+}
+
+.readonlyItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: var(--sp-1) 0;
+  font-size: var(--fs-sm);
+}
+
+.readonlyLabel {
+  color: var(--c-text-muted);
+}
+
+.readonlyValue {
+  color: var(--c-text-primary);
+  font-weight: var(--fw-medium);
+}
