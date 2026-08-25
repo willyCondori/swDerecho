@@ -2,7 +2,7 @@
 import { BrowserRouter } from 'react-router-dom'
 import AppRouter from './routes/AppRouter'
 import './styles/global.css'
-import './styles/app.css'
+import './styles/App.css'
 
 // Tabler Icons CDN
 const tablerLink = document.createElement('link')
