@@ -25,8 +25,6 @@ from modulo_ia.serializers.ia_serializer import (
 from core.permissions.roles import ve_todo
 
 
-ROLES_VEN_TODOS = ["Administrador", "Abogado"]
-
 # ---------------------------------------------------------------------------
 # ChunkCaso — solo lectura (los chunks los genera el servicio internamente)
 # ---------------------------------------------------------------------------
@@ -112,7 +110,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
             qs = qs.filter(caso_id=caso_id)
-        return qsroles
+        return qs
 
     @action(detail=False, methods=["get"], url_path="por_caso")
     def por_caso(self, request):
