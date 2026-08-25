@@ -3,7 +3,7 @@ import os
 
 from django.conf import settings
 from django.http import FileResponse
-from backend.core.permissions.roles import ve_todo
+from core.permissions.roles import ve_todo
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -29,8 +29,6 @@ from modulo_documentos.serializers.documento_serializer import (
     TipoDocSerializer,
 )
 
-ROLES_VEN_TODOS = ["Administrador", "Abogado"]
-    
 # ---------------------------------------------------------------------------
 # TipoDoc
 # ---------------------------------------------------------------------------
