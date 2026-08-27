@@ -2,8 +2,46 @@ from rest_framework import serializers
 
 from modulo_catalogo.models.articulo import Articulo, ArticuloEntidad
 from modulo_catalogo.models.entidad import EntidadJuridica
+from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
 from modulo_catalogo.models.rama import RamaDerecho
+
+
+# ---------------------------------------------------------------------------
+# Jerarquia
+# ---------------------------------------------------------------------------
+# NOTA: la escala de "nivel" es fija en todo el sistema:
+#   1 Constitución · 2 Ley · 3 Ley Departamental · 4 Ley Municipal
+#   5 Decreto Supremo · 6 Decreto Departamental · 7 Decreto Municipal
+#   8 Reglamento · 9 Resolución Suprema · 10 Resolución Ministerial
+# Cuanto más bajo el nivel, mayor la jerarquía normativa.
+
+class JerarquiaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Jerarquia
+        fields = ["id", "nombre", "nivel", "estado"]
+
+    def validate_nombre(self, value):
+        value = value.strip()
+        if len(value) < 3:
+            raise serializers.ValidationError("El nombre debe tener al menos 3 caracteres.")
+        qs = Jerarquia.objects.filter(nombre__iexact=value)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("Ya existe una jerarquía con ese nombre.")
+        return value
+
+    def validate_nivel(self, value):
+        if value < 1:
+            raise serializers.ValidationError("El nivel debe ser un entero mayor o igual a 1.")
+        return value
+
+
+class JerarquiaListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Jerarquia
+        fields = ["id", "nombre", "nivel"]
 
 
 # ---------------------------------------------------------------------------
@@ -38,9 +76,17 @@ class RamaDerechoListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class NormaSerializer(serializers.ModelSerializer):
+    jerarquia_id = serializers.PrimaryKeyRelatedField(
+        queryset=Jerarquia.objects.filter(estado=True),
+        source="jerarquia",
+        required=False,
+        allow_null=True,
+    )
+    jerarquia = JerarquiaListSerializer(read_only=True)
+
     class Meta:
         model  = Norma
-        fields = ["id", "nombre", "sigla", "estado"]
+        fields = ["id", "nombre", "sigla", "jerarquia_id", "jerarquia", "estado"]
 
     def validate_sigla(self, value):
         if value:
@@ -62,9 +108,11 @@ class NormaSerializer(serializers.ModelSerializer):
 
 
 class NormaListSerializer(serializers.ModelSerializer):
+    jerarquia = JerarquiaListSerializer(read_only=True)
+
     class Meta:
         model  = Norma
-        fields = ["id", "nombre", "sigla"]
+        fields = ["id", "nombre", "sigla", "jerarquia"]
 
 
 # ---------------------------------------------------------------------------
@@ -98,36 +146,21 @@ class EntidadJuridicaListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Articulo
 # ---------------------------------------------------------------------------
-
-JERARQUIA_CHOICES_VALUES = [1.0, 0.9, 0.8, 0.7, 0.6, 0.5, 0.4]
-
+# La jerarquía normativa ya NO vive en Articulo: ahora es Norma.jerarquia
+# (FK a Jerarquia). Un artículo hereda la jerarquía de su norma.
 
 class ArticuloReadSerializer(serializers.ModelSerializer):
-    norma    = NormaListSerializer(read_only=True)
-    rama     = RamaDerechoListSerializer(read_only=True)
-    entidades= EntidadJuridicaListSerializer(many=True, read_only=True)
-    jerarquia_label = serializers.SerializerMethodField()
+    norma     = NormaListSerializer(read_only=True)
+    rama      = RamaDerechoListSerializer(read_only=True)
+    entidades = EntidadJuridicaListSerializer(many=True, read_only=True)
 
     class Meta:
         model  = Articulo
         fields = [
             "id", "numero_articulo", "titulo", "contenido",
             "norma", "rama", "entidades",
-            "jerarquia_normativa", "jerarquia_label",
             "frecuencia_historica", "estado", "created_at",
         ]
-
-    def get_jerarquia_label(self, obj):
-        mapping = {
-            1.0: "Constitución Política del Estado",
-            0.9: "Ley Orgánica",
-            0.8: "Código (Penal, Civil, etc.)",
-            0.7: "Ley Ordinaria",
-            0.6: "Decreto Supremo",
-            0.5: "Resolución Ministerial",
-            0.4: "Ordenanza Municipal",
-        }
-        return mapping.get(round(obj.jerarquia_normativa, 1), "Otro")
 
 
 class ArticuloWriteSerializer(serializers.ModelSerializer):
@@ -150,8 +183,7 @@ class ArticuloWriteSerializer(serializers.ModelSerializer):
         model  = Articulo
         fields = [
             "numero_articulo", "titulo", "contenido",
-            "norma_id", "rama_id", "entidad_ids",
-            "jerarquia_normativa", "estado",
+            "norma_id", "rama_id", "entidad_ids", "estado",
         ]
 
     def validate_numero_articulo(self, value):
@@ -166,13 +198,6 @@ class ArticuloWriteSerializer(serializers.ModelSerializer):
         if len(value) < 20:
             raise serializers.ValidationError(
                 "El contenido del artículo debe tener al menos 20 caracteres."
-            )
-        return value
-
-    def validate_jerarquia_normativa(self, value):
-        if round(value, 1) not in JERARQUIA_CHOICES_VALUES:
-            raise serializers.ValidationError(
-                f"Jerarquía no válida. Valores permitidos: {JERARQUIA_CHOICES_VALUES}"
             )
         return value
 
@@ -211,13 +236,21 @@ class ArticuloWriteSerializer(serializers.ModelSerializer):
 
 class ArticuloListSerializer(serializers.ModelSerializer):
     """Versión compacta para resultados del ranking."""
-    norma_sigla = serializers.CharField(source="norma.sigla", read_only=True)
-    rama_nombre = serializers.CharField(source="rama.nombre", read_only=True)
+    norma_sigla      = serializers.CharField(source="norma.sigla", read_only=True)
+    rama_nombre      = serializers.CharField(source="rama.nombre", read_only=True)
+    jerarquia_nivel  = serializers.SerializerMethodField()
+    jerarquia_nombre = serializers.SerializerMethodField()
 
     class Meta:
         model  = Articulo
         fields = [
             "id", "numero_articulo", "titulo", "contenido",
             "norma_sigla", "rama_nombre",
-            "jerarquia_normativa", "frecuencia_historica",
+            "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica",
         ]
+
+    def get_jerarquia_nivel(self, obj):
+        return obj.norma.jerarquia.nivel if obj.norma.jerarquia_id else None
+
+    def get_jerarquia_nombre(self, obj):
+        return obj.norma.jerarquia.nombre if obj.norma.jerarquia_id else None

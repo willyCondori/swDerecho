@@ -42,22 +42,12 @@ export default function ArticulosTable({
             </th>
             <th
               className={`${styles.th} ${styles.sortable}`}
-              onClick={() => onSort('jerarquia_normativa')}
-              title="Jerarquía normativa (Constitución=1.0, Código=0.8)"
+              onClick={() => onSort('norma__jerarquia__nivel')}
+              title="Jerarquía normativa (1=Constitución ... 10=Resolución Ministerial)"
             >
               Jerarquía
               <span className={styles.sortIcon}>
-                <SortIcon campo="jerarquia_normativa" ordering={ordering} orderDir={orderDir} />
-              </span>
-            </th>
-            <th
-              className={`${styles.th} ${styles.sortable} ${styles.center}`}
-              onClick={() => onSort('-frecuencia_historica')}
-              title="Veces aplicado en casos anteriores"
-            >
-              Uso
-              <span className={styles.sortIcon}>
-                <SortIcon campo="-frecuencia_historica" ordering={ordering} orderDir={orderDir} />
+                <SortIcon campo="norma__jerarquia__nivel" ordering={ordering} orderDir={orderDir} />
               </span>
             </th>
           </tr>
