@@ -3,6 +3,7 @@ from rest_framework.routers import DefaultRouter
 
 from .views.catalogo_view import (
     RamaDerechoViewSet,
+    JerarquiaViewSet,
     NormaViewSet,
     EntidadJuridicaViewSet,
     ArticuloViewSet,
@@ -16,6 +17,7 @@ from .views.carga_articulos_view import (
 router = DefaultRouter()
 
 router.register(r"ramas", RamaDerechoViewSet, basename="ramas")
+router.register(r"jerarquias", JerarquiaViewSet, basename="jerarquias")
 router.register(r"normas", NormaViewSet, basename="normas")
 router.register(r"entidades", EntidadJuridicaViewSet, basename="entidades")
 router.register(r"articulos", ArticuloViewSet, basename="articulos")

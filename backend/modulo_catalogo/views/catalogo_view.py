@@ -8,6 +8,7 @@ from core.permissions.auditoria_mixin import AuditoriaMixin
 from core.permissions.roles_permission import EsAbogado, EsAdmin, EsUsuarioAutenticado
 from modulo_catalogo.models.articulo import Articulo
 from modulo_catalogo.models.entidad import EntidadJuridica
+from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
 from modulo_catalogo.models.rama import RamaDerecho
 from modulo_catalogo.serializers.catalogo_serializer import (
@@ -16,6 +17,8 @@ from modulo_catalogo.serializers.catalogo_serializer import (
     ArticuloWriteSerializer,
     EntidadJuridicaListSerializer,
     EntidadJuridicaSerializer,
+    JerarquiaListSerializer,
+    JerarquiaSerializer,
     NormaListSerializer,
     NormaSerializer,
     RamaDerechoListSerializer,
@@ -76,6 +79,48 @@ class RamaDerechoViewSet(AuditoriaMixin, ModelViewSet):
         })
 
 # ---------------------------------------------------------------------------
+# Jerarquia
+# ---------------------------------------------------------------------------
+
+class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
+    """
+    GET    /api/jerarquias/        — lista
+    POST   /api/jerarquias/        — crear  [admin]
+    GET    /api/jerarquias/{id}/   — detalle
+    PATCH  /api/jerarquias/{id}/   — editar [admin]
+    DELETE /api/jerarquias/{id}/   — soft-delete [admin]
+    GET    /api/jerarquias/lista/  — compacto para selects (al crear/editar una Norma)
+    """
+    queryset        = Jerarquia.objects.filter(estado=True).order_by("nivel")
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields   = ["nombre"]
+    ordering_fields = ["nivel", "nombre"]
+    auditoria_tabla = "jerarquias"
+
+    def get_serializer_class(self):
+        if self.action == "lista":
+            return JerarquiaListSerializer
+        return JerarquiaSerializer
+
+    def get_permissions(self):
+        if self.action in ["list", "retrieve", "lista"]:
+            return [EsUsuarioAutenticado()]
+        return [EsAdmin()]
+
+    def destroy(self, request, *args, **kwargs):
+        instance        = self.get_object()
+        instance.estado = False
+        instance.save(update_fields=["estado"])
+        self._auditar("DELETE", registro_id=instance.pk)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["get"], url_path="lista")
+    def lista(self, request):
+        qs = self.get_queryset()
+        return Response(JerarquiaListSerializer(qs, many=True).data)
+
+
+# ---------------------------------------------------------------------------
 # Norma
 # ---------------------------------------------------------------------------
 
@@ -88,10 +133,15 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
     DELETE /api/normas/{id}/   — soft-delete [admin]
     GET    /api/normas/lista/  — compacto para selects
     """
-    queryset        = Norma.objects.filter(estado=True).order_by("nombre")
+    queryset        = (
+        Norma.objects
+        .filter(estado=True)
+        .select_related("jerarquia")
+        .order_by("nombre")
+    )
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["nombre", "sigla"]
-    ordering_fields = ["nombre", "sigla"]
+    ordering_fields = ["nombre", "sigla", "jerarquia__nivel"]
     auditoria_tabla = "normas"
 
     def get_serializer_class(self):
@@ -187,13 +237,13 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     queryset        = (
         Articulo.objects
         .filter(estado=True)
-        .select_related("norma", "rama")
+        .select_related("norma", "norma__jerarquia", "rama")
         .prefetch_related("entidades")
         .order_by("norma", "numero_articulo")
     )
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["numero_articulo", "titulo", "contenido"]
-    ordering_fields = ["numero_articulo", "jerarquia_normativa", "frecuencia_historica"]
+    ordering_fields = ["numero_articulo", "norma__jerarquia__nivel", "frecuencia_historica"]
     auditoria_tabla = "articulos"
 
     def get_serializer_class(self):
