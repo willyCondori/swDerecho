@@ -9,6 +9,13 @@ export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
   const normaNombre = normaObj.nombre || articulo.norma_nombre || '—'
   const normaSigla = normaObj.sigla || articulo.norma_sigla || ''
 
+  // El endpoint de listado (ArticuloListSerializer) devuelve
+  // jerarquia_nivel/jerarquia_nombre planos; el de detalle
+  // (ArticuloReadSerializer) devuelve norma.jerarquia anidado.
+  // Se soportan ambos formatos.
+  const jerarquiaNivel = normaObj.jerarquia?.nivel ?? articulo.jerarquia_nivel ?? null
+  const jerarquiaNombre = normaObj.jerarquia?.nombre ?? articulo.jerarquia_nombre ?? null
+
   return (
     <>
       <tr className={styles.tr}>
@@ -53,14 +60,10 @@ export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
         </td>
 
         <td className={`${styles.td} ${styles.jerarquiaCell}`}>
-          <JerarquiaBar valor={articulo.jerarquia_normativa} />
-        </td>
-
-        <td className={`${styles.td} ${styles.center}`}>
-          <span className={`${styles.frecCell} ${articulo.frecuencia_historica > 10 ? styles.high : ''}`}>
-            {articulo.frecuencia_historica > 10 && <i className="ti ti-flame" aria-hidden="true" />}
-            {articulo.frecuencia_historica ?? 0}
-          </span>
+          <JerarquiaBar
+            nivel={jerarquiaNivel}
+            nombre={jerarquiaNombre}
+          />
         </td>
       </tr>
 
