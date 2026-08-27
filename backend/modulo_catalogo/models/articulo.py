@@ -5,23 +5,6 @@ from .entidad import EntidadJuridica
 
 
 class Articulo(models.Model):
-    """
-    Artículo jurídico boliviano.
-    jerarquia_normativa se calcula según la norma:
-      Constitución = 1.0
-      Código Penal  = 0.8
-      etc.
-    Se usa como factor en la cola de prioridad del ranking.
-    """
-    JERARQUIA_CHOICES = [
-        (1.0, "Constitución Política del Estado"),
-        (0.9, "Ley Orgánica"),
-        (0.8, "Código (Penal, Civil, etc.)"),
-        (0.7, "Ley Ordinaria"),
-        (0.6, "Decreto Supremo"),
-        (0.5, "Resolución Ministerial"),
-        (0.4, "Ordenanza Municipal"),
-    ]
 
     numero_articulo      = models.CharField(max_length=50)
     titulo               = models.CharField(max_length=500, blank=True, null=True)
@@ -35,10 +18,6 @@ class Articulo(models.Model):
                                RamaDerecho,
                                on_delete=models.PROTECT,
                                related_name="articulos",
-                           )
-    jerarquia_normativa  = models.FloatField(
-                               default=0.8,
-                               help_text="Valor 0-1 según jerarquía. Constitución=1.0, Código=0.8",
                            )
     frecuencia_historica = models.IntegerField(
                                default=0,
