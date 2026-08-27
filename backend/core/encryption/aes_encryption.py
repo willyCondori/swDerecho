@@ -3,7 +3,7 @@ Cifrado simétrico AES-256-GCM para datos personales sensibles.
 Cumple con ISO/IEC 27001 — control A.10.1 (Controles criptográficos).
 
 Campos protegidos:
-  perfil_usuarios : nombres, apellidos, email, telefono, ci
+  perfil_usuarios : nombres, apellidos, email, telefono
   clientes        : nombres, apellidos, fecha_nacimiento
 
 Uso:
