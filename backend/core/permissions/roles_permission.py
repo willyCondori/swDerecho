@@ -32,17 +32,3 @@ class EsUsuarioAutenticado(BasePermission):
             and request.user.is_authenticated
             and request.user.estado
         )
-
-
-class EsPropietarioOAdmin(BasePermission):
-    """
-    Permite acceso si el usuario es el dueño del objeto,
-    o tiene rol Administrador/Abogado (visibilidad total).
-    """
-    def has_object_permission(self, request, view, obj):
-        if not request.user or not request.user.is_authenticated:
-            return False
-        if rol_de(request.user) in ROLES_VEN_TODOS:
-            return True
-        owner = getattr(obj, "usuario", getattr(obj, "user", None))
-        return owner == request.user
