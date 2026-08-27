@@ -34,7 +34,7 @@ class LoginSerializer(serializers.Serializer):
         refresh = RefreshToken.for_user(user)
 
         return {
-            "user": user,  # 👈 OBJETO REAL
+            "user": user,
             "access_token": str(refresh.access_token),
             "refresh_token": str(refresh),
         }
