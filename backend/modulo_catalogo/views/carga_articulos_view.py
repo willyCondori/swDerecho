@@ -28,25 +28,25 @@ FUENTES_INFO = {
     "Civil": {
         "label": "Código Civil",
         "descripcion": "Código Civil Boliviano. Patrón: ARTÍCULO N.",
-        "jerarquia": JERARQUIA_POR_FUENTE.get("Civil", 0.8),
+        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Civil", 2),
         "esperados": 1570,
     },
     "Penal": {
         "label": "Código Penal",
         "descripcion": "Código Penal Boliviano. Patrón: Art. N°.-",
-        "jerarquia": JERARQUIA_POR_FUENTE.get("Penal", 0.8),
+        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Penal", 2),
         "esperados": 363,
     },
     "Laboral": {
         "label": "Código Laboral",
         "descripcion": "Ley General del Trabajo",
-        "jerarquia": JERARQUIA_POR_FUENTE.get("Laboral", 0.8),
+        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Laboral", 2),
         "esperados": 122,
     },
     "CPE": {
         "label": "Constitución Política del Estado",
         "descripcion": "CPE Bolivia 2009",
-        "jerarquia": JERARQUIA_POR_FUENTE.get("CPE", 1.0),
+        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("CPE", 1),
         "esperados": 411,
     },
 }
@@ -263,15 +263,26 @@ class FuentesDisponiblesView(APIView):
     permission_classes = [EsAdmin]
 
     def get(self, request):
+        from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
+
+        niveles_usados = {info["jerarquia_nivel"] for info in FUENTES_INFO.values()}
+        nombres_por_nivel = dict(
+            Jerarquia.objects.filter(nivel__in=niveles_usados).values_list("nivel", "nombre")
+        )
+
         fuentes = []
 
         for clave, info in FUENTES_INFO.items():
+            nivel = info["jerarquia_nivel"]
             fuentes.append(
                 {
                     "value": clave,
                     "label": info["label"],
                     "descripcion": info["descripcion"],
-                    "jerarquia": info["jerarquia"],
+                    "jerarquia": {
+                        "nivel": nivel,
+                        "nombre": nombres_por_nivel.get(nivel),
+                    },
                     "esperados": info["esperados"],
                 }
             )

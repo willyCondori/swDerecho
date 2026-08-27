@@ -284,11 +284,40 @@ def _es_inicio_valido(texto: str, pos: int) -> bool:
 # ---------------------------------------------------------------------------
 
 JERARQUIA_POR_FUENTE = {
-    "CPE": 1.0,
-    "Civil": 0.8,
-    "Penal": 0.8,
-    "Laboral": 0.8,
+    "CPE": 1,      # Constitución
+    "Civil": 2,    # Ley (Código Civil)
+    "Penal": 2,    # Ley (Código Penal)
+    "Laboral": 2,  # Ley (Código Laboral / Ley General del Trabajo)
 }
+
+
+def _asegurar_jerarquia_norma(norma, fuente):
+    """
+    Si la norma aún no tiene jerarquía asignada, se la asigna
+    automáticamente según la fuente del PDF cargado (CPE, Penal, Civil,
+    Laboral), buscando el registro de Jerarquia con ese nivel.
+
+    No sobrescribe una jerarquía ya configurada manualmente en la Norma
+    (por ejemplo, desde la pantalla de administración de normas).
+    """
+    if norma.jerarquia_id:
+        return
+
+    from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
+
+    nivel = JERARQUIA_POR_FUENTE.get(fuente, 2)
+    jerarquia_obj = Jerarquia.objects.filter(nivel=nivel, estado=True).first()
+    if jerarquia_obj is None:
+        logger.warning(
+            "No existe una Jerarquia activa con nivel=%s para asignar a la "
+            "norma '%s' (fuente=%s). El artículo se cargará sin jerarquía "
+            "hasta que se configure manualmente en la norma.",
+            nivel, norma, fuente,
+        )
+        return
+
+    norma.jerarquia = jerarquia_obj
+    norma.save(update_fields=["jerarquia"])
 
 
 # ---------------------------------------------------------------------------
@@ -573,6 +602,8 @@ def cargar_articulos_desde_bytes(
         rama_nombre=rama.nombre,
     )
 
+    _asegurar_jerarquia_norma(norma, fuente)
+
     if sobrescribir:
         Articulo.objects.filter(norma=norma, rama=rama).delete()
         logger.info("Artículos previos eliminados. norma=%s rama=%s", norma, rama)
@@ -590,8 +621,6 @@ def cargar_articulos_desde_bytes(
     if not lista_articulos:
         logger.warning("PDF no produjo artículos. fuente=%s norma=%s", fuente, norma)
         return resultado
-
-    jerarquia = JERARQUIA_POR_FUENTE.get(fuente, 0.8)
 
     _update_task(task, 18, "Cargando modelo de embeddings...")
     modelo = _obtener_modelo()
@@ -625,7 +654,6 @@ def cargar_articulos_desde_bytes(
                 contenido=texto_articulo,
                 norma=norma,
                 rama=rama,
-                jerarquia_normativa=jerarquia,
                 frecuencia_historica=0,
                 estado=True,
             )

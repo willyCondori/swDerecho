@@ -23,6 +23,16 @@ PESO_ENTIDADES   = Decimal("0.10")
 PESO_JERARQUIA   = Decimal("0.10")
 PESO_FRECUENCIA  = Decimal("0.05")
 
+# Escala de jerarquía normativa (modulo_catalogo.models.jerarquia.nivel):
+#   1 Constitución · 2 Ley · 3 Ley Departamental · 4 Ley Municipal
+#   5 Decreto Supremo · 6 Decreto Departamental · 7 Decreto Municipal
+#   8 Reglamento · 9 Resolución Suprema · 10 Resolución Ministerial
+# A menor nivel, mayor jerarquía normativa. Se normaliza a un score 0-1
+# donde 1.0 es la jerarquía más alta (Constitución) y 0.0 la más baja
+# (Resolución Ministerial).
+NIVEL_JERARQUIA_MAS_ALTO = 1
+NIVEL_JERARQUIA_MAS_BAJO = 10
+
 # Figuras transversales (tentativa, legítima defensa, complicidad, etc.):
 # no compiten por el umbral principal porque casi nunca tienen score_delito
 # propio (no son "tipos de delito"). Se incluyen si el caso las menciona
@@ -130,7 +140,20 @@ class RankingService:
 
     @staticmethod
     def _score_jerarquia(articulo) -> float:
-        return float(articulo.jerarquia_normativa or 0.0)
+        """
+        Normaliza el nivel jerárquico de la Norma del artículo (1=Constitución
+        ... 10=Resolución Ministerial) a un score 0-1, donde 1.0 es la
+        jerarquía más alta. Si la norma aún no tiene jerarquía asignada,
+        este sub-score aporta 0 (no favorece ni penaliza indebidamente).
+        """
+        jerarquia = getattr(articulo.norma, "jerarquia", None)
+        if jerarquia is None:
+            return 0.0
+        rango = NIVEL_JERARQUIA_MAS_BAJO - NIVEL_JERARQUIA_MAS_ALTO
+        if rango <= 0:
+            return 1.0
+        valor = (NIVEL_JERARQUIA_MAS_BAJO - jerarquia.nivel) / rango
+        return round(max(0.0, min(1.0, valor)), 6)
 
     @staticmethod
     def _score_frecuencia(articulo, max_frecuencia: int) -> float:
@@ -188,7 +211,7 @@ class RankingService:
             Articulo.objects
             .filter(id__in=scores_semanticos.keys())
             .prefetch_related("entidades")
-            .select_related("norma", "rama")
+            .select_related("norma", "norma__jerarquia", "rama")
         )
         articulos_por_id = {a.id: a for a in articulos}
         max_frecuencia = max(
