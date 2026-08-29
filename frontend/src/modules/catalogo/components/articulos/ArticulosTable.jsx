@@ -55,7 +55,7 @@ export default function ArticulosTable({
 
         <tbody>
           {loading ? (
-            <SkeletonRows cols={6} rows={pageSize > 10 ? 10 : pageSize} />
+            <SkeletonRows cols={5} rows={pageSize > 10 ? 10 : pageSize} />
           ) : error ? (
             <tr className={styles.tr}>
               <td colSpan={6} className={styles.td}>
