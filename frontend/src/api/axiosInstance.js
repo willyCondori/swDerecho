@@ -1,5 +1,6 @@
 // api/axiosInstance.js
 import axios from 'axios'
+import { getAccessToken, setAccessToken, clearAccessToken } from './tokenManager'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -7,12 +8,15 @@ const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 30000,
+  // Necesario para que el navegador mande (y reciba) la cookie httpOnly
+  // del refresh token en /auth/login, /auth/refresh y /auth/logout.
+  withCredentials: true,
 })
 
-// ── Request: inyectar access token ───────────────────────────────────
+// ── Request: inyectar access token (desde memoria, no localStorage) ──
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token')
+    const token = getAccessToken()
     if (token) config.headers.Authorization = `Bearer ${token}`
     return config
   },
@@ -36,7 +40,13 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Evita loop: si el propio /auth/refresh/ o /auth/login/ devuelven
+    // 401, no hay que intentar refrescar de nuevo.
+    const esRutaAuth =
+      originalRequest?.url?.includes('/auth/refresh/') ||
+      originalRequest?.url?.includes('/auth/login/')
+
+    if (error.response?.status === 401 && !originalRequest._retry && !esRutaAuth) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -51,28 +61,23 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const refresh = localStorage.getItem('refresh_token')
-      if (!refresh) {
-        isRefreshing = false
-        // Sin refresh token → redirigir a login
-        window.location.href = '/login'
-        return Promise.reject(error)
-      }
-
       try {
-        const { data } = await axios.post(`${BASE_URL}/api/usuarios/auth/refresh/`, {
-          refresh,
-        })
+        // El refresh token viaja solo, como cookie httpOnly — no se lee
+        // ni se manda nada desde JS.
+        const { data } = await axios.post(
+          `${BASE_URL}/api/usuarios/auth/refresh/`,
+          {},
+          { withCredentials: true },
+        )
         const newAccess = data.access_token
-        localStorage.setItem('access_token', newAccess)
+        setAccessToken(newAccess)
         api.defaults.headers.common.Authorization = `Bearer ${newAccess}`
         processQueue(null, newAccess)
         originalRequest.headers.Authorization = `Bearer ${newAccess}`
         return api(originalRequest)
       } catch (err) {
         processQueue(err, null)
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        clearAccessToken()
         window.location.href = '/login'
         return Promise.reject(err)
       } finally {

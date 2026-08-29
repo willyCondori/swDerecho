@@ -58,7 +58,7 @@ export default function ArticulosTable({
             <SkeletonRows cols={5} rows={pageSize > 10 ? 10 : pageSize} />
           ) : error ? (
             <tr className={styles.tr}>
-              <td colSpan={6} className={styles.td}>
+              <td colSpan={5} className={styles.td}>
                 <div className={styles.emptyState}>
                   <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
                   <p className={styles.emptyTitle}>Error de conexión</p>
@@ -71,7 +71,7 @@ export default function ArticulosTable({
             </tr>
           ) : articulos.length === 0 ? (
             <tr className={styles.tr}>
-              <td colSpan={6} className={styles.td}>
+              <td colSpan={5} className={styles.td}>
                 <div className={styles.emptyState}>
                   <i className={`ti ti-article-off ${styles.emptyIcon}`} aria-hidden="true" />
                   <p className={styles.emptyTitle}>
