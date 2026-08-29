@@ -69,7 +69,7 @@ export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
 
       {isExpanded && (
         <tr className={styles.expandedRow}>
-          <td colSpan={6}>
+          <td colSpan={5}>
             <pre className={styles.expandedContent}>{articulo.contenido}</pre>
           </td>
         </tr>
