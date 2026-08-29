@@ -65,6 +65,7 @@ INSTALLED_APPS = [
 
     "rest_framework",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
 
     "drf_spectacular",
     "pgvector",
@@ -120,12 +121,29 @@ DATABASES = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    # Cada refresh emite un token nuevo y blacklistea el anterior: si un
+    # refresh token es robado (ej. filtrado en un log), su ventana de uso
+    # útil se acorta a la próxima vez que el usuario legítimo lo use.
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
 
     # Muy importante si tu login devuelve access_token y refresh_token
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# ---------------------------------------------------------------------
+# Cookie httpOnly del refresh token
+# ---------------------------------------------------------------------
+# El refresh token NUNCA viaja en el body de la respuesta ni se guarda
+# en localStorage: se setea como cookie httpOnly desde LoginView /
+# RefreshTokenView (ver modulo_usuarios/views/auth_view.py). Así un XSS
+# en el frontend no puede leerlo con document.cookie ni localStorage.
+REFRESH_TOKEN_COOKIE_NAME     = "refresh_token"
+REFRESH_TOKEN_COOKIE_PATH     = "/api/usuarios/auth/"
+REFRESH_TOKEN_COOKIE_SAMESITE = "Lax"
+# Secure=True exige HTTPS. En desarrollo local (DEBUG=True, http://localhost)
+# se desactiva para que la cookie se siga guardando sin TLS.
+REFRESH_TOKEN_COOKIE_SECURE   = not DEBUG
 
 AUTH_USER_MODEL = "modulo_usuarios.Usuario"
 # Password validation

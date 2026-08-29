@@ -61,6 +61,12 @@ img             { max-width: 100%; display: block; }
   white-space: nowrap;
 }
 
+/* ── Spinner de carga (usado con estilos inline en loaders) ─ */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
 /* ── Ocultar visualmente (accesibilidad) ────────────────── */
 .sr-only {
   position: absolute;
