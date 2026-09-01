@@ -11,6 +11,10 @@ const usuariosApi = {
     return api.get('/api/usuarios/roles/', { params })
   },
 
+  obtenerRol(id) {
+    return api.get(`/api/usuarios/roles/${id}/`)
+  },
+
   crearRol(data) {
     return api.post('/api/usuarios/roles/', data)
   },
@@ -21,6 +25,10 @@ const usuariosApi = {
 
   eliminarRol(id) {
     return api.delete(`/api/usuarios/roles/${id}/`)
+  },
+
+  activarRol(id) {
+    return api.post(`/api/usuarios/roles/${id}/activar/`)
   },
 
   // ========= USUARIOS =========
@@ -46,7 +54,7 @@ const usuariosApi = {
   },
 
   activarUsuario(id) {
-    return api.get(`/api/usuarios/usuarios/${id}/activar/`)
+    return api.post(`/api/usuarios/usuarios/${id}/activar/`)
   },
 
   actualizarPerfil(id, data) {
