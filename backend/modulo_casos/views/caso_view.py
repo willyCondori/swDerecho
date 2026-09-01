@@ -6,7 +6,6 @@ from rest_framework.viewsets import ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin
 from core.permissions.roles_permission import EsOperativo
-from core.permissions.roles import ve_todo
 from modulo_casos.models.caso import Caso
 from modulo_casos.models.hecho import Hecho
 from modulo_casos.models.petitorio import Petitorio
@@ -23,7 +22,7 @@ from modulo_casos.serializers.caso_serializer import (
 
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/casos/                    — lista con filtros [admin/abogado: todos | asistente: solo propios, lectura]
+    GET    /api/casos/                    — lista con filtros [todos los roles ven todos los casos activos]
     POST   /api/casos/                    — crear caso (texto o PDF), cliente ya existente [admin, abogado]
     POST   /api/casos/crear_con_cliente/  — crea cliente + caso en una transacción atómica [admin, abogado]
     GET    /api/casos/{id}/               — detalle completo
@@ -35,12 +34,12 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     GET    /api/casos/{id}/resultado/     — resultado IA del caso
     GET    /api/casos/{id}/articulos/     — artículos del ranking
     POST   /api/casos/{id}/analizar/      — disparar pipeline IA [admin, abogado]
-    GET    /api/casos/mis_casos/          — casos del usuario autenticado
+    GET    /api/casos/mis_casos/          — casos del usuario autenticado (filtro de conveniencia)
 
     Permisos (ver core.permissions.roles_permission.EsOperativo):
+    Administrador, Abogado y Asistente ven todos los casos activos.
     Administrador y Abogado tienen acceso total, incluyendo eliminar
-    (soft-delete) de forma lógica. Asistente solo puede leer (GET) y
-    únicamente ve sus propios casos.
+    (soft-delete) de forma lógica. Asistente solo puede leer (GET).
     """
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["codigo", "titulo", "descripcion"]
@@ -55,12 +54,10 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             .prefetch_related("documentos", "documentos_generados")
             .order_by("-created_at")
         )
-        user = self.request.user
-
-        # Administrador y Abogado ven todos los casos; Asistente solo
-        # ve los propios (y en modo lectura, ver get_permissions()).
-        if not ve_todo(user):
-            qs = qs.filter(usuario=user)
+        # Todos los roles (Administrador, Abogado, Asistente) ven todos
+        # los casos activos. La restricción de "solo lectura" para
+        # Asistente ya la resuelve EsOperativo a nivel de método HTTP
+        # (ver get_permissions()); acá no hace falta filtrar por dueño.
 
         # --- filtros opcionales via query params ---
         rama_id     = self.request.query_params.get("rama_id")

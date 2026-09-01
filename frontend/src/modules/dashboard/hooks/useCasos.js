@@ -11,7 +11,13 @@ export default function useCasos({ pageSize = 20 } = {}) {
     setLoading(true)
     setError(null)
     try {
-      const { data } = await casosApi.misCasos({ page_size: pageSize })
+      // Antes usaba casosApi.misCasos() (solo los del usuario logueado),
+      // pero la tarjeta de arriba dice "Casos activos" a secas, no
+      // "Mis casos" — con eso, un Abogado o Asistente que no es dueño
+      // de ningún caso veía siempre 0, aunque sí hubiera actividad en
+      // el sistema. Ahora usa el mismo endpoint que la página /casos
+      // (todos los casos activos, visibles para los tres roles).
+      const { data } = await casosApi.listar({ page_size: pageSize })
       setCasos(data.results ?? data)
     } catch (e) {
       setError('No se pudieron cargar los casos.')
