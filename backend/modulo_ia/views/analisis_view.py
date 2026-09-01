@@ -6,7 +6,7 @@ from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin, registrar_auditoria
-from core.permissions.roles_permission import EsAbogado, EsAdmin, EsUsuarioAutenticado
+from core.permissions.roles_permission import EsAdmin, EsOperativo, EsUsuarioAutenticado
 from modulo_ia.models.chunk import ChunkCaso
 from modulo_ia.models.embedding import (
     EmbeddingArticulo,
@@ -41,7 +41,7 @@ class ChunkCasoViewSet(ReadOnlyModelViewSet):
     ordering_fields  = ["orden", "created_at"]
 
     def get_permissions(self):
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def get_queryset(self):
         qs      = ChunkCaso.objects.select_related("caso").order_by("caso", "orden")
@@ -91,7 +91,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
     ordering_fields  = ["posicion", "score_total"]
 
     def get_permissions(self):
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def get_queryset(self):
         qs      = (
@@ -168,31 +168,41 @@ class EmbeddingArticuloViewSet(ReadOnlyModelViewSet):
     def regenerar(self, request):
         """
         POST /api/embeddings-articulos/regenerar/
-        Regenera los embeddings de todos los artículos activos.
-        Tarea Celery asíncrona.
+        Regenera los embeddings de TODOS los artículos activos.
+
+        DESHABILITADO TEMPORALMENTE: esta es una operación masiva
+        (cientos de artículos) pensada para correr en segundo plano
+        vía Celery (`regenerar_embeddings_articulos.delay()`). Como
+        Celery no está configurado (config/celery.py vacío), antes
+        este endpoint encolaba la tarea y nunca se ejecutaba —
+        parecía funcionar (202 Accepted) pero no hacía nada.
+
+        A diferencia del análisis de un caso individual (ver
+        AnalisisCasoView / CasoViewSet.analizar), correr esto de
+        forma síncrona dentro de un request HTTP arriesga timeout de
+        proxy/gateway y del propio cliente (el frontend usa un
+        timeout de 30s en axiosInstance.js) para un solo request de
+        cientos de artículos. Por eso, en vez de "arreglarlo" con una
+        llamada síncrona que probablemente truene, queda desactivado
+        hasta que Celery esté funcionando.
+
+        Mientras tanto, para regenerar embeddings usar el management
+        command directamente en el servidor:
+            python manage.py finetune_embeddings_penal  # o el comando
+                                                          # de regeneración
+                                                          # correspondiente
         """
-        try:
-            from modulo_ia.tasks.analisis_task import regenerar_embeddings_articulos
-            task = regenerar_embeddings_articulos.delay()
-            registrar_auditoria(
-                usuario=request.user,
-                tabla="embeddings_articulos",
-                accion="UPDATE",
-                request=request,
-                metadata={"task_id": task.id, "accion": "regenerar_embeddings"},
-            )
-            return Response(
-                {
-                    "detail" : "Regeneración de embeddings encolada.",
-                    "task_id": task.id,
-                },
-                status=status.HTTP_202_ACCEPTED,
-            )
-        except Exception as e:
-            return Response(
-                {"detail": f"Error al encolar la tarea: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        return Response(
+            {
+                "detail": (
+                    "Esta operación requiere Celery, que todavía no está "
+                    "configurado en este entorno. Ejecutá el management "
+                    "command de regeneración de embeddings directamente "
+                    "en el servidor en lugar de este endpoint."
+                ),
+            },
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -203,8 +213,16 @@ class EstadoTareaView(APIView):
     """
     GET /api/ia/tarea/{task_id}/
     Consulta el estado de una tarea Celery (análisis IA, regeneración, etc.)
+
+    SIN USO POR AHORA: como AnalisisCasoView y CasoViewSet.analizar ya
+    no encolan nada (corren de forma síncrona mientras Celery no esté
+    configurado, ver notas ahí) y la regeneración de embeddings está
+    deshabilitada, no queda ninguna tarea con task_id que consultar
+    acá. La ruta correspondiente está comentada en modulo_ia/urls.py.
+    Cuando Celery esté funcionando y los endpoints anteriores vuelvan
+    a usar `.delay()`, se puede reactivar esta vista tal cual está.
     """
-    permission_classes = [EsAbogado]
+    permission_classes = [EsOperativo]
 
     def get(self, request, task_id):
         try:
@@ -244,8 +262,16 @@ class AnalisisCasoView(APIView):
     POST /api/ia/analizar/
     Body: { "caso_id": X }
     Alternativa al endpoint /api/casos/{id}/analizar/ del módulo casos.
+
+    NOTA: se ejecuta de forma SÍNCRONA (idéntico a
+    CasoViewSet.analizar en modulo_casos/views/caso_view.py) mientras
+    Celery no esté configurado (config/celery.py está vacío). Antes
+    llamaba a `ejecutar_analisis_caso.delay(caso_id)`, lo que sin un
+    worker corriendo se queda colgado o falla en silencio. Cuando
+    Celery esté funcionando, revertir esto a `.delay()` y volver a
+    habilitar la ruta `tarea/<task_id>/` (ver EstadoTareaView más abajo).
     """
-    permission_classes = [EsAbogado]
+    permission_classes = [EsOperativo]
 
     def post(self, request):
         serializer = AnalisisCasoSerializer(data=request.data)
@@ -256,22 +282,21 @@ class AnalisisCasoView(APIView):
 
         try:
             from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
-            task = ejecutar_analisis_caso.delay(caso_id)
+            ejecutar_analisis_caso(caso_id)
+
             registrar_auditoria(
                 usuario=request.user,
                 tabla="casos",
                 accion="ANALYZE",
                 registro_id=caso_id,
                 request=request,
-                metadata={"task_id": task.id},
             )
             return Response(
                 {
-                    "detail" : "Análisis encolado.",
-                    "task_id": task.id,
+                    "detail" : "Análisis completado correctamente.",
                     "caso_id": caso_id,
                 },
-                status=status.HTTP_202_ACCEPTED,
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             return Response(

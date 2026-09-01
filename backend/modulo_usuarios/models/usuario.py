@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
 from .rol import Rol
+from core.permissions.roles import ROL_ADMINISTRADOR, rol_de
 
 
 class UsuarioManager(BaseUserManager):
@@ -54,14 +55,10 @@ class Usuario(AbstractBaseUser):
     def __str__(self):
         return self.usuario
 
+
     @property
     def is_admin(self):
-        """True solo si el usuario tiene el rol 'Administrador' y está activo."""
-        return bool(
-            self.estado
-            and self.rol_id is not None
-            and self.rol.nombre == "Administrador"
-        )
+        return bool(self.estado and rol_de(self) == ROL_ADMINISTRADOR)
 
     # Permisos requeridos por Django admin.
     def has_perm(self, perm, obj=None):

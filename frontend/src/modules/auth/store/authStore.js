@@ -228,26 +228,52 @@ const useAuthStore = create((set, get) => ({
   isAuthenticated: () => !!getAccessToken(),
 
 
+  // Normaliza el rol del usuario a un string en minúsculas, sin
+  // importar si el backend lo mandó como objeto ({id, nombre}, la
+  // forma normal desde /auth/me/ y /usuarios/) o como string suelto
+  // (forma vieja que devolvía /auth/login/ antes de unificarla —
+  // se deja este fallback por las dudas de que algún otro endpoint
+  // vuelva a hacerlo). Todos los helpers de rol pasan por acá para
+  // no repetir esta lógica en cada uno.
+  _nombreRol: (user) => {
+    const rol = user?.rol
+    if (!rol) return ''
+    const nombre = typeof rol === 'string' ? rol : rol.nombre
+    return (nombre || '').toLowerCase()
+  },
+
+
   // ── Verificar si el usuario es administrador ─────────────
 
   isAdmin: () => {
 
     const user = get().user
-
-    const rol = user?.rol?.nombre
+    const rol  = get()._nombreRol(user)
 
     console.log('========== isAdmin ==========')
     console.log('Usuario actual:', user)
     console.log('Rol completo:', user?.rol)
-    console.log('Nombre del rol:', rol)
-    console.log('Tipo del nombre del rol:', typeof rol)
-    console.log(
-      '¿Es administrador?:',
-      rol?.toLowerCase() === 'administrador'
-    )
+    console.log('Nombre del rol (normalizado):', rol)
+    console.log('¿Es administrador?:', rol === 'administrador')
     console.log('==============================')
 
-    return rol?.toLowerCase() === 'administrador'
+    return rol === 'administrador'
+  },
+
+
+  // ── Verificar si el usuario es asistente (rol de solo lectura) ──
+
+  isAsistente: () => {
+    return get()._nombreRol(get().user) === 'asistente'
+  },
+
+
+  // ── ¿Puede crear/editar/eliminar? (administrador o abogado) ──
+  // Espeja al permiso backend EsOperativo: Asistente = solo lectura.
+
+  puedeEscribir: () => {
+    const rol = get()._nombreRol(get().user)
+    return rol === 'administrador' || rol === 'abogado'
   },
 
 
@@ -255,15 +281,15 @@ const useAuthStore = create((set, get) => ({
 
   rol: () => {
 
-    const rol = get().user?.rol?.nombre
+    const rol = get()._nombreRol(get().user)
 
     console.log('========== rol() ==========')
     console.log('Rol completo:', get().user?.rol)
-    console.log('Nombre del rol:', rol)
+    console.log('Nombre del rol (normalizado):', rol)
     console.log('Tipo:', typeof rol)
     console.log('============================')
 
-    return rol?.toLowerCase() || ''
+    return rol || ''
   },
 
 }))

@@ -20,11 +20,20 @@ router.register(
 )
 
 urlpatterns = [
+    # /api/ia/analizar/ ahora corre de forma SÍNCRONA (ver AnalisisCasoView),
+    # ya no encola nada en Celery.
     path("analizar/", AnalisisCasoView.as_view(), name="ia-analizar"),
-    path(
-        "tarea/<str:task_id>/",
-        EstadoTareaView.as_view(),
-        name="ia-tarea-estado",
-    ),
+
+    # Deshabilitada mientras Celery no esté configurado: no hay tareas
+    # asíncronas encoladas cuyo task_id se pueda consultar acá (ver
+    # notas en EstadoTareaView y en EmbeddingArticuloViewSet.regenerar
+    # dentro de views/analisis_view.py). Descomentar cuando Celery
+    # esté funcionando y los endpoints vuelvan a usar `.delay()`.
+    # path(
+    #     "tarea/<str:task_id>/",
+    #     EstadoTareaView.as_view(),
+    #     name="ia-tarea-estado",
+    # ),
+
     path("", include(router.urls)),
 ]

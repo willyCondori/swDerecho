@@ -1,6 +1,7 @@
 // modules/clientes/pages/ClientesPage.jsx
 import { useNavigate } from 'react-router-dom'
 import useClientes from '../hooks/useClientes'
+import useAuthStore from '../../auth/store/authStore'
 import styles from './ClientesPage.module.css'
 
 function getNombreCompleto(cliente) {
@@ -22,6 +23,7 @@ function SkeletonRows() {
 
 export default function ClientesPage() {
   const navigate = useNavigate()
+  const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
   const {
     clientes, loading, error, search, setSearch, buscando,
     page, setPage, totalPages, count, reload, eliminarCliente,
@@ -44,10 +46,12 @@ export default function ClientesPage() {
           <p className={styles.subtitle}>Datos de contacto de tus clientes.</p>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
-            <i className="ti ti-user-plus" aria-hidden="true" />
-            Nuevo cliente
-          </button>
+          {puedeEscribir && (
+            <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
+              <i className="ti ti-user-plus" aria-hidden="true" />
+              Nuevo cliente
+            </button>
+          )}
         </div>
       </header>
 
@@ -82,7 +86,7 @@ export default function ClientesPage() {
             <p className={styles.emptyText}>
               {buscando ? 'Sin resultados para tu búsqueda.' : 'No hay clientes registrados aún.'}
             </p>
-            {!buscando && (
+            {!buscando && puedeEscribir && (
               <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
                 <i className="ti ti-plus" aria-hidden="true" /> Crear primer cliente
               </button>
@@ -94,7 +98,7 @@ export default function ClientesPage() {
               <tr>
                 <th>Cliente</th>
                 <th>Teléfono</th>
-                <th aria-label="Acciones" />
+                {puedeEscribir && <th aria-label="Acciones" />}
               </tr>
             </thead>
             <tbody>
@@ -105,13 +109,15 @@ export default function ClientesPage() {
                   <tr key={cliente.id} onClick={() => navigate(`/clientes/${cliente.id}`)}>
                     <td className={styles.clienteNombre}>{getNombreCompleto(cliente)}</td>
                     <td className={styles.clienteMeta}>{cliente.telefono || '—'}</td>
-                    <td>
-                      <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
-                        <button className={styles.iconBtn} title="Eliminar" onClick={() => handleEliminar(cliente)}>
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </div>
-                    </td>
+                    {puedeEscribir && (
+                      <td>
+                        <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
+                          <button className={styles.iconBtn} title="Eliminar" onClick={() => handleEliminar(cliente)}>
+                            <i className="ti ti-trash" aria-hidden="true" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}

@@ -1,0 +1,100 @@
+/* modules/usuarios/pages/RolesPage.module.css */
+
+.root { composes: root from '../../../styles/shared.module.css'; }
+.header { composes: header from '../../../styles/shared.module.css'; }
+.headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.btnDanger { composes: btnDanger from '../../../styles/shared.module.css'; }
+.toolbar { composes: toolbar from '../../../styles/shared.module.css'; }
+.tabs { composes: tabs from '../../../styles/shared.module.css'; }
+.tab { composes: tab from '../../../styles/shared.module.css'; }
+.tabActive { composes: tabActive from '../../../styles/shared.module.css'; }
+.searchBox { composes: searchBox from '../../../styles/shared.module.css'; }
+.searchInput { composes: searchInput from '../../../styles/shared.module.css'; }
+.searchIcon { composes: searchIcon from '../../../styles/shared.module.css'; }
+.resultCount { composes: resultCount from '../../../styles/shared.module.css'; }
+.card { composes: card from '../../../styles/shared.module.css'; }
+.table { composes: table from '../../../styles/shared.module.css'; }
+.badge { composes: badge from '../../../styles/shared.module.css'; }
+.actionsCell { composes: actionsCell from '../../../styles/shared.module.css'; }
+.iconBtn { composes: iconBtn from '../../../styles/shared.module.css'; }
+.emptyState { composes: emptyState from '../../../styles/shared.module.css'; }
+.emptyIcon { composes: emptyIcon from '../../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
+.skeleton { composes: skeleton from '../../../styles/shared.module.css'; }
+.pagination { composes: pagination from '../../../styles/shared.module.css'; }
+.pageInfo { composes: pageInfo from '../../../styles/shared.module.css'; }
+.pageControls { composes: pageControls from '../../../styles/shared.module.css'; }
+
+/* ── Formulario (crear/editar rol) ─────────────────────────── */
+.formCard { composes: formCard from '../../../styles/shared.module.css'; }
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
+.formGrid { composes: formGrid from '../../../styles/shared.module.css'; }
+.fullWidth { composes: fullWidth from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.textarea { composes: textarea from '../../../styles/shared.module.css'; }
+.fieldError { composes: fieldError from '../../../styles/shared.module.css'; }
+.submitRow { composes: submitRow from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+
+/* ── Específico de roles ─────────────────────────────────── */
+.rolNombre {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.rolDescripcion {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 420px;
+}
+
+.badgePurple {
+  composes: badgePurple from '../../../styles/shared.module.css';
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  border-radius: var(--radius-full);
+}
+
+.activo {
+  composes: badgeOk from '../../../styles/shared.module.css';
+}
+
+.inactivo {
+  background: rgba(163, 45, 45, 0.15);
+  color: var(--c-red-100);
+  border: 1px solid rgba(163, 45, 45, 0.3);
+}
+
+.iconBtn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.iconBtn:disabled:hover {
+  background: none;
+  color: var(--c-text-muted);
+}
+
+@media (max-width: 640px) {
+  .formGrid { grid-template-columns: 1fr; }
+  .submitRow { flex-direction: column; align-items: stretch; }
+}

@@ -26,6 +26,7 @@ const NAV_ITEMS = [
     items: [
       { to: '/auditoria',    icon: 'ti-shield-check', label: 'Auditoría',    adminOnly: true },
       { to: '/usuarios',     icon: 'ti-users-group',  label: 'Usuarios',     adminOnly: true },
+      { to: '/usuarios/roles', icon: 'ti-shield-lock', label: 'Roles',       adminOnly: true },
       { to: '/configuracion',icon: 'ti-settings',     label: 'Configuración' },
     ],
   },
@@ -71,6 +72,7 @@ export default function AppLayout() {
                   <NavLink
                     key={item.to}
                     to={item.to}
+                    end={item.to === '/usuarios'}
                     className={({ isActive }) =>
                       `${styles.navItem} ${isActive ? styles.active : ''}`
                     }

@@ -12,7 +12,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.views import APIView
 
 from core.permissions.auditoria_mixin import AuditoriaMixin, registrar_auditoria
-from core.permissions.roles_permission import EsAbogado, EsAdmin, EsUsuarioAutenticado
+from core.permissions.roles_permission import EsAdmin, EsOperativo, EsUsuarioAutenticado
 from modulo_documentos.models.documento import (
     DocumentoCaso,
     DocumentoGenerado,
@@ -77,12 +77,11 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
     def get_permissions(self):
         if self.action == "destroy":
             return [EsAdmin()]
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def get_queryset(self):
         qs      = super().get_queryset()
         user    = self.request.user
-        rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
         if not ve_todo(user):
@@ -167,7 +166,7 @@ class PlantillaDocumentoViewSet(AuditoriaMixin, ModelViewSet):
 
     def get_permissions(self):
         if self.action in ["list", "retrieve", "descargar"]:
-            return [EsAbogado()]
+            return [EsOperativo()]
         return [EsAdmin()]
 
     def destroy(self, request, *args, **kwargs):
@@ -220,12 +219,11 @@ class DocumentoGeneradoViewSet(ModelViewSet):
     http_method_names= ["get", "post", "head", "options"]
 
     def get_permissions(self):
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def get_queryset(self):
         qs   = super().get_queryset()
         user = self.request.user
-        rol  = getattr(user.rol, "nombre", "") if user.rol else ""
         if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         caso_id = self.request.query_params.get("caso_id")

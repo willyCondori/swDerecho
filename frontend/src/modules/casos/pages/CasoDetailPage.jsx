@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
+import useAuthStore from '../../auth/store/authStore'
 import styles from './CasoDetailPage.module.css'
 
 function EstadoBadge({ tieneResultado, tieneDocumento }) {
@@ -17,6 +18,7 @@ function EstadoBadge({ tieneResultado, tieneDocumento }) {
 export default function CasoDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
   const fileInputRef = useRef(null)
   const [analisisEncolado, setAnalisisEncolado] = useState(false)
 
@@ -66,13 +68,15 @@ export default function CasoDetailPage() {
           </div>
           <h1 className={styles.title}>{caso.titulo}</h1>
         </div>
-        <button
-          type="button"
-          className={styles.btnSecondary}
-          onClick={() => navigate(`/casos/${id}/editar`)}
-        >
-          <i className="ti ti-edit" aria-hidden="true" /> Editar
-        </button>
+        {puedeEscribir && (
+          <button
+            type="button"
+            className={styles.btnSecondary}
+            onClick={() => navigate(`/casos/${id}/editar`)}
+          >
+            <i className="ti ti-edit" aria-hidden="true" /> Editar
+          </button>
+        )}
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
@@ -99,21 +103,25 @@ export default function CasoDetailPage() {
               ) : (
                 <span className={styles.emptyText}>Sin PDF adjunto.</span>
               )}
-              <button
-                type="button"
-                className={styles.btnLink}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={subiendoPdf}
-              >
-                {subiendoPdf ? 'Subiendo...' : caso.tiene_documento ? 'Reemplazar PDF' : 'Adjuntar PDF'}
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/pdf"
-                style={{ display: 'none' }}
-                onChange={handleArchivoSeleccionado}
-              />
+              {puedeEscribir && (
+                <>
+                  <button
+                    type="button"
+                    className={styles.btnLink}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={subiendoPdf}
+                  >
+                    {subiendoPdf ? 'Subiendo...' : caso.tiene_documento ? 'Reemplazar PDF' : 'Adjuntar PDF'}
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/pdf"
+                    style={{ display: 'none' }}
+                    onChange={handleArchivoSeleccionado}
+                  />
+                </>
+              )}
             </div>
           </div>
 
@@ -234,27 +242,29 @@ export default function CasoDetailPage() {
             </div>
           )}
 
-          <div className={styles.card}>
-            <button
-              type="button"
-              className={styles.btnPrimary}
-              onClick={handleAnalizar}
-              disabled={analizando || analisisEncolado}
-            >
-              {analizando
-                ? 'Encolando análisis...'
-                : analisisEncolado
-                  ? 'Análisis en proceso...'
-                  : caso.resultado
-                    ? 'Volver a analizar'
-                    : 'Analizar caso con IA'}
-            </button>
-            {analisisEncolado && (
-              <p className={styles.hintText}>
-                El análisis corre en segundo plano. Recargá la página en unos minutos para ver el resultado.
-              </p>
-            )}
-          </div>
+          {puedeEscribir && (
+            <div className={styles.card}>
+              <button
+                type="button"
+                className={styles.btnPrimary}
+                onClick={handleAnalizar}
+                disabled={analizando || analisisEncolado}
+              >
+                {analizando
+                  ? 'Encolando análisis...'
+                  : analisisEncolado
+                    ? 'Análisis en proceso...'
+                    : caso.resultado
+                      ? 'Volver a analizar'
+                      : 'Analizar caso con IA'}
+              </button>
+              {analisisEncolado && (
+                <p className={styles.hintText}>
+                  El análisis corre en segundo plano. Recargá la página en unos minutos para ver el resultado.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
