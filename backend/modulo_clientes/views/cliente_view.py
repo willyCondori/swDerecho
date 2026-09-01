@@ -8,7 +8,7 @@ from rest_framework.viewsets import ModelViewSet
 
 from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import AuditoriaMixin
-from core.permissions.roles_permission import EsAbogado, EsAdmin
+from core.permissions.roles_permission import EsOperativo
 from modulo_clientes.models.cliente import Cliente
 from modulo_clientes.serializers.cliente_serializer import (
     ClienteListSerializer,
@@ -21,11 +21,11 @@ MIN_CARACTERES_BUSQUEDA = 2
 
 class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/clientes/           — lista [abogado, admin]
-    POST   /api/clientes/           — crear [abogado, admin]
-    GET    /api/clientes/{id}/      — detalle [abogado, admin]
-    PATCH  /api/clientes/{id}/      — actualizar [abogado, admin]
-    DELETE /api/clientes/{id}/      — soft-delete [admin]
+    GET    /api/clientes/           — lista [admin/abogado: todo | asistente: lectura]
+    POST   /api/clientes/           — crear [admin, abogado]
+    GET    /api/clientes/{id}/      — detalle
+    PATCH  /api/clientes/{id}/      — actualizar [admin, abogado]
+    DELETE /api/clientes/{id}/      — soft-delete [admin, abogado]
     GET    /api/clientes/lista/     — compacto para selects
     GET    /api/clientes/{id}/casos/— casos del cliente
     GET    /api/clientes/buscar/    — búsqueda por nombre (descifrado)
@@ -53,9 +53,7 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
         return ClienteReadSerializer
 
     def get_permissions(self):
-        if self.action == "destroy":
-            return [EsAdmin()]
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def destroy(self, request, *args, **kwargs):
         """Soft-delete: no elimina el registro, solo lo marca inactivo."""

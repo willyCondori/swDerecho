@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin
-from core.permissions.roles_permission import EsAbogado, EsAdmin
+from core.permissions.roles_permission import EsOperativo
+from core.permissions.roles import ve_todo
 from modulo_casos.models.caso import Caso
 from modulo_casos.models.hecho import Hecho
 from modulo_casos.models.petitorio import Petitorio
@@ -20,24 +21,26 @@ from modulo_casos.serializers.caso_serializer import (
     ResultadoCasoSerializer,
 )
 
-ROL_ADMINISTRADOR = "administrador"
-
-
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/casos/                    — lista con filtros [abogado, admin]
-    POST   /api/casos/                    — crear caso (texto o PDF), cliente ya existente
-    POST   /api/casos/crear_con_cliente/  — crea cliente + caso en una transacción atómica
+    GET    /api/casos/                    — lista con filtros [admin/abogado: todos | asistente: solo propios, lectura]
+    POST   /api/casos/                    — crear caso (texto o PDF), cliente ya existente [admin, abogado]
+    POST   /api/casos/crear_con_cliente/  — crea cliente + caso en una transacción atómica [admin, abogado]
     GET    /api/casos/{id}/               — detalle completo
-    PATCH  /api/casos/{id}/               — editar título/descripción/estado
-    DELETE /api/casos/{id}/               — soft-delete [admin]
-    POST   /api/casos/{id}/subir_pdf/     — adjuntar PDF al caso
+    PATCH  /api/casos/{id}/               — editar título/descripción/estado [admin, abogado]
+    DELETE /api/casos/{id}/               — soft-delete [admin, abogado]
+    POST   /api/casos/{id}/subir_pdf/     — adjuntar PDF al caso [admin, abogado]
     GET    /api/casos/{id}/hechos/        — lista hechos del caso
     GET    /api/casos/{id}/petitorios/    — lista petitorios del caso
     GET    /api/casos/{id}/resultado/     — resultado IA del caso
     GET    /api/casos/{id}/articulos/     — artículos del ranking
-    POST   /api/casos/{id}/analizar/      — disparar pipeline IA
+    POST   /api/casos/{id}/analizar/      — disparar pipeline IA [admin, abogado]
     GET    /api/casos/mis_casos/          — casos del usuario autenticado
+
+    Permisos (ver core.permissions.roles_permission.EsOperativo):
+    Administrador y Abogado tienen acceso total, incluyendo eliminar
+    (soft-delete) de forma lógica. Asistente solo puede leer (GET) y
+    únicamente ve sus propios casos.
     """
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["codigo", "titulo", "descripcion"]
@@ -53,11 +56,10 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             .order_by("-created_at")
         )
         user = self.request.user
-        rol  = getattr(user.rol, "nombre", "").lower() if user.rol else ""
 
-        # Abogado solo ve sus propios casos; admin ve todos.
-        # (rol ya viene en minúsculas, la comparación debe ser en minúsculas también)
-        if rol != ROL_ADMINISTRADOR:
+        # Administrador y Abogado ven todos los casos; Asistente solo
+        # ve los propios (y en modo lectura, ver get_permissions()).
+        if not ve_todo(user):
             qs = qs.filter(usuario=user)
 
         # --- filtros opcionales via query params ---
@@ -93,9 +95,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         return CasoReadSerializer
 
     def get_permissions(self):
-        if self.action == "destroy":
-            return [EsAdmin()]
-        return [EsAbogado()]
+        return [EsOperativo()]
 
     def create(self, request, *args, **kwargs):
         """

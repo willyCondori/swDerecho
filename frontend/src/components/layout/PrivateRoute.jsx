@@ -20,8 +20,8 @@ function BootstrapLoader() {
   )
 }
 
-export default function PrivateRoute({ adminOnly = false }) {
-  const { isAuthenticated, isAdmin, isBootstrapping } = useAuthStore()
+export default function PrivateRoute({ adminOnly = false, requiereEscritura = false }) {
+  const { isAuthenticated, isAdmin, puedeEscribir, isBootstrapping } = useAuthStore()
 
   // El access token vive solo en memoria: recién montada la app todavía
   // no sabemos si hay una sesión válida hasta que bootstrap() (en
@@ -32,6 +32,12 @@ export default function PrivateRoute({ adminOnly = false }) {
 
   if (!isAuthenticated()) return <Navigate to="/login" replace />
   if (adminOnly && !isAdmin()) return <Navigate to="/dashboard" replace />
+
+  // Rutas de creación/edición: Asistente es de solo lectura (espeja el
+  // permiso EsOperativo del backend). Sin esto, Asistente podía entrar
+  // directo por URL a formularios que después de todos modos el
+  // backend le iba a rechazar con 403.
+  if (requiereEscritura && !puedeEscribir()) return <Navigate to="/dashboard" replace />
 
   return <Outlet />
 }
