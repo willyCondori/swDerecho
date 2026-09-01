@@ -58,6 +58,13 @@ export default function UsuariosPage() {
         </div>
         <div className={styles.headerActions}>
           <button
+            className={styles.btnSecondary}
+            onClick={() => navigate('/usuarios/roles')}
+          >
+            <i className="ti ti-shield-lock" aria-hidden="true" />
+            Gestionar roles
+          </button>
+          <button
             className={styles.btnPrimary}
             onClick={() => navigate('/usuarios/nuevo')}
           >
