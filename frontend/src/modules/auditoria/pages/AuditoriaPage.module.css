@@ -1,0 +1,65 @@
+/* modules/auditoria/pages/AuditoriaPage.module.css */
+
+.root { composes: root from '../../../styles/shared.module.css'; }
+.header { composes: header from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.card { composes: card from '../../../styles/shared.module.css'; }
+.cardPadded { composes: cardPadded from '../../../styles/shared.module.css'; }
+.table { composes: table from '../../../styles/shared.module.css'; }
+.badge { composes: badge from '../../../styles/shared.module.css'; }
+.emptyState { composes: emptyState from '../../../styles/shared.module.css'; }
+.emptyIcon { composes: emptyIcon from '../../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
+.skeleton { composes: skeleton from '../../../styles/shared.module.css'; }
+.resultCount { composes: resultCount from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.select { composes: select from '../../../styles/shared.module.css'; }
+
+/* ── Filtros ────────────────────────────────────────────── */
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr) auto;
+  gap: var(--sp-3);
+  align-items: end;
+}
+
+@media (max-width: 960px) {
+  .filtros { grid-template-columns: repeat(2, 1fr); }
+}
+
+.btnLimpiar {
+  composes: btnSecondary from '../../../styles/shared.module.css';
+  height: 36px;
+}
+
+/* ── Específico de auditoría ──────────────────────────────── */
+.accionBadge {
+  composes: badgeMuted from '../../../styles/shared.module.css';
+}
+
+.accionCreate { background: rgba(99, 153, 34, 0.15); color: var(--c-green-300); border: 1px solid rgba(99, 153, 34, 0.3); }
+.accionUpdate { background: rgba(239, 159, 39, 0.15); color: var(--c-amber-100); border: 1px solid rgba(239, 159, 39, 0.3); }
+.accionDelete { background: rgba(163, 45, 45, 0.15); color: var(--c-red-100); border: 1px solid rgba(163, 45, 45, 0.3); }
+.accionLogin,
+.accionLogout { background: var(--c-purple-800); color: var(--c-purple-100); }
+
+.tablaCell {
+  font-family: var(--font-mono);
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+.usuarioCell {
+  color: var(--c-text-primary);
+}
+
+.fechaCell {
+  color: var(--c-text-muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
