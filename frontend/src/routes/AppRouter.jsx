@@ -18,9 +18,11 @@ const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearU
 const VerUsuarios        = lazy(() => import('../modules/usuarios/pages/UsuariosPage'))
 const PerfilUsuarios       = lazy(() => import('../modules/usuarios/pages/PerfilUsuarioPage'))
 const EditarUsuarios       = lazy(() => import('../modules/usuarios/pages/EditarUsuarioPage'))
+const RolesPage           = lazy(() => import('../modules/usuarios/pages/RolesPage'))
 const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage'))
 const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
+const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
 
 
 function PageLoader() {
@@ -53,17 +55,21 @@ export default function AppRouter() {
           <Route index element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />
 
+          {/* Casos — lectura: cualquier autenticado (Asistente incluido,
+              ve solo los suyos gracias al filtro del backend) */}
           <Route path="/casos" element={
             <Suspense fallback={<PageLoader />}><CasosPage /></Suspense>
-          } />
-          <Route path="/casos/nuevo" element={
-            <Suspense fallback={<PageLoader />}><NuevoCasoPage /></Suspense>
           } />
           <Route path="/casos/:id" element={
             <Suspense fallback={<PageLoader />}><CasoDetailPage /></Suspense>
           } />
-          <Route path="/casos/:id/editar" element={
-            <Suspense fallback={<PageLoader />}><EditarCasoPage /></Suspense>
+
+          {/* Clientes — lectura: cualquier autenticado */}
+          <Route path="/clientes" element={
+            <Suspense fallback={<PageLoader />}><ClientesPage /></Suspense>
+          } />
+          <Route path="/clientes/:id" element={
+            <Suspense fallback={<PageLoader />}><ClienteCasosPage /></Suspense>
           } />
 
           {/* Rutas pendientes de implementar */}
@@ -72,6 +78,22 @@ export default function AppRouter() {
           <Route path="/plantillas/*"    element={<PageLoader />} />
           <Route path="/ia/*"            element={<PageLoader />} />
           <Route path="/configuracion/*" element={<PageLoader />} />
+        </Route>
+
+        {/* Requiere permisos de escritura (admin o abogado) — Asistente
+            queda afuera, espejando el permiso EsOperativo del backend */}
+        <Route element={<PrivateRoute requiereEscritura />}>
+          <Route element={<AppLayout />}>
+            <Route path="/casos/nuevo" element={
+              <Suspense fallback={<PageLoader />}><NuevoCasoPage /></Suspense>
+            } />
+            <Route path="/casos/:id/editar" element={
+              <Suspense fallback={<PageLoader />}><EditarCasoPage /></Suspense>
+            } />
+            <Route path="/clientes/nuevo" element={
+              <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
+            } />
+          </Route>
         </Route>
 
         {/* Admin only */}
@@ -83,7 +105,9 @@ export default function AppRouter() {
             <Route path="/catalogo/cargar" element={
                 <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
               } />
-            <Route path="/auditoria/*" element={<PageLoader />} />
+            <Route path="/auditoria" element={
+                <Suspense fallback={<PageLoader />}><AuditoriaPage /></Suspense>
+              } />
 
             {/* Usuarios — rutas explícitas en vez del wildcard */}
             <Route path="/usuarios" element={
@@ -92,21 +116,15 @@ export default function AppRouter() {
             <Route path="/usuarios/nuevo" element={
                 <Suspense fallback={<PageLoader />}><CrearUsuarios /></Suspense>
               } />
+            <Route path="/usuarios/roles" element={
+                <Suspense fallback={<PageLoader />}><RolesPage /></Suspense>
+              } />
             <Route path="/usuarios/:id" element={
                 <Suspense fallback={<PageLoader />}><PerfilUsuarios /></Suspense>
               } />
             <Route path="/usuarios/:id/editar" element={
                 <Suspense fallback={<PageLoader />}><EditarUsuarios /></Suspense>
               } />
-            <Route path="/clientes" element={
-                <Suspense fallback={<PageLoader />}><ClientesPage /></Suspense>
-              } />
-            <Route path="/clientes/nuevo" element={
-                <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
-              } />
-            <Route path="/clientes/:id" element={
-                <Suspense fallback={<PageLoader />}><ClienteCasosPage /></Suspense>
-              } />              
           </Route>
         </Route>
       </Route>

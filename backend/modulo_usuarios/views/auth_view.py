@@ -13,6 +13,7 @@ from modulo_usuarios.serializers.auth_serializer import (
     CambioPasswordSerializer,
     LoginSerializer,
 )
+from modulo_usuarios.serializers.rol_serializer import RolListSerializer
 
 # ---------------------------------------------------------------------------
 # Cookie httpOnly del refresh token
@@ -78,7 +79,7 @@ class LoginView(APIView):
                 "usuario": {
                     "id": user.id,
                     "usuario": user.usuario,
-                    "rol": user.rol.nombre if user.rol else None,
+                    "rol": RolListSerializer(user.rol).data if user.rol else None,
                 },
             },
             status=status.HTTP_200_OK,

@@ -2,12 +2,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCasos from '../hooks/useCasos'
+import useAuthStore from '../../auth/store/authStore'
 import CasoCard from '../components/CasoCard'
 import CasoFiltros from '../components/CasoFiltros'
 import styles from './CasosPage.module.css'
 
 export default function CasosPage() {
   const navigate = useNavigate()
+  const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
   const {
     casos, loading, error, page, setPage, totalPages, count,
@@ -29,10 +31,12 @@ export default function CasosPage() {
             <i className="ti ti-filter" aria-hidden="true" />
             Filtros
           </button>
-          <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
-            <i className="ti ti-plus" aria-hidden="true" />
-            Nuevo caso
-          </button>
+          {puedeEscribir && (
+            <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
+              <i className="ti ti-plus" aria-hidden="true" />
+              Nuevo caso
+            </button>
+          )}
         </div>
       </header>
 
@@ -74,9 +78,11 @@ export default function CasosPage() {
           <div className={styles.emptyState}>
             <i className={`ti ti-folder-off ${styles.emptyIcon}`} aria-hidden="true" />
             <p className={styles.emptyText}>No se encontraron casos.</p>
-            <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
-              <i className="ti ti-plus" aria-hidden="true" /> Crear primer caso
-            </button>
+            {puedeEscribir && (
+              <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
+                <i className="ti ti-plus" aria-hidden="true" /> Crear primer caso
+              </button>
+            )}
           </div>
         </div>
       ) : (
