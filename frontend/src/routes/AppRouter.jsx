@@ -3,7 +3,9 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout   from '../components/layout/AppLayout'
 import PrivateRoute from '../components/layout/PrivateRoute'
 import LoginPage   from '../modules/auth/pages/LoginPage'
+import CambiarPasswordObligatorioPage from '../modules/auth/pages/CambiarPasswordObligatorioPage'
 import DashboardPage from '../modules/dashboard/pages/DashboardPage'
+import useAuthStore from '../modules/auth/store/authStore'
 
 // Páginas lazy (se crean en siguientes módulos)
 import { lazy, Suspense } from 'react'
@@ -43,11 +45,24 @@ function PageLoader() {
   )
 }
 
+function RutaCambioPassword() {
+  const { isAuthenticated, isBootstrapping } = useAuthStore()
+  if (isBootstrapping) return null
+  if (!isAuthenticated()) return <Navigate to="/login" replace />
+  return <CambiarPasswordObligatorioPage />
+}
+
 export default function AppRouter() {
   return (
     <Routes>
       {/* Pública */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Cambio de contraseña obligatorio del primer login: requiere
+          sesión pero NO pasa por PrivateRoute, porque PrivateRoute
+          redirige acá mismo mientras el flag siga activo (evita el
+          loop de redirecciones). */}
+      <Route path="/cambiar-password" element={<RutaCambioPassword />} />
 
       {/* Protegidas */}
       <Route element={<PrivateRoute />}>
