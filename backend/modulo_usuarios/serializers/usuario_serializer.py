@@ -123,14 +123,22 @@ class UsuarioReadSerializer(serializers.ModelSerializer):
         model  = Usuario
         fields = [
             "id", "usuario", "rol", "perfil",
-            "estado", "created_at",
+            "estado", "debe_cambiar_password", "created_at",
         ]
 
 
 class UsuarioCreateSerializer(serializers.ModelSerializer):
-    """Creación de usuario con contraseña y perfil en un solo request."""
-    password        = serializers.CharField(write_only=True, style={"input_type": "password"})
-    password_confirm= serializers.CharField(write_only=True, style={"input_type": "password"})
+    """
+    Creación de usuario y perfil en un solo request.
+
+    La contraseña ya NO la ingresa el administrador: se genera
+    automáticamente de forma aleatoria y se envía por correo al email
+    del perfil, junto con el nombre de usuario. El usuario queda
+    marcado con debe_cambiar_password=True, así que en su primer
+    login el frontend lo manda a cambiarla antes de dejarlo entrar
+    al resto del sistema (ver CambioPasswordView y AuthStore.login
+    en el frontend).
+    """
     rol_id          = serializers.PrimaryKeyRelatedField(
                           queryset=Rol.objects.filter(estado=True),
                           source="rol",
@@ -140,8 +148,7 @@ class UsuarioCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Usuario
         fields = [
-            "usuario", "password", "password_confirm",
-            "rol_id", "estado", "perfil",
+            "usuario", "rol_id", "estado", "perfil",
         ]
 
     def validate_usuario(self, value):
@@ -156,29 +163,41 @@ class UsuarioCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Este nombre de usuario ya está en uso.")
         return value
 
-    def validate_password(self, value):
-        from .auth_serializer import CambioPasswordSerializer
-        CambioPasswordSerializer._validar_fortaleza_password(value)
-        return value
-
-    def validate(self, attrs):
-        if attrs["password"] != attrs.pop("password_confirm"):
-            raise serializers.ValidationError(
-                {"password_confirm": "Las contraseñas no coinciden."}
-            )
-        return attrs
-
     def create(self, validated_data):
+        from core.utils.emails import enviar_credenciales_usuario
+        from core.utils.passwords import generar_password_aleatoria
+
         perfil_data = validated_data.pop("perfil")
-        password    = validated_data.pop("password")
-        usuario     = Usuario(**validated_data)
+
+        password = generar_password_aleatoria()
+        usuario  = Usuario(debe_cambiar_password=True, **validated_data)
         usuario.set_password(password)
         usuario.save()
 
         perfil_serializer = PerfilUsuarioWriteSerializer(data=perfil_data)
         perfil_serializer.is_valid(raise_exception=True)
-        perfil_serializer.save(usuario=usuario)
+        perfil = perfil_serializer.save(usuario=usuario)
+
+        # El email se guarda cifrado (AES-256) en PerfilUsuario.email;
+        # perfil_data["email"] todavía es el texto plano validado por
+        # el serializer, así que lo usamos directo en vez de descifrar.
+        correo_enviado = enviar_credenciales_usuario(
+            email=perfil_data["email"],
+            usuario=usuario.usuario,
+            password=password,
+        )
+
+        # Se guarda en la instancia (no en BD) para que la vista pueda
+        # informarle al administrador si el correo salió o no.
+        usuario._correo_credenciales_enviado = correo_enviado
         return usuario
+
+    def to_representation(self, instance):
+        data = UsuarioReadSerializer(instance, context=self.context).data
+        data["correo_credenciales_enviado"] = getattr(
+            instance, "_correo_credenciales_enviado", None
+        )
+        return data
 
 
 class UsuarioUpdateSerializer(serializers.ModelSerializer):

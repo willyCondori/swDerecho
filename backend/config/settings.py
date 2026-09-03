@@ -189,6 +189,34 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# ---------------------------------------------------------------------
+# Correo (Gmail SMTP)
+# ---------------------------------------------------------------------
+# Se usa para enviar al usuario nuevo su usuario y contraseña temporal
+# al crearse la cuenta (ver core/utils/emails.py).
+#
+# EMAIL_HOST_USER    : la cuenta de Gmail que envía el correo.
+# EMAIL_HOST_PASSWORD: una "contraseña de aplicación" de Gmail, NO la
+#                      contraseña normal de la cuenta (Gmail exige 2FA
+#                      activado para generar una en
+#                      https://myaccount.google.com/apppasswords).
+#
+# En desarrollo, si no se configuran estas variables, se usa la
+# consola como backend: los correos se imprimen en la terminal en vez
+# de enviarse de verdad, para poder probar el flujo sin credenciales.
+EMAIL_HOST_USER     = os.getenv("EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+
+if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST    = "smtp.gmail.com"
+    EMAIL_PORT    = 587
+    EMAIL_USE_TLS = True
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@jurisia.local")
+
 SENTENCE_TRANSFORMER_MODEL = config(
     'SENTENCE_TRANSFORMER_MODEL',
     default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'

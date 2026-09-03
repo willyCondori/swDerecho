@@ -21,7 +21,7 @@ function BootstrapLoader() {
 }
 
 export default function PrivateRoute({ adminOnly = false, requiereEscritura = false }) {
-  const { isAuthenticated, isAdmin, puedeEscribir, isBootstrapping } = useAuthStore()
+  const { isAuthenticated, isAdmin, puedeEscribir, isBootstrapping, debeCambiarPassword } = useAuthStore()
 
   // El access token vive solo en memoria: recién montada la app todavía
   // no sabemos si hay una sesión válida hasta que bootstrap() (en
@@ -31,6 +31,13 @@ export default function PrivateRoute({ adminOnly = false, requiereEscritura = fa
   if (isBootstrapping) return <BootstrapLoader />
 
   if (!isAuthenticated()) return <Navigate to="/login" replace />
+
+  // Usuario recién creado con contraseña temporal: no puede usar
+  // ninguna ruta protegida hasta que la cambie, sin importar cuál
+  // haya pedido (esto cubre navegar directo a una URL protegida
+  // pegando el link, no solo el flujo normal desde /login).
+  if (debeCambiarPassword()) return <Navigate to="/cambiar-password" replace />
+
   if (adminOnly && !isAdmin()) return <Navigate to="/dashboard" replace />
 
   // Rutas de creación/edición: Asistente es de solo lectura (espeja el
