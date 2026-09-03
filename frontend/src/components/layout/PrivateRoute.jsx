@@ -34,9 +34,7 @@ export default function PrivateRoute({ adminOnly = false, requiereEscritura = fa
   if (adminOnly && !isAdmin()) return <Navigate to="/dashboard" replace />
 
   // Rutas de creación/edición: Asistente es de solo lectura (espeja el
-  // permiso EsOperativo del backend). Sin esto, Asistente podía entrar
-  // directo por URL a formularios que después de todos modos el
-  // backend le iba a rechazar con 403.
+  // permiso EsOperativo del backend). 
   if (requiereEscritura && !puedeEscribir()) return <Navigate to="/dashboard" replace />
 
   return <Outlet />

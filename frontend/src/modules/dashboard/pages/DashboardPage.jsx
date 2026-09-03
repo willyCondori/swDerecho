@@ -55,11 +55,13 @@ export default function DashboardPage() {
           <CasosRecientesCard casos={casos} loading={loading} error={error} onRetry={reload} />
           <ArticulosCard />
         </div>
+{/* 
+<div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+  <PipelineCard pipelineState={PIPELINE_STATE} />
+  <AccesoRapidoCard />
+</div>
+*/}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-          <PipelineCard pipelineState={PIPELINE_STATE} />
-          <AccesoRapidoCard />
-        </div>
       </div>
     </div>
   )

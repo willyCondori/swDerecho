@@ -1,5 +1,3 @@
-// api/tokenManager.js
-//
 // Fuente única del access token: vive SOLO en una variable en memoria,
 // nunca en localStorage ni sessionStorage. Un script inyectado por XSS
 // puede leer localStorage con una línea (`localStorage.getItem(...)`),
