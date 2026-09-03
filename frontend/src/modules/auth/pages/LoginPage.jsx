@@ -30,7 +30,6 @@ export default function LoginPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-      console.log("🚀 SUBMIT EJECUTADO")  // 👈 AGREGA ESTO
 
     const errs = validate()
     if (Object.keys(errs).length) {
@@ -38,9 +37,11 @@ export default function LoginPage() {
       return
     }
     const result = await login(form)
-      console.log("RESULT:", result) // 👈 IMPORTANTE
 
-    if (result.success) navigate('/dashboard')
+    if (result.success) {
+      const debeCambiar = useAuthStore.getState().debeCambiarPassword()
+      navigate(debeCambiar ? '/cambiar-password' : '/dashboard')
+    }
   }
 
   return (

@@ -271,6 +271,26 @@ const useAuthStore = create((set, get) => ({
   },
 
 
+  // ── ¿Debe cambiar la contraseña antes de usar el sistema? ──
+  // Se activa en el usuario recién creado con contraseña aleatoria
+  // (ver CrearUsuarioPage / backend UsuarioCreateSerializer). Mientras
+  // esté en true, PrivateRoute lo manda siempre a /cambiar-password
+  // sin importar qué ruta haya pedido.
+
+  debeCambiarPassword: () => !!get().user?.debe_cambiar_password,
+
+
+  // ── Marcar la contraseña como ya cambiada ────────────────
+  // La llama CambiarPasswordObligatorioPage tras un cambio exitoso,
+  // para no tener que volver a pedir /me al backend.
+
+  marcarPasswordCambiada: () => {
+    set((state) => ({
+      user: state.user ? { ...state.user, debe_cambiar_password: false } : state.user,
+    }))
+  },
+
+
   // ── Obtener nombre del rol ───────────────────────────────
 
   rol: () => {
