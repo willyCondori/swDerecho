@@ -61,8 +61,21 @@ export default function CrearUsuarioPage() {
           <div>
             <p className={styles.resultTitle}>Usuario creado correctamente</p>
             <p className={styles.resultSubtitle}>
-              <strong>{creado.usuario}</strong> ya puede iniciar sesión con la
-              contraseña asignada.
+              {creado.correo_credenciales_enviado ? (
+                <>
+                  Se envió el usuario <strong>{creado.usuario}</strong> y una
+                  contraseña temporal al correo{' '}
+                  <strong>{creado.perfil?.email}</strong>. Se le pedirá
+                  cambiarla en su primer inicio de sesión.
+                </>
+              ) : (
+                <>
+                  <strong>{creado.usuario}</strong> se creó correctamente, pero
+                  no se pudo enviar el correo con la contraseña temporal.
+                  Reenviala manualmente o contactá al administrador del
+                  sistema.
+                </>
+              )}
             </p>
           </div>
           <div className={styles.resultActions}>

@@ -79,6 +79,7 @@ class LoginView(APIView):
                     "id": user.id,
                     "usuario": user.usuario,
                     "rol": RolListSerializer(user.rol).data if user.rol else None,
+                    "debe_cambiar_password": user.debe_cambiar_password,
                 },
             },
             status=status.HTTP_200_OK,
@@ -185,7 +186,8 @@ class CambioPasswordView(APIView):
 
         user = request.user
         user.set_password(serializer.validated_data["password_nuevo"])
-        user.save(update_fields=["password"])
+        user.debe_cambiar_password = False
+        user.save(update_fields=["password", "debe_cambiar_password"])
 
         registrar_auditoria(
             usuario=user,
