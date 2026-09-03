@@ -42,26 +42,15 @@ export default function UsuarioForm({
             )}
           </div>
 
-          {!esEdicion && (
-            <>
-              <div className={styles.field}>
-                <label className={styles.label}>Contraseña</label>
-                <input className={styles.input} type="password" name="password" value={form.password} onChange={onChange} />
-                {fieldErrors.password && (
-                  <span className={styles.fieldError}>{fieldErrors.password}</span>
-                )}
-              </div>
-
-              <div className={styles.field}>
-                <label className={styles.label}>Confirmar contraseña</label>
-                <input className={styles.input} type="password" name="confirmarPassword" value={form.confirmarPassword} onChange={onChange} />
-                {fieldErrors.confirmarPassword && (
-                  <span className={styles.fieldError}>{fieldErrors.confirmarPassword}</span>
-                )}
-              </div>
-            </>
-          )}
         </div>
+
+        {!esEdicion && (
+          <p className={styles.hint} style={{ marginTop: 'var(--sp-2)' }}>
+            <i className="ti ti-mail" aria-hidden="true" /> Se generará una contraseña
+            temporal aleatoria y se enviará junto con el usuario al correo indicado
+            abajo. En su primer inicio de sesión se le pedirá cambiarla.
+          </p>
+        )}
 
         {esEdicion && (
           <>

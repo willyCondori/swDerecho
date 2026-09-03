@@ -36,6 +36,10 @@ class Usuario(AbstractBaseUser):
                        blank=True,
                    )
     estado       = models.BooleanField(default=True)
+    # Se activa al crear el usuario con contraseña generada
+    # automáticamente. Obliga a cambiarla en el primer login antes
+    # de dejarlo usar el resto del sistema.
+    debe_cambiar_password = models.BooleanField(default=False)
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
 

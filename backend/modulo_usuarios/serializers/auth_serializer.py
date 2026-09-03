@@ -41,7 +41,19 @@ class LoginSerializer(serializers.Serializer):
 
 
 class CambioPasswordSerializer(serializers.Serializer):
-    password_actual  = serializers.CharField(write_only=True, style={"input_type": "password"})
+    """
+    password_actual es opcional: en el cambio obligatorio del primer
+    login (Usuario.debe_cambiar_password=True) el frontend no la manda,
+    porque el usuario ya se autenticó con ella para conseguir el JWT
+    con el que llega hasta acá — pedírsela de nuevo es una verificación
+    redundante. Se deja opcional (en vez de sacarla del todo) por si en
+    el futuro se agrega un cambio de contraseña "voluntario" desde el
+    perfil, donde sí conviene volver a pedirla.
+    """
+    password_actual  = serializers.CharField(
+                            write_only=True, style={"input_type": "password"},
+                            required=False,
+                        )
     password_nuevo   = serializers.CharField(write_only=True, style={"input_type": "password"})
     password_confirm = serializers.CharField(write_only=True, style={"input_type": "password"})
 
@@ -60,7 +72,20 @@ class CambioPasswordSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"password_confirm": "Las contraseñas nuevas no coinciden."}
             )
-        if attrs["password_actual"] == attrs["password_nuevo"]:
+
+        user = self.context["request"].user
+        # Si mandaron password_actual ya se comparó tal cual arriba;
+        # si no la mandaron (cambio obligatorio del primer login),
+        # igual chequeamos contra la contraseña ya guardada para que
+        # no "cambie" a la misma contraseña temporal que le llegó por
+        # correo.
+        password_actual = attrs.get("password_actual")
+        es_igual_a_actual = (
+            password_actual == attrs["password_nuevo"]
+            if password_actual is not None
+            else user.check_password(attrs["password_nuevo"])
+        )
+        if es_igual_a_actual:
             raise serializers.ValidationError(
                 {"password_nuevo": "La nueva contraseña no puede ser igual a la actual."}
             )
