@@ -45,7 +45,6 @@ def _set_refresh_cookie(response: Response, refresh_token: str) -> None:
         path=REFRESH_COOKIE_PATH,
     )
 
-
 def _delete_refresh_cookie(response: Response) -> None:
     response.delete_cookie(key=REFRESH_COOKIE_NAME, path=REFRESH_COOKIE_PATH)
 
