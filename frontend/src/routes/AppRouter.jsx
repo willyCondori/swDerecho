@@ -72,8 +72,15 @@ export default function AppRouter() {
             <Suspense fallback={<PageLoader />}><ClienteCasosPage /></Suspense>
           } />
 
+          {/* Catálogo — lectura: cualquier autenticado (espeja
+              EsUsuarioAutenticado en ArticuloViewSet.get_permissions,
+              que permite list/retrieve/por_norma/por_rama/entidades
+              a Admin, Abogado y Asistente por igual) */}
+          <Route path="/catalogo/articulos" element={
+            <Suspense fallback={<PageLoader />}><VerArticulos /></Suspense>
+          } />
+
           {/* Rutas pendientes de implementar */}
-          <Route path="/catalogo/*"      element={<PageLoader />} />
           <Route path="/documentos/*"    element={<PageLoader />} />
           <Route path="/plantillas/*"    element={<PageLoader />} />
           <Route path="/ia/*"            element={<PageLoader />} />
@@ -93,18 +100,19 @@ export default function AppRouter() {
             <Route path="/clientes/nuevo" element={
               <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
             } />
+
+            {/* Carga de PDFs de normas — espeja EsOperativo en
+                carga_articulos_view.py: Admin y Abogado pueden cargar
+                y sobrescribir el catálogo, Asistente no. */}
+            <Route path="/catalogo/cargar" element={
+              <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
+            } />
           </Route>
         </Route>
 
         {/* Admin only */}
         <Route element={<PrivateRoute adminOnly />}>
           <Route element={<AppLayout />}>
-            <Route path="/catalogo/articulos" element={
-                <Suspense fallback={<PageLoader />}><VerArticulos /></Suspense>
-              } />
-            <Route path="/catalogo/cargar" element={
-                <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
-              } />
             <Route path="/auditoria" element={
                 <Suspense fallback={<PageLoader />}><AuditoriaPage /></Suspense>
               } />

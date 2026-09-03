@@ -2,12 +2,19 @@
 import { useCallback, useEffect, useState } from 'react'
 import usuariosApi from '../../../api/usuariosApi'
 
+// Espeja 1:1 los campos de PerfilUsuarioWriteSerializer
+// (backend/modulo_usuarios/serializers/usuario_serializer.py).
+// Todas las claves arrancan con un valor definido a propósito:
+// si alguna quedara en `undefined` acá, el input correspondiente
+// nace "no controlado" y React tira el warning de
+// "changing an uncontrolled input to be controlled" en cuanto
+// handleChange le asigna el primer valor real.
 const FORM_INICIAL = {
-  nombreCompleto: '',
+  nombres: '',
+  apellidos: '',
   email: '',
   telefono: '',
-  profesion: '',
-  biografia: '',
+  estado: true,
 }
 
 function extraerMensajeError(err) {
@@ -23,9 +30,8 @@ function extraerMensajeError(err) {
  * Carga el perfil del usuario indicado y expone el estado del
  * formulario para editarlo vía PATCH /api/usuarios/{id}/perfil/.
  *
- * NOTA: los nombres de campo (nombre_completo, telefono, profesion,
- * biografia) son un punto de partida razonable — ajústalos a los que
- * realmente exponga tu PerfilUsuarioWriteSerializer.
+ * Campos alineados con PerfilUsuarioWriteSerializer: nombres,
+ * apellidos, email, telefono, estado.
  */
 export function usePerfilUsuario(usuarioId) {
   const [form, setForm] = useState(FORM_INICIAL)
@@ -44,11 +50,11 @@ export function usePerfilUsuario(usuarioId) {
         if (!activo) return
         const perfil = data.perfil ?? {}
         setForm({
-          nombreCompleto: perfil.nombre_completo ?? '',
+          nombres: perfil.nombres ?? '',
+          apellidos: perfil.apellidos ?? '',
           email: perfil.email ?? '',
           telefono: perfil.telefono ?? '',
-          profesion: perfil.profesion ?? '',
-          biografia: perfil.biografia ?? '',
+          estado: perfil.estado ?? true,
         })
       })
       .catch(() => {
@@ -60,16 +66,23 @@ export function usePerfilUsuario(usuarioId) {
     return () => { activo = false }
   }, [usuarioId])
 
+  // Maneja tanto inputs de texto (usan e.target.value) como el
+  // checkbox de "estado" (usa e.target.checked) — antes el checkbox
+  // pasaba por acá con e.target.value ("on"/"" como string) en vez
+  // de un booleano real.
   const handleChange = useCallback((e) => {
-    const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    const { name, type, value, checked } = e.target
+    const nuevoValor = type === 'checkbox' ? checked : value
+    setForm((prev) => ({ ...prev, [name]: nuevoValor }))
     setFieldErrors((prev) => (prev[name] ? { ...prev, [name]: null } : prev))
   }, [])
 
   const validar = () => {
     const errores = {}
-    if (!form.nombreCompleto.trim()) errores.nombreCompleto = 'El nombre completo es obligatorio.'
-    if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) errores.email = 'Correo inválido.'
+    if (!form.nombres.trim()) errores.nombres = 'El nombre es obligatorio.'
+    if (!form.apellidos.trim()) errores.apellidos = 'El apellido es obligatorio.'
+    if (!form.email.trim()) errores.email = 'El correo es obligatorio.'
+    else if (!/^\S+@\S+\.\S+$/.test(form.email)) errores.email = 'Correo inválido.'
     return errores
   }
 
@@ -84,16 +97,17 @@ export function usePerfilUsuario(usuarioId) {
     setError(null)
     setGuardado(false)
     try {
-      await usuariosService.actualizarPerfil(usuarioId, {
-        nombre_completo: form.nombreCompleto.trim(),
-        email: form.email.trim() || null,
-        telefono: form.telefono.trim() || null,
-        profesion: form.profesion.trim() || null,
-        biografia: form.biografia.trim() || null,
+      await usuariosApi.actualizarPerfil(usuarioId, {
+        nombres: form.nombres.trim(),
+        apellidos: form.apellidos.trim(),
+        email: form.email.trim(),
+        telefono: form.telefono.trim(),
+        estado: form.estado,
       })
       setGuardado(true)
       return true
     } catch (err) {
+      setFieldErrors(err.response?.data ?? {})
       setError(extraerMensajeError(err))
       return false
     } finally {

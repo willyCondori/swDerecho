@@ -24,6 +24,7 @@ export default function App() {
   // el backend responde 401 → te patea a /login aunque la sesión sea
   // válida. Este ref evita que se dispare más de una vez por carga real
   // de la página.
+  
   const yaInicio = useRef(false)
 
   useEffect(() => {
