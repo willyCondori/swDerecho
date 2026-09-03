@@ -8,10 +8,8 @@ from .views.auth_view import (
     MeView,
     RefreshTokenView,
 )
-from .views.usuario_view import (
-    UsuarioViewSet,
-    RolViewSet
-)
+from .views.usuario_view import UsuarioViewSet
+from .views.rol_view import RolViewSet
 
 router = DefaultRouter()
 router.register(r"roles", RolViewSet, basename="roles")
