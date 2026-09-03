@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from core.permissions.auditoria_mixin import registrar_auditoria
-from core.permissions.roles_permission import EsAdmin
+from core.permissions.roles_permission import EsOperativo
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.carga_pdf_service import JERARQUIA_POR_FUENTE
 from modulo_catalogo.services.background_tasks import (
@@ -71,7 +71,7 @@ class CargaArticulosView(APIView):
     antes de que la respuesta llegara, aunque los artículos ya se
     hubieran guardado en la BD durante el loop.
     """
-    permission_classes = [EsAdmin]
+    permission_classes = [EsOperativo]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request):
@@ -218,7 +218,7 @@ class EstadoCargaPDFView(APIView):
     Si el task_id no existe o ya expiró del cache (2 horas):
         404 {"detail": "Tarea no encontrada o expirada."}
     """
-    permission_classes = [EsAdmin]
+    permission_classes = [EsOperativo]
 
     def get(self, request, task_id=None):
         # Acepta el task_id tanto por la URL (/estado/<task_id>/) como
@@ -260,7 +260,7 @@ class EstadoCargaPDFView(APIView):
 # FUENTES
 # ─────────────────────────────────────────────
 class FuentesDisponiblesView(APIView):
-    permission_classes = [EsAdmin]
+    permission_classes = [EsOperativo]
 
     def get(self, request):
         from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia

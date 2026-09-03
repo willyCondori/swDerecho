@@ -7,8 +7,6 @@ const authApi = {
   login: (credentials) =>
     api.post(`${AUTH_BASE}/login/`, credentials),
 
-  // El refresh token ya no se pasa a mano: viaja solo, como cookie
-  // httpOnly, en cada request gracias a withCredentials en axiosInstance.
   logout: () =>
     api.post(`${AUTH_BASE}/logout/`),
 

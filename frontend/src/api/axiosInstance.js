@@ -13,7 +13,6 @@ const api = axios.create({
   withCredentials: true,
 })
 
-// ── Request: inyectar access token (desde memoria, no localStorage) ──
 api.interceptors.request.use(
   (config) => {
     const token = getAccessToken()

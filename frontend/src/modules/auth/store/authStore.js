@@ -17,6 +17,31 @@ import {
 // Al recargar la página, bootstrap() repone la sesión
 // pidiendo un access token nuevo con esa cookie.
 
+
+// ── Debug helpers ──────────────────────────────────────────
+// Antes cada función tenía 5-8 líneas de console.log repetidas, y
+// corrían igual en producción (llegaron a exponer el access_token
+// completo en la consola del navegador). Ahora es una sola línea por
+// función, agrupada y colapsable en devtools, y solo corre en
+// desarrollo (import.meta.env.DEV) — Vite la elimina del bundle de
+// producción por dead-code-elimination al ser una constante estática.
+
+function debugLog(etiqueta, datos) {
+  if (!import.meta.env.DEV) return
+  console.groupCollapsed(`🔐 ${etiqueta}`)
+  Object.entries(datos || {}).forEach(([clave, valor]) => console.log(`${clave}:`, valor))
+  console.groupEnd()
+}
+
+function debugError(etiqueta, err) {
+  if (!import.meta.env.DEV) return
+  console.groupCollapsed(`🔐 ${etiqueta}`)
+  console.error('Error completo:', err)
+  console.error('Respuesta del servidor:', err?.response?.data)
+  console.groupEnd()
+}
+
+
 const useAuthStore = create((set, get) => ({
 
   user: null,
@@ -41,14 +66,11 @@ const useAuthStore = create((set, get) => ({
 
       const { data } = await authApi.login(credentials)
 
-      console.log('========== LOGIN ==========')
-      console.log('Respuesta completa del login:', data)
-      console.log('Usuario recibido:', data.usuario)
-      console.log('Rol completo recibido:', data.usuario?.rol)
-      console.log('Nombre del rol:', data.usuario?.rol?.nombre)
-      console.log('Tipo de rol:', typeof data.usuario?.rol)
-      console.log('Tipo del nombre del rol:', typeof data.usuario?.rol?.nombre)
-      console.log('============================')
+      debugLog('LOGIN', {
+        'Respuesta completa': data,
+        'Usuario recibido'  : data.usuario,
+        'Rol recibido'      : data.usuario?.rol,
+      })
 
       setAccessToken(data.access_token)
 
@@ -64,10 +86,7 @@ const useAuthStore = create((set, get) => ({
 
     } catch (err) {
 
-      console.error('========== ERROR LOGIN ==========')
-      console.error('Error completo:', err)
-      console.error('Respuesta del servidor:', err.response?.data)
-      console.error('==================================')
+      debugError('ERROR LOGIN', err)
 
       const msg =
         err.response?.data?.non_field_errors?.[0] ||
@@ -125,31 +144,20 @@ const useAuthStore = create((set, get) => ({
 
     try {
 
-      console.log('========== BOOTSTRAP ==========')
-      console.log('Intentando restaurar sesión...')
-
       const { data } = await authApi.refresh()
 
-      console.log('Respuesta del refresh:', data)
-      console.log(
-        '¿Access token recibido?:',
-        !!data.access_token
-      )
+      debugLog('BOOTSTRAP: refresh', {
+        '¿Access token recibido?': !!data.access_token,
+      })
 
       setAccessToken(data.access_token)
 
       const { data: me } = await authApi.me()
 
-      console.log('========== /ME ==========')
-      console.log('Usuario recibido:', me)
-      console.log('Rol completo:', me?.rol)
-      console.log('Nombre del rol:', me?.rol?.nombre)
-      console.log('Tipo de rol:', typeof me?.rol)
-      console.log(
-        'Tipo del nombre del rol:',
-        typeof me?.rol?.nombre
-      )
-      console.log('==========================')
+      debugLog('BOOTSTRAP: /me', {
+        'Usuario recibido': me,
+        'Rol recibido'    : me?.rol,
+      })
 
       set({
         user: me,
@@ -158,10 +166,7 @@ const useAuthStore = create((set, get) => ({
 
     } catch (err) {
 
-      console.error('========== ERROR BOOTSTRAP ==========')
-      console.error('Error completo:', err)
-      console.error('Respuesta:', err.response?.data)
-      console.error('======================================')
+      debugError('ERROR BOOTSTRAP', err)
 
       clearAccessToken()
 
@@ -185,16 +190,10 @@ const useAuthStore = create((set, get) => ({
 
       const { data } = await authApi.me()
 
-      console.log('========== FETCH ME ==========')
-      console.log('Usuario recibido:', data)
-      console.log('Rol completo:', data?.rol)
-      console.log('Nombre del rol:', data?.rol?.nombre)
-      console.log('Tipo de rol:', typeof data?.rol)
-      console.log(
-        'Tipo del nombre del rol:',
-        typeof data?.rol?.nombre
-      )
-      console.log('==============================')
+      debugLog('FETCH ME', {
+        'Usuario recibido': data,
+        'Rol recibido'    : data?.rol,
+      })
 
       set({
         user: data,
@@ -203,10 +202,7 @@ const useAuthStore = create((set, get) => ({
 
     } catch (err) {
 
-      console.error('========== ERROR FETCH ME ==========')
-      console.error('Error completo:', err)
-      console.error('Respuesta:', err.response?.data)
-      console.error('=====================================')
+      debugError('ERROR FETCH ME', err)
 
       set({
         isLoading: false
@@ -246,16 +242,14 @@ const useAuthStore = create((set, get) => ({
   // ── Verificar si el usuario es administrador ─────────────
 
   isAdmin: () => {
-
     const user = get().user
     const rol  = get()._nombreRol(user)
 
-    console.log('========== isAdmin ==========')
-    console.log('Usuario actual:', user)
-    console.log('Rol completo:', user?.rol)
-    console.log('Nombre del rol (normalizado):', rol)
-    console.log('¿Es administrador?:', rol === 'administrador')
-    console.log('==============================')
+    debugLog('isAdmin', {
+      'Usuario actual'  : user,
+      'Rol normalizado' : rol,
+      '¿Es admin?'      : rol === 'administrador',
+    })
 
     return rol === 'administrador'
   },
@@ -268,7 +262,7 @@ const useAuthStore = create((set, get) => ({
   },
 
 
-  // ── ¿Puede crear/editar/eliminar? (administrador o abogado) ──
+  // ── Puede crear/editar/eliminar (administrador o abogado) ──
   // Espeja al permiso backend EsOperativo: Asistente = solo lectura.
 
   puedeEscribir: () => {
@@ -280,16 +274,7 @@ const useAuthStore = create((set, get) => ({
   // ── Obtener nombre del rol ───────────────────────────────
 
   rol: () => {
-
-    const rol = get()._nombreRol(get().user)
-
-    console.log('========== rol() ==========')
-    console.log('Rol completo:', get().user?.rol)
-    console.log('Nombre del rol (normalizado):', rol)
-    console.log('Tipo:', typeof rol)
-    console.log('============================')
-
-    return rol || ''
+    return get()._nombreRol(get().user)
   },
 
 }))
