@@ -3,8 +3,6 @@ import usuariosApi from '../../../api/usuariosApi'
 
 const FORM_INICIAL = {
   usuario: '',
-  password: '',
-  confirmarPassword: '',
   rolId: '',
   estado: true,
 
@@ -64,14 +62,6 @@ export function useCrearUsuario() {
     const phoneRegex = /^[67]\d{7}$/
 
     if (!form.usuario.trim()) errores.usuario = 'Usuario requerido'
-    if (!form.password) errores.password = 'La contraseña es obligatoria.'
-    else if (form.password.length < 8)
-      errores.password = 'Debe tener al menos 8 caracteres.'
-
-    if (form.password !== form.confirmarPassword) {
-      errores.confirmarPassword = 'Las contraseñas no coinciden.'
-    }
-
     if (!form.rolId) errores.rolId = 'Selecciona un rol.'
 
     // 👇 PERFIL VALIDACIÓN BÁSICA
@@ -104,11 +94,9 @@ export function useCrearUsuario() {
     try {
       const { data } = await usuariosApi.crearUsuario({
         usuario: form.usuario.trim(),
-        password: form.password,
-        password_confirm: form.confirmarPassword, // ✔ FIX
-        rol_id: form.rolId, // ✔ FIX
+        rol_id: form.rolId,
         estado: form.estado,
-        perfil: form.perfil, // ✔ FIX
+        perfil: form.perfil,
       })
 
       setCreado(data)
