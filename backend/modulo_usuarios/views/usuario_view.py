@@ -115,3 +115,23 @@ class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
         instance.save(update_fields=["estado"])
         self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
         return Response({"detail": "Usuario reactivado."}, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=["post"], url_path="desbloquear")
+    def desbloquear(self, request, pk=None):
+        """
+        POST /api/usuarios/{id}/desbloquear/ — limpia el bloqueo temporal
+        por intentos fallidos de login (ver LoginSerializer.validate en
+        auth_serializer.py), sin esperar a que venza solo.
+        """
+        if rol_de(request.user) != ROL_ADMINISTRADOR:
+            return Response(status=status.HTTP_403_FORBIDDEN)
+        instance = self.get_object()
+        instance.intentos_fallidos = 0
+        instance.bloqueado_hasta = None
+        instance.save(update_fields=["intentos_fallidos", "bloqueado_hasta"])
+        self._auditar(
+            "UPDATE",
+            registro_id=instance.pk,
+            metadata={"campo": "bloqueado_hasta", "origen": "desbloqueo_manual"},
+        )
+        return Response({"detail": "Usuario desbloqueado."}, status=status.HTTP_200_OK)

@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
 from django.db import models
+from django.utils import timezone
 from .rol import Rol
 from core.permissions.roles import ROL_ADMINISTRADOR, rol_de
 
@@ -40,6 +41,15 @@ class Usuario(AbstractBaseUser):
     # automáticamente. Obliga a cambiarla en el primer login antes
     # de dejarlo usar el resto del sistema.
     debe_cambiar_password = models.BooleanField(default=False)
+    # ---------------------------------
+    # Bloqueo temporal por intentos fallidos de login (ver
+    # LoginSerializer.validate en auth_serializer.py). intentos_fallidos
+    # se resetea a 0 en cada login exitoso o cada vez que se alcanza el
+    # límite y se activa el bloqueo. bloqueado_hasta queda en None
+    # mientras no haya bloqueo vigente; un admin también puede
+    # limpiarlo a mano desde POST /api/usuarios/{id}/desbloquear/.
+    intentos_fallidos = models.PositiveSmallIntegerField(default=0)
+    bloqueado_hasta    = models.DateTimeField(null=True, blank=True)
     created_at   = models.DateTimeField(auto_now_add=True)
     updated_at   = models.DateTimeField(auto_now=True)
 
@@ -63,6 +73,11 @@ class Usuario(AbstractBaseUser):
     @property
     def is_admin(self):
         return bool(self.estado and rol_de(self) == ROL_ADMINISTRADOR)
+
+    @property
+    def esta_bloqueado(self) -> bool:
+        """True mientras el bloqueo temporal por intentos fallidos siga vigente."""
+        return bool(self.bloqueado_hasta and timezone.now() < self.bloqueado_hasta)
 
     # Permisos requeridos por Django admin.
     def has_perm(self, perm, obj=None):
