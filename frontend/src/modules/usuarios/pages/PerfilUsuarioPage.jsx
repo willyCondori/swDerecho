@@ -34,6 +34,12 @@ export default function PerfilUsuarioPage() {
           Completa los datos personales asociados a esta cuenta.
         </p>
       </header>
+      <button
+        type="button"
+        className={styles.backBtn}
+        onClick={() => navigate('/usuarios')}
+        aria-label="Volver a usuarios"
+      ></button>
 
       <PerfilUsuarioForm
         form={form}

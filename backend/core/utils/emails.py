@@ -50,3 +50,49 @@ def enviar_credenciales_usuario(email: str, usuario: str, password: str) -> bool
             "No se pudo enviar el correo de credenciales al usuario '%s'.", usuario
         )
         return False
+
+
+def enviar_password_recuperacion(email: str, usuario: str, password: str) -> bool:
+    """
+    Envía al correo del usuario una contraseña temporal nueva para
+    recuperar el acceso a su cuenta. Mismo patrón que
+    enviar_credenciales_usuario() (contraseña en texto plano en el
+    cuerpo del correo), pero con el texto adaptado al contexto de
+    "recuperación" en vez de "alta de cuenta nueva".
+
+    La contraseña vieja del usuario ya quedó invalidada ANTES de
+    llamar a esta función (ver SolicitarRecuperacionView): generar la
+    temporal y guardarla es lo que realmente "resetea" el acceso, el
+    correo es solo el medio para entregársela. Si el envío falla acá,
+    igual queda registrado en el log para que se pueda reenviar a
+    mano si hace falta.
+    """
+    asunto = "Recuperación de contraseña — JurisIA"
+    mensaje = (
+        "Hola,\n\n"
+        f"Recibimos una solicitud para recuperar el acceso a tu cuenta '{usuario}' en JurisIA. "
+        "Generamos una contraseña temporal nueva:\n\n"
+        f"    Contraseña temporal:   {password}\n\n"
+        "Usala para entrar a la pantalla de recuperación (el mismo lugar donde pediste "
+        "este correo) y ahí vas a poder elegir tu contraseña definitiva.\n\n"
+        "Por seguridad, esta contraseña temporal deja de servir apenas la uses para "
+        "elegir la nueva.\n\n"
+        "Si vos no pediste este cambio, contactá al administrador del sistema: tu "
+        "contraseña anterior ya no es válida.\n\n"
+        "— JurisIA"
+    )
+
+    try:
+        send_mail(
+            subject=asunto,
+            message=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=False,
+        )
+        return True
+    except Exception:
+        logger.exception(
+            "No se pudo enviar el correo de recuperación de contraseña al usuario '%s'.", usuario
+        )
+        return False
