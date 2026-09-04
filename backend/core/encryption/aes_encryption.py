@@ -79,3 +79,47 @@ def safe_decrypt(value, fallback="[cifrado]"):
         return decrypt(value) if value else value
     except Exception:
         return fallback
+
+
+# ---------------------------------------------------------------------------
+# Hash determinístico para búsqueda (no reversible)
+# ---------------------------------------------------------------------------
+# AES-GCM usa un nonce aleatorio en cada encrypt(), así que dos veces el
+# mismo email en texto plano producen dos ciphertexts distintos: no se
+# puede indexar ni buscar "= valor" contra la columna cifrada. Antes esto
+# forzaba a descifrar TODA la tabla en un loop para chequear unicidad de
+# email (ver validate_email en usuario_serializer.py) — O(n) en cada alta
+# de usuario y, peor, imposible de usar para "recuperar contraseña por
+# email" con un volumen real de usuarios.
+#
+# hash_lookup() resuelve esto con HMAC-SHA256 determinístico: mismo
+# input -> mismo hash siempre, así que se puede guardar en una columna
+# indexada (email_hash) y buscar con un simple filter(email_hash=...).
+# No es reversible (a diferencia de encrypt/decrypt), por eso conviven
+# las dos columnas: `email` (AES-256, se descifra para mostrar) y
+# `email_hash` (HMAC-SHA256, solo para buscar/comparar).
+import hashlib
+import hmac
+
+
+def hash_lookup(value: str) -> str:
+    """
+    HMAC-SHA256 determinístico de `value`, normalizado (strip + lower)
+    para que "Juan@Mail.com" y "juan@mail.com" generen el mismo hash.
+    Devuelve un hex digest de 64 caracteres.
+
+    Si `value` es falsy (None, "" ...) devuelve None en vez de "" o el
+    valor tal cual: con la columna email_hash siendo unique=True,
+    Postgres permite múltiples NULL en una columna unique pero NO
+    permite múltiples "" — así que dos perfiles con email vacío/no
+    descifrable no chocan entre sí por un hash "vacío" compartido.
+
+    Usa ENCRYPTION_KEY como clave del HMAC (misma clave que ya se
+    protege como secreto para AES) en vez de definir una clave nueva
+    a rotar por separado.
+    """
+    if not value:
+        return None
+    key = _get_key()
+    normalizado = value.strip().lower()
+    return hmac.new(key, normalizado.encode("utf-8"), hashlib.sha256).hexdigest()

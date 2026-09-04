@@ -2,7 +2,7 @@ import re
 
 from rest_framework import serializers
 
-from core.encryption.aes_encryption import decrypt, encrypt
+from core.encryption.aes_encryption import decrypt, encrypt, hash_lookup
 from modulo_usuarios.models.perfil import PerfilUsuario
 from modulo_usuarios.models.rol import Rol
 from modulo_usuarios.models.usuario import Usuario
@@ -76,16 +76,16 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         value = value.strip().lower()
-        # Verificar unicidad descifrando registros existentes
-        qs = PerfilUsuario.objects.exclude(
+        # Unicidad vía email_hash (HMAC-SHA256 determinístico): antes
+        # esto descifraba TODA la tabla de perfiles en un loop para
+        # comparar uno por uno (O(n) en cada alta/edición de usuario).
+        # Con email_hash es un filter() indexado directo. Ver
+        # core.encryption.aes_encryption.hash_lookup.
+        qs = PerfilUsuario.objects.filter(email_hash=hash_lookup(value)).exclude(
             pk=self.instance.pk if self.instance else None
         )
-        for perfil in qs:
-            try:
-                if decrypt(perfil.email) == value:
-                    raise serializers.ValidationError("Este correo electrónico ya está registrado.")
-            except Exception:
-                continue
+        if qs.exists():
+            raise serializers.ValidationError("Este correo electrónico ya está registrado.")
         return value
 
     def validate_telefono(self, value):
@@ -105,9 +105,13 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
         return validated_data
 
     def create(self, validated_data):
+        if validated_data.get("email"):
+            validated_data["email_hash"] = hash_lookup(validated_data["email"])
         return super().create(self._encrypt_fields(validated_data))
 
     def update(self, instance, validated_data):
+        if validated_data.get("email"):
+            validated_data["email_hash"] = hash_lookup(validated_data["email"])
         return super().update(instance, self._encrypt_fields(validated_data))
 
 
@@ -118,12 +122,14 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
 class UsuarioReadSerializer(serializers.ModelSerializer):
     rol    = RolListSerializer(read_only=True)
     perfil = PerfilUsuarioReadSerializer(read_only=True)
+    esta_bloqueado = serializers.BooleanField(read_only=True)
 
     class Meta:
         model  = Usuario
         fields = [
             "id", "usuario", "rol", "perfil",
             "estado", "debe_cambiar_password", "created_at",
+            "esta_bloqueado", "bloqueado_hasta",
         ]
 
 
