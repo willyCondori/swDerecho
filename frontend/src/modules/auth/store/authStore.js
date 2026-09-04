@@ -52,6 +52,13 @@ const useAuthStore = create((set, get) => ({
 
   error: null,
 
+  // true mientras el último intento de login haya fallado por
+  // bloqueo temporal (423 Locked del backend, ver LoginView/
+  // LoginSerializer). LoginPage lo usa para mostrar una caja de
+  // aviso distinta (candado, color ámbar) en vez del error rojo
+  // genérico de credenciales incorrectas.
+  bloqueado: false,
+
 
   // ── Login ───────────────────────────────────────────────
 
@@ -59,7 +66,8 @@ const useAuthStore = create((set, get) => ({
 
     set({
       isLoading: true,
-      error: null
+      error: null,
+      bloqueado: false,
     })
 
     try {
@@ -78,6 +86,7 @@ const useAuthStore = create((set, get) => ({
         user: data.usuario,
         isLoading: false,
         error: null,
+        bloqueado: false,
       })
 
       return {
@@ -93,14 +102,18 @@ const useAuthStore = create((set, get) => ({
         err.response?.data?.detail ||
         'Error al iniciar sesión'
 
+      const bloqueado = err.response?.status === 423
+
       set({
         isLoading: false,
-        error: msg
+        error: msg,
+        bloqueado,
       })
 
       return {
         success: false,
-        error: msg
+        error: msg,
+        bloqueado,
       }
     }
   },
@@ -214,7 +227,8 @@ const useAuthStore = create((set, get) => ({
   // ── Limpiar error ────────────────────────────────────────
 
   clearError: () => set({
-    error: null
+    error: null,
+    bloqueado: false,
   }),
 
 
