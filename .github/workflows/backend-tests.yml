@@ -1,0 +1,108 @@
+name: Backend tests
+
+# Corre en cada push y cada Pull Request contra develop o main, para
+# que el resultado de los tests quede visible como check en GitHub
+# (en la lista de commits de la rama y en el propio PR).
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  modulo-usuarios-tests:
+    runs-on: ubuntu-latest
+
+    # Postgres real con la extensión pgvector ya compilada, porque
+    # modulo_ia usa VectorField (pgvector) y con sqlite las migraciones
+    # no corren.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: swderecho_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    # Variables de entorno solo para este job de CI. ENCRYPTION_KEY es
+    # una clave de prueba fija (no se usa en producción); las claves
+    # reales de cada entorno viven en el .env de cada máquina/servidor,
+    # nunca en el repo.
+    env:
+      SECRET_KEY: ci-only-secret-key
+      ENCRYPTION_KEY: 7a6acbf4700f4a10181a96eb2580ced1198dda3b84cd2a13ea25d3d142aac7ab
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      DB_ENGINE: django.db.backends.postgresql
+      DB_NAME: swderecho_ci
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DEFAULT_FROM_EMAIL: no-reply@jurisia.local
+      PASSWORD_RESET_VIGENCIA_MINUTOS: "30"
+      PASSWORD_RESET_MAX_SOLICITUDES: "3"
+      PASSWORD_RESET_VENTANA_MINUTOS: "60"
+      LOGIN_MAX_INTENTOS: "5"
+      LOGIN_BLOQUEO_MINUTOS: "15"
+      SENTENCE_TRANSFORMER_MODEL: sentence-transformers/all-mpnet-base-v2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Solo lo necesario para correr modulo_usuarios (Django, DRF,
+      # cifrado, driver de Postgres). Las dependencias pesadas de
+      # modulo_ia (torch, sentence-transformers, gpt4all, etc., ya
+      # pinneadas en requirements.txt) no hacen falta acá porque no se
+      # importan al levantar Django ni las tocan estos tests; instalar
+      # el requirements.txt completo en cada corrida sumaría varios
+      # minutos y GB de descarga sin necesidad.
+      - name: Instalar dependencias
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            Django==5.2.15 \
+            djangorestframework==3.17.1 \
+            djangorestframework_simplejwt==5.5.1 \
+            django-cors-headers==4.9.0 \
+            django-filter==25.2 \
+            drf-spectacular==0.29.0 \
+            python-dotenv==1.2.2 \
+            python-decouple==3.8 \
+            psycopg2-binary==2.9.12 \
+            cryptography==49.0.0 \
+            pgvector==0.4.2
+
+      - name: Crear carpeta de logs
+        working-directory: backend
+        run: mkdir -p logs
+
+      - name: Migrar base de datos
+        working-directory: backend
+        run: python manage.py migrate --noinput
+
+      - name: Correr tests de modulo_usuarios
+        working-directory: backend
+        run: |
+          python manage.py test \
+            modulo_usuarios.tests.test_login \
+            modulo_usuarios.tests.test_cambio_password \
+            modulo_usuarios.tests.test_recuperacion_password \
+            modulo_usuarios.tests.test_usuario_model \
+            modulo_usuarios.tests.test_utils_emails \
+            modulo_usuarios.tests.test_encryption \
+            modulo_usuarios.tests.test_utils_passwords \
+            -v 2
