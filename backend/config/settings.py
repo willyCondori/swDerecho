@@ -217,6 +217,37 @@ else:
 
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@jurisia.local")
 
+# ---------------------------------------------------------------------
+# Recuperación de contraseña por correo
+# ---------------------------------------------------------------------
+# El flujo actual NO usa enlaces: al pedir la recuperación se genera
+# una contraseña temporal nueva y se manda por Gmail (mismo mecanismo
+# que al crear un usuario). FRONTEND_URL queda declarado por si algún
+# día se vuelve a necesitar armar un link (o para otros usos del
+# frontend), pero el flujo de recuperación ya no lo consume.
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+
+# Minutos de vigencia del token de recuperación antes de expirar.
+PASSWORD_RESET_VIGENCIA_MINUTOS = int(os.getenv("PASSWORD_RESET_VIGENCIA_MINUTOS", "30"))
+
+# Máximo de solicitudes de recuperación que se atienden para el mismo
+# usuario dentro de PASSWORD_RESET_VENTANA_MINUTOS. Evita que alguien
+# spamee de correos de recuperación a una cuenta ajena; la respuesta
+# HTTP sigue siendo la misma igual (genérica) para no filtrar si el
+# límite se alcanzó o no.
+PASSWORD_RESET_MAX_SOLICITUDES = int(os.getenv("PASSWORD_RESET_MAX_SOLICITUDES", "3"))
+PASSWORD_RESET_VENTANA_MINUTOS = int(os.getenv("PASSWORD_RESET_VENTANA_MINUTOS", "60"))
+
+# ---------------------------------------------------------------------
+# Bloqueo temporal de login por intentos fallidos
+# ---------------------------------------------------------------------
+# Después de LOGIN_MAX_INTENTOS contraseñas incorrectas seguidas para
+# el mismo usuario, la cuenta queda bloqueada por LOGIN_BLOQUEO_MINUTOS
+# minutos (ver LoginSerializer.validate en auth_serializer.py). Un
+# admin puede destrabarla antes desde POST /api/usuarios/{id}/desbloquear/.
+LOGIN_MAX_INTENTOS    = int(os.getenv("LOGIN_MAX_INTENTOS", "5"))
+LOGIN_BLOQUEO_MINUTOS = int(os.getenv("LOGIN_BLOQUEO_MINUTOS", "15"))
+
 SENTENCE_TRANSFORMER_MODEL = config(
     'SENTENCE_TRANSFORMER_MODEL',
     default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
