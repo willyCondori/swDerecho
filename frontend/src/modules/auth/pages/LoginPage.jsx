@@ -6,7 +6,7 @@ import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
   const navigate  = useNavigate()
-  const { login, isLoading, error, clearError } = useAuthStore()
+  const { login, isLoading, error, bloqueado, clearError } = useAuthStore()
 
   const [form, setForm]           = useState({ usuario: '', password: '' })
   const [showPass, setShowPass]   = useState(false)
@@ -95,8 +95,18 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} noValidate>
-          {/* Error global del servidor */}
-          {error && (
+          {/* Error global del servidor. Si vino con 423 Locked (ver
+              authStore.login), es un bloqueo temporal por intentos
+              fallidos: se muestra con candado y color ámbar en vez
+              del rojo genérico de "credenciales incorrectas", para
+              que se distinga de un simple error de tipeo. */}
+          {error && bloqueado && (
+            <div className={styles.lockBox} role="alert">
+              <i className="ti ti-lock" aria-hidden="true" />
+              {error}
+            </div>
+          )}
+          {error && !bloqueado && (
             <div className={styles.errorBox} role="alert">
               <i className="ti ti-alert-circle" aria-hidden="true" />
               {error}
@@ -170,6 +180,15 @@ export default function LoginPage() {
                   {fieldErrors.password}
                 </span>
               )}
+              <div className={styles.forgotPasswordRow}>
+                <a
+                  href="/recuperar-password"
+                  className={styles.forgotPasswordLink}
+                  onClick={(e) => { e.preventDefault(); navigate('/recuperar-password') }}
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
             </div>
           </div>
 

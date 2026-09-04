@@ -143,11 +143,12 @@ export default function UsuarioForm({
             {fieldErrors.telefono && <span className={styles.fieldError}>{fieldErrors.telefono}</span>}
           </div>
         </div>
-
-        <div className={styles.checkboxRow} style={{ marginTop: 'var(--sp-4)' }}>
-          <input type="checkbox" className={styles.checkbox} name="estado" checked={form.estado} onChange={onChange} />
-          <label className={styles.checkboxLabel}>Usuario activo</label>
-        </div>
+        {esEdicion && (
+          <div className={styles.checkboxRow} style={{ marginTop: 'var(--sp-4)' }}>
+            <input type="checkbox" className={styles.checkbox} name="estado" checked={form.estado} onChange={onChange} />
+            <label className={styles.checkboxLabel}>Usuario activo</label>
+          </div>
+        )}
 
         <div className={styles.submitRow}>
           <button type="submit" className={styles.btnPrimary} disabled={enviando}>
