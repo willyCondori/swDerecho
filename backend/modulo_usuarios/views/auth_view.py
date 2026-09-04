@@ -1,3 +1,6 @@
+import hashlib
+import secrets
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.utils import timezone
@@ -8,10 +11,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from core.encryption.aes_encryption import decrypt, hash_lookup
 from core.permissions.auditoria_mixin import registrar_auditoria
 from modulo_usuarios.serializers.auth_serializer import (
     CambioPasswordSerializer,
+    ConfirmarRecuperacionSerializer,
     LoginSerializer,
+    SolicitarRecuperacionSerializer,
 )
 from modulo_usuarios.serializers.rol_serializer import RolListSerializer
 
@@ -55,7 +61,21 @@ class LoginView(APIView):
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
 
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            # 423 Locked específicamente para el bloqueo temporal por
+            # intentos fallidos (LoginSerializer.validate marca
+            # self._bloqueado antes de levantar el ValidationError) —
+            # el resto de los errores de login (credenciales
+            # incorrectas, usuario inactivo, campos faltantes) siguen
+            # devolviendo el 400 de siempre. Así el frontend distingue
+            # "bloqueado temporalmente" de un error de login común sin
+            # tener que parsear el texto del mensaje.
+            status_code = (
+                status.HTTP_423_LOCKED
+                if getattr(serializer, "_bloqueado", False)
+                else status.HTTP_400_BAD_REQUEST
+            )
+            return Response(serializer.errors, status=status_code)
 
         data = serializer.validated_data
         user = data["user"]
@@ -215,3 +235,208 @@ class MeView(APIView):
         from modulo_usuarios.serializers.usuario_serializer import UsuarioReadSerializer
         serializer = UsuarioReadSerializer(request.user, context={"request": request})
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# ---------------------------------------------------------------------------
+# Recuperación de contraseña por correo
+# ---------------------------------------------------------------------------
+# Flujo en dos pasos, ambos AllowAny porque ocurren ANTES de tener sesión:
+#   1) SolicitarRecuperacionView: el usuario manda su email. Si existe una
+#      cuenta activa con ese email, se genera una contraseña temporal nueva
+#      (mismo mecanismo que al crear un usuario, ver core.utils.passwords)
+#      y se manda por Gmail. No se genera ningún enlace ni token de un solo
+#      uso — la contraseña temporal en sí cumple ese rol.
+#   2) ConfirmarRecuperacionView: el usuario manda email + esa contraseña
+#      temporal (como prueba de identidad, igual que un login) + la
+#      contraseña definitiva que eligió.
+#
+# La respuesta de (1) es SIEMPRE la misma frase genérica exista o no el
+# email, para no revelar por enumeración qué correos están registrados
+# en el sistema. El "silencio" (no encontrar el email, o estar sobre el
+# límite de solicitudes) se resuelve simplemente no mandando el correo,
+# nunca cambiando la respuesta HTTP.
+
+_MENSAJE_GENERICO_SOLICITUD = (
+    "Si el correo está registrado, te enviamos una contraseña temporal. "
+    "Revisá tu bandeja de entrada (y spam) y usala acá abajo para elegir tu contraseña nueva."
+)
+
+
+def _blacklistear_sesiones(usuario) -> None:
+    """
+    Blacklistea todos los refresh tokens vigentes del usuario. Se usa
+    tanto al generar la contraseña temporal (SolicitarRecuperacionView)
+    como al confirmarla (ConfirmarRecuperacionView), porque en ambos
+    puntos la contraseña real del usuario cambió: cualquier sesión
+    abierta con la contraseña anterior debería cerrarse.
+    """
+    try:
+        from rest_framework_simplejwt.token_blacklist.models import (
+            BlacklistedToken,
+            OutstandingToken,
+        )
+        for outstanding in OutstandingToken.objects.filter(user=usuario):
+            BlacklistedToken.objects.get_or_create(token=outstanding)
+    except Exception:
+        # No debe tumbar el cambio de contraseña si el blacklist falla
+        # por cualquier motivo (tabla no migrada, etc.).
+        pass
+
+
+class SolicitarRecuperacionView(APIView):
+    """
+    POST /api/usuarios/auth/recuperar-password/
+    Body: {"email": "..."}
+
+    Genera una contraseña temporal nueva (mismo generador que se usa
+    al crear un usuario, ver core.utils.passwords) y la manda por
+    correo — no un enlace. El usuario la usa como password_actual en
+    ConfirmarRecuperacionView, en la misma pantalla donde pidió la
+    recuperación, para terminar de elegir su contraseña definitiva.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from modulo_usuarios.models.password_reset_token import PasswordResetToken
+        from modulo_usuarios.models.perfil import PerfilUsuario
+        from core.utils.emails import enviar_password_recuperacion
+        from core.utils.passwords import generar_password_aleatoria
+
+        serializer = SolicitarRecuperacionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        # Respuesta genérica desde el inicio: se devuelve igual pase lo
+        # que pase más abajo (email no encontrado, cuenta inactiva,
+        # límite de solicitudes alcanzado). Solo cambia si se manda el
+        # correo o no, nunca la respuesta HTTP — evita que este
+        # endpoint sirva para averiguar qué correos están registrados.
+        respuesta = Response(
+            {"detail": _MENSAJE_GENERICO_SOLICITUD}, status=status.HTTP_200_OK
+        )
+
+        perfil = (
+            PerfilUsuario.objects
+            .select_related("usuario")
+            .filter(email_hash=hash_lookup(email))
+            .first()
+        )
+        if not perfil or not perfil.usuario.estado:
+            return respuesta
+
+        usuario = perfil.usuario
+
+        # Límite anti-abuso: no generar más de PASSWORD_RESET_MAX_SOLICITUDES
+        # contraseñas temporales para el mismo usuario dentro de la
+        # ventana configurada. Importante acá más que en el flujo de
+        # enlace: cada solicitud invalida la contraseña anterior de
+        # verdad, así que sin este límite alguien podría dejar a un
+        # usuario legítimo sin poder entrar solo con su email, spameando
+        # el endpoint.
+        ventana_inicio = timezone.now() - timezone.timedelta(
+            minutes=settings.PASSWORD_RESET_VENTANA_MINUTOS
+        )
+        solicitudes_recientes = PasswordResetToken.objects.filter(
+            usuario=usuario, creado_en__gte=ventana_inicio
+        ).count()
+        if solicitudes_recientes >= settings.PASSWORD_RESET_MAX_SOLICITUDES:
+            return respuesta
+
+        nueva_password = generar_password_aleatoria()
+        usuario.set_password(nueva_password)
+        usuario.debe_cambiar_password = True
+        usuario.save(update_fields=["password", "debe_cambiar_password"])
+
+        _blacklistear_sesiones(usuario)
+
+        ip = request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")[0].strip() \
+            or request.META.get("REMOTE_ADDR")
+
+        # Registro con fines de auditoría y límite de solicitudes. No
+        # se usa para "confirmar" nada (a diferencia del diseño
+        # anterior basado en enlace): la contraseña temporal en sí es
+        # la prueba de identidad en el paso de confirmación.
+        PasswordResetToken.objects.create(
+            usuario=usuario,
+            token_hash=hashlib.sha256(secrets.token_urlsafe(32).encode()).hexdigest(),
+            expira_en=timezone.now() + timezone.timedelta(
+                minutes=settings.PASSWORD_RESET_VIGENCIA_MINUTOS
+            ),
+            usado_en=timezone.now(),
+            ip_solicitud=ip,
+        )
+
+        enviar_password_recuperacion(email=email, usuario=usuario.usuario, password=nueva_password)
+
+        registrar_auditoria(
+            usuario=usuario,
+            tabla="usuarios",
+            accion="UPDATE",
+            registro_id=usuario.pk,
+            request=request,
+            metadata={"campo": "password", "origen": "recuperacion_password_temporal"},
+        )
+
+        return respuesta
+
+
+class ConfirmarRecuperacionView(APIView):
+    """
+    POST /api/usuarios/auth/recuperar-password/confirmar/
+    Body: {"email", "password_actual", "password_nuevo", "password_confirm"}
+
+    password_actual es la contraseña temporal que llegó por correo
+    desde SolicitarRecuperacionView. Se valida contra la BD igual que
+    un login (check_password), no contra un token: si es correcta,
+    prueba que quien hace este request tiene acceso a esa casilla.
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        from modulo_usuarios.models.perfil import PerfilUsuario
+
+        serializer = ConfirmarRecuperacionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        datos = serializer.validated_data
+
+        # Mismo mensaje genérico exista o no la cuenta, o esté mal la
+        # contraseña temporal: no hay forma de distinguir "no existe
+        # esta cuenta" de "contraseña temporal incorrecta" desde
+        # afuera.
+        mensaje_error = (
+            "Los datos ingresados no son correctos. Verificá el correo y la "
+            "contraseña temporal que te llegó por email, o pedí una nueva."
+        )
+
+        perfil = (
+            PerfilUsuario.objects
+            .select_related("usuario")
+            .filter(email_hash=hash_lookup(datos["email"]))
+            .first()
+        )
+        if not perfil:
+            return Response({"detail": mensaje_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario = perfil.usuario
+        if not usuario.estado or not usuario.check_password(datos["password_actual"]):
+            return Response({"detail": mensaje_error}, status=status.HTTP_400_BAD_REQUEST)
+
+        usuario.set_password(datos["password_nuevo"])
+        usuario.debe_cambiar_password = False
+        usuario.save(update_fields=["password", "debe_cambiar_password"])
+
+        _blacklistear_sesiones(usuario)
+
+        registrar_auditoria(
+            usuario=usuario,
+            tabla="usuarios",
+            accion="UPDATE",
+            registro_id=usuario.pk,
+            request=request,
+            metadata={"campo": "password", "origen": "recuperacion_confirmacion"},
+        )
+
+        return Response(
+            {"detail": "Contraseña actualizada correctamente. Ya podés iniciar sesión."},
+            status=status.HTTP_200_OK,
+        )
