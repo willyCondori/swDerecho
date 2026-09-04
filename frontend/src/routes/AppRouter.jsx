@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AppLayout   from '../components/layout/AppLayout'
 import PrivateRoute from '../components/layout/PrivateRoute'
 import LoginPage   from '../modules/auth/pages/LoginPage'
+import ForgotPasswordPage from '../modules/auth/pages/ForgotPasswordPage'
 import CambiarPasswordObligatorioPage from '../modules/auth/pages/CambiarPasswordObligatorioPage'
 import DashboardPage from '../modules/dashboard/pages/DashboardPage'
 import useAuthStore from '../modules/auth/store/authStore'
@@ -57,6 +58,15 @@ export default function AppRouter() {
     <Routes>
       {/* Pública */}
       <Route path="/login" element={<LoginPage />} />
+
+      {/* Recuperación de contraseña por correo: pública, sin sesión.
+          Todo el flujo vive en una sola pantalla con 2 pasos internos:
+            1) pedir el email -> el backend genera y manda por Gmail
+               una contraseña temporal nueva
+            2) mismo formulario que el cambio obligatorio del primer
+               login, pero con el campo extra "contraseña enviada por
+               correo" para pegar esa temporal + elegir la definitiva */}
+      <Route path="/recuperar-password" element={<ForgotPasswordPage />} />
 
       {/* Cambio de contraseña obligatorio del primer login: requiere
           sesión pero NO pasa por PrivateRoute, porque PrivateRoute

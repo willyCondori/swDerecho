@@ -267,6 +267,43 @@
   gap: 4px;
 }
 
+.forgotPasswordRow {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.forgotPasswordLink {
+  font-size: var(--fs-xs);
+  color: var(--c-purple-300);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.forgotPasswordLink:hover {
+  color: var(--c-purple-100);
+  text-decoration: underline;
+}
+
+.hint {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  line-height: 1.5;
+}
+
+.successBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--c-green-800);
+  border: 1px solid var(--c-green-600);
+  color: var(--c-green-100);
+  font-size: var(--fs-sm);
+  margin-bottom: 16px;
+}
+
 /* ── Error global ────────────────────────────────────────── */
 .errorBox {
   background: rgba(163,45,45,0.15);
@@ -274,6 +311,23 @@
   border-radius: var(--radius-md);
   padding: var(--sp-3) var(--sp-4);
   color: var(--c-red-400);
+  font-size: var(--fs-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+/* Bloqueo temporal por intentos fallidos (423 Locked) — mismo molde
+   que .errorBox pero en ámbar, para que se note que no es un simple
+   error de tipeo sino que hay que esperar o pedirle a un admin que
+   desbloquee la cuenta. */
+.lockBox {
+  background: rgba(133, 79, 11, 0.15);
+  border: 1px solid var(--c-amber-600);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4);
+  color: var(--c-amber-100);
   font-size: var(--fs-sm);
   display: flex;
   align-items: center;
