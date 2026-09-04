@@ -1,0 +1,5 @@
+# Este archivo existe solo para que la carpeta `logs/` se cree al clonar
+# el repositorio. Django escribe aquí `django.log` (ver LOGGING en
+# config/settings.py) y `logging.FileHandler` no crea el directorio por
+# sí solo: sin esta carpeta, cualquier clon nuevo del repo (y también
+# `manage.py test`) falla al arrancar.
