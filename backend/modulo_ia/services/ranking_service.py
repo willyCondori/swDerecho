@@ -59,7 +59,21 @@ class RankingService:
 
     @staticmethod
     def _score_semantico_por_articulo(caso):
+        """
+        Devuelve (scores, mejor_chunk_por_articulo):
+          - scores: {articulo_id: mejor_similitud_coseno}
+          - mejor_chunk_por_articulo: {articulo_id: chunk_id} — de qué
+            chunk del caso vino esa mejor similitud. Se usa después
+            para que el score_entidades de un artículo se compare solo
+            contra las entidades detectadas en ESE chunk puntual (el
+            que realmente lo hizo relevante), en vez de contra todas
+            las entidades del caso completo. Sin este dato, un caso
+            largo con varios temas distintos podía "prestarle" a un
+            artículo entidades de un chunk que no tiene nada que ver
+            con por qué ese artículo entró al ranking.
+        """
         scores = defaultdict(float)
+        mejor_chunk_por_articulo = {}
 
         embeddings_chunk = (
             EmbeddingChunk.objects
@@ -85,45 +99,63 @@ class RankingService:
                 articulo_id = candidato.articulo_id
                 if similitud > scores[articulo_id]:
                     scores[articulo_id] = similitud
+                    mejor_chunk_por_articulo[articulo_id] = emb_chunk.chunk_id
 
-        return scores
+        return scores, mejor_chunk_por_articulo
 
     @staticmethod
     def _vectores_chunks_caso(caso) -> list:
         return list(
             EmbeddingChunk.objects
             .filter(chunk__caso=caso)
-            .values_list("vector", flat=True)
+            .select_related("chunk")
+            .values_list("chunk_id", "vector")
         )
 
     @staticmethod
-    def _score_semantico_articulo_especifico(articulo_id, vectores_chunks_caso) -> float:
+    def _score_semantico_articulo_especifico(articulo_id, vectores_chunks_caso):
         """
         Calcula la similitud semántica de UN artículo puntual contra los
         chunks del caso, sin pasar por el CosineDistance/top-50 de
         pgvector. Se usa para artículos "forzados" por regla (figuras
         transversales) que pueden no aparecer entre los vecinos más
         cercanos de ningún chunk, pero igual son relevantes.
+
+        Devuelve (mejor_similitud, chunk_id_del_mejor_match) para poder
+        aplicar el mismo score_entidades "por chunk" que el flujo
+        normal (ver _score_semantico_por_articulo).
         """
         emb_articulo = EmbeddingArticulo.objects.filter(articulo_id=articulo_id).first()
         if emb_articulo is None or not vectores_chunks_caso:
-            return 0.0
+            return 0.0, None
         vector_articulo = np.array(emb_articulo.vector)
         mejor = 0.0
-        for vector_chunk in vectores_chunks_caso:
+        mejor_chunk_id = None
+        for chunk_id, vector_chunk in vectores_chunks_caso:
             similitud = float(np.dot(vector_articulo, np.array(vector_chunk)))
             if similitud > mejor:
                 mejor = similitud
-        return mejor
+                mejor_chunk_id = chunk_id
+        return mejor, mejor_chunk_id
 
     @staticmethod
-    def _entidades_detectadas_del_caso(caso) -> set:
-        valores = (
+    def _entidades_por_chunk(caso) -> dict:
+        """
+        {chunk_id: {"entidad detectada", ...}} — a diferencia de la
+        versión anterior (una sola bolsa con las entidades de todo el
+        caso), esto permite comparar cada artículo solo contra las
+        entidades del chunk específico que lo trajo al ranking.
+        """
+        filas = (
             EntidadDetectadaCaso.objects
             .filter(chunk__caso=caso)
-            .values_list("valor_detectado", flat=True)
+            .values_list("chunk_id", "valor_detectado")
         )
-        return {v.strip().lower() for v in valores if v}
+        resultado = defaultdict(set)
+        for chunk_id, valor in filas:
+            if valor:
+                resultado[chunk_id].add(valor.strip().lower())
+        return resultado
 
     @staticmethod
     def _score_entidades(articulo, entidades_del_caso: set) -> float:
@@ -162,7 +194,7 @@ class RankingService:
         return round((articulo.frecuencia_historica or 0) / max_frecuencia, 6)
 
     @classmethod
-    def _armar_candidato(cls, articulo, score_semantico, score_delito, entidades_del_caso, max_frecuencia, es_sugerencia=False):
+    def _armar_candidato(cls, articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia, es_sugerencia=False):
         """
         Construye la tupla de candidato (score_float, articulo_id,
         score_total_decimal, sub_scores, es_sugerencia) para un artículo
@@ -170,6 +202,11 @@ class RankingService:
         candidatos. Extraído a un método propio para reutilizarlo tanto
         en el flujo semántico normal como en el de figuras transversales
         forzadas.
+
+        `entidades_relevantes`: set de entidades ya acotado al chunk
+        específico que hizo relevante a este artículo (ver
+        _entidades_por_chunk / _score_semantico_por_articulo), NO el
+        set de todo el caso.
 
         es_sugerencia=False para artículos que superan el umbral
         principal por mérito propio; True para los que entran por regla
@@ -181,7 +218,7 @@ class RankingService:
         sub_scores = {
             "score_semantico": Decimal(str(round(score_semantico, 6))),
             "score_delito": Decimal(str(round(score_delito, 6))),
-            "score_entidades": Decimal(str(cls._score_entidades(articulo, entidades_del_caso))),
+            "score_entidades": Decimal(str(cls._score_entidades(articulo, entidades_relevantes))),
             "score_jerarquia": Decimal(str(cls._score_jerarquia(articulo))),
             "score_frecuencia": Decimal(str(cls._score_frecuencia(articulo, max_frecuencia))),
         }
@@ -196,8 +233,8 @@ class RankingService:
 
     @classmethod
     def calcular_ranking(cls, caso):
-        scores_semanticos = cls._score_semantico_por_articulo(caso)
-        entidades_del_caso = cls._entidades_detectadas_del_caso(caso)
+        scores_semanticos, mejor_chunk_por_articulo = cls._score_semantico_por_articulo(caso)
+        entidades_por_chunk = cls._entidades_por_chunk(caso)
 
         texto_caso_completo = " ".join(
             EmbeddingChunk.objects
@@ -227,8 +264,10 @@ class RankingService:
             score_delito = ClasificadorDelitoService.score_delito_articulo(
                 articulo, categorias_caso, nombre_rama
             )
+            chunk_id = mejor_chunk_por_articulo.get(articulo_id)
+            entidades_relevantes = entidades_por_chunk.get(chunk_id, set())
             candidatos.append(
-                cls._armar_candidato(articulo, score_semantico, score_delito, entidades_del_caso, max_frecuencia)
+                cls._armar_candidato(articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia)
             )
 
         # Filtrar por umbral mínimo DESPUÉS de construir todos los candidatos,
@@ -263,14 +302,15 @@ class RankingService:
             for articulo in articulos_figura:
                 if articulo.id in ids_ya_incluidos:
                     continue  # ya va a persistirse por el flujo normal, no duplicar
-                score_semantico = cls._score_semantico_articulo_especifico(
+                score_semantico, chunk_id = cls._score_semantico_articulo_especifico(
                     articulo.id, vectores_chunks_caso
                 )
+                entidades_relevantes = entidades_por_chunk.get(chunk_id, set())
                 # score_delito se mantiene en 0 a propósito: estas figuras no
                 # son un "tipo de delito", su relevancia ya viene de la regla
                 # que las detectó, no de coincidir con una categoría penal.
                 candidato = cls._armar_candidato(
-                    articulo, score_semantico, 0.0, entidades_del_caso, max_frecuencia,
+                    articulo, score_semantico, 0.0, entidades_relevantes, max_frecuencia,
                     es_sugerencia=True,
                 )
                 if candidato[0] >= UMBRAL_MINIMO_FIGURA_TRANSVERSAL:

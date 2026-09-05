@@ -587,6 +587,7 @@ def cargar_articulos_desde_bytes(
     from modulo_catalogo.models.rama import RamaDerecho
     from modulo_catalogo.models.articulo import Articulo
     from modulo_ia.models.embedding import EmbeddingArticulo
+    from modulo_catalogo.services.articulo_entidad_service import ArticuloEntidadService
 
     try:
         norma = Norma.objects.get(pk=norma_id, estado=True)
@@ -624,6 +625,7 @@ def cargar_articulos_desde_bytes(
 
     _update_task(task, 18, "Cargando modelo de embeddings...")
     modelo = _obtener_modelo()
+    catalogo_entidades = ArticuloEntidadService.obtener_catalogo()
 
     total = len(lista_articulos)
 
@@ -682,6 +684,13 @@ def cargar_articulos_desde_bytes(
             logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
             # El artículo ya está guardado; se informa el problema pero no se
             # cuenta dos veces como error total del artículo.
+
+        try:
+            ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
+        except Exception as e:
+            resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
+            logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)
+            # Igual que el embedding: no bloquea el artículo ya guardado.
 
         resultado.guardados += 1
 
