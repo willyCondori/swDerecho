@@ -84,7 +84,8 @@ jobs:
             python-decouple==3.8 \
             psycopg2-binary==2.9.12 \
             cryptography==49.0.0 \
-            pgvector==0.4.2
+            pgvector==0.4.2 \
+            numpy==2.5.2
 
       - name: Crear carpeta de logs
         working-directory: backend
@@ -105,4 +106,6 @@ jobs:
             modulo_usuarios.tests.test_utils_emails \
             modulo_usuarios.tests.test_encryption \
             modulo_usuarios.tests.test_utils_passwords \
+            modulo_catalogo.tests.test_articulo_entidad_service \
+            modulo_ia.tests.test_ranking_service \
             -v 2
