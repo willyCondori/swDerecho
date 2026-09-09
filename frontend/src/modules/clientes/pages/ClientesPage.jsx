@@ -112,6 +112,13 @@ export default function ClientesPage() {
                     {puedeEscribir && (
                       <td>
                         <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
+                          <button
+                            className={styles.iconBtn}
+                            title="Editar"
+                            onClick={() => navigate(`/clientes/${cliente.id}/editar`)}
+                          >
+                            <i className="ti ti-pencil" aria-hidden="true" />
+                          </button>
                           <button className={styles.iconBtn} title="Eliminar" onClick={() => handleEliminar(cliente)}>
                             <i className="ti ti-trash" aria-hidden="true" />
                           </button>
