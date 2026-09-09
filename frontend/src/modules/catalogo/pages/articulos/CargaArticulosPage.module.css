@@ -203,6 +203,11 @@
   gap: 4px;
 }
 
+.helpText {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
 /* Info de fuente seleccionada */
 .fuenteInfo {
   display: flex;
