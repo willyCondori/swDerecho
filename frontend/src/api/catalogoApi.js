@@ -19,11 +19,13 @@ const catalogoApi = {
   crearRama:                (data)        => api.post('/api/catalogo/ramas/', data),
   actualizarRama:           (id, data)    => api.patch(`/api/catalogo/ramas/${id}/`, data),
   eliminarRama:              (id)          => api.delete(`/api/catalogo/ramas/${id}/`),
+  activarRama:               (id)          => api.post(`/api/catalogo/ramas/${id}/activar/`),
 
   listarJerarquiasCompleto: (params = {}) => api.get('/api/catalogo/jerarquias/', { params }),
   crearJerarquia:           (data)        => api.post('/api/catalogo/jerarquias/', data),
   actualizarJerarquia:      (id, data)    => api.patch(`/api/catalogo/jerarquias/${id}/`, data),
   eliminarJerarquia:         (id)          => api.delete(`/api/catalogo/jerarquias/${id}/`),
+  activarJerarquia:          (id)          => api.post(`/api/catalogo/jerarquias/${id}/activar/`),
 }
 
 export default catalogoApi

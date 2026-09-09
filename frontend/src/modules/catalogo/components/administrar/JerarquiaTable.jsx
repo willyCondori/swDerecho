@@ -8,6 +8,7 @@ function SkeletonRows({ rows = 4 }) {
         <tr key={i} className={styles.skeletonRow}>
           <td><div className={styles.skeleton} style={{ width: 50 }} /></td>
           <td><div className={styles.skeleton} style={{ width: 220 }} /></td>
+          <td><div className={styles.skeleton} style={{ width: 70 }} /></td>
           <td><div className={styles.skeleton} style={{ width: 60, marginLeft: 'auto' }} /></td>
         </tr>
       ))}
@@ -15,7 +16,16 @@ function SkeletonRows({ rows = 4 }) {
   )
 }
 
-export default function JerarquiaTable({ jerarquias, loading, error, onRetry, onEditar, onEliminar, onCrearPrimero }) {
+export default function JerarquiaTable({
+  jerarquias,
+  loading,
+  error,
+  onRetry,
+  onEditar,
+  onEliminar,
+  onRecuperar,
+  onCrearPrimero,
+}) {
   if (!loading && error) {
     return (
       <div className={styles.emptyState}>
@@ -44,6 +54,7 @@ export default function JerarquiaTable({ jerarquias, loading, error, onRetry, on
         <tr>
           <th>Nivel</th>
           <th>Nombre</th>
+          <th>Estado</th>
           <th aria-label="Acciones" />
         </tr>
       </thead>
@@ -51,22 +62,42 @@ export default function JerarquiaTable({ jerarquias, loading, error, onRetry, on
         {loading ? (
           <SkeletonRows />
         ) : (
-          jerarquias.map((j) => (
-            <tr key={j.id}>
-              <td><span className={styles.badge}>{j.nivel}</span></td>
-              <td><span className={styles.itemNombre}>{j.nombre}</span></td>
-              <td>
-                <div className={styles.actionsCell}>
-                  <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(j)}>
-                    <i className="ti ti-pencil" aria-hidden="true" />
-                  </button>
-                  <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(j)}>
-                    <i className="ti ti-trash" aria-hidden="true" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))
+          jerarquias.map((j) => {
+            const inactiva = !j.estado
+            return (
+              <tr key={j.id}>
+                <td><span className={styles.badge}>{j.nivel}</span></td>
+                <td><span className={styles.itemNombre}>{j.nombre}</span></td>
+                <td>
+                  <span className={`${styles.badge} ${j.estado ? styles.activo : styles.inactivo}`}>
+                    {j.estado ? 'Activa' : 'Eliminada'}
+                  </span>
+                </td>
+                <td>
+                  <div className={styles.actionsCell}>
+                    {inactiva ? (
+                      <button
+                        className={styles.iconBtn}
+                        title="Recuperar jerarquía"
+                        onClick={() => onRecuperar(j)}
+                      >
+                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <>
+                        <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(j)}>
+                          <i className="ti ti-pencil" aria-hidden="true" />
+                        </button>
+                        <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(j)}>
+                          <i className="ti ti-trash" aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })
         )}
       </tbody>
     </table>

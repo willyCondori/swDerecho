@@ -8,6 +8,7 @@ function SkeletonRows({ rows = 4 }) {
         <tr key={i} className={styles.skeletonRow}>
           <td><div className={styles.skeleton} style={{ width: 200 }} /></td>
           <td><div className={styles.skeleton} style={{ width: 320 }} /></td>
+          <td><div className={styles.skeleton} style={{ width: 70 }} /></td>
           <td><div className={styles.skeleton} style={{ width: 60, marginLeft: 'auto' }} /></td>
         </tr>
       ))}
@@ -15,7 +16,16 @@ function SkeletonRows({ rows = 4 }) {
   )
 }
 
-export default function RamaTable({ ramas, loading, error, onRetry, onEditar, onEliminar, onCrearPrimero }) {
+export default function RamaTable({
+  ramas,
+  loading,
+  error,
+  onRetry,
+  onEditar,
+  onEliminar,
+  onRecuperar,
+  onCrearPrimero,
+}) {
   if (!loading && error) {
     return (
       <div className={styles.emptyState}>
@@ -44,6 +54,7 @@ export default function RamaTable({ ramas, loading, error, onRetry, onEditar, on
         <tr>
           <th>Nombre</th>
           <th>Descripción</th>
+          <th>Estado</th>
           <th aria-label="Acciones" />
         </tr>
       </thead>
@@ -51,26 +62,46 @@ export default function RamaTable({ ramas, loading, error, onRetry, onEditar, on
         {loading ? (
           <SkeletonRows />
         ) : (
-          ramas.map((rama) => (
-            <tr key={rama.id}>
-              <td><span className={styles.itemNombre}>{rama.nombre}</span></td>
-              <td>
-                <span className={styles.itemDescripcion}>
-                  {rama.descripcion || 'Sin descripción'}
-                </span>
-              </td>
-              <td>
-                <div className={styles.actionsCell}>
-                  <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(rama)}>
-                    <i className="ti ti-pencil" aria-hidden="true" />
-                  </button>
-                  <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(rama)}>
-                    <i className="ti ti-trash" aria-hidden="true" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))
+          ramas.map((rama) => {
+            const inactiva = !rama.estado
+            return (
+              <tr key={rama.id}>
+                <td><span className={styles.itemNombre}>{rama.nombre}</span></td>
+                <td>
+                  <span className={styles.itemDescripcion}>
+                    {rama.descripcion || 'Sin descripción'}
+                  </span>
+                </td>
+                <td>
+                  <span className={`${styles.badge} ${rama.estado ? styles.activo : styles.inactivo}`}>
+                    {rama.estado ? 'Activa' : 'Eliminada'}
+                  </span>
+                </td>
+                <td>
+                  <div className={styles.actionsCell}>
+                    {inactiva ? (
+                      <button
+                        className={styles.iconBtn}
+                        title="Recuperar rama"
+                        onClick={() => onRecuperar(rama)}
+                      >
+                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <>
+                        <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(rama)}>
+                          <i className="ti ti-pencil" aria-hidden="true" />
+                        </button>
+                        <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(rama)}>
+                          <i className="ti ti-trash" aria-hidden="true" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            )
+          })
         )}
       </tbody>
     </table>
