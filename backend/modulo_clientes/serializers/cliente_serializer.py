@@ -104,6 +104,11 @@ class ClienteWriteSerializer(serializers.ModelSerializer):
                 "El teléfono debe tener 8 dígitos."
             )
 
+        if value[0] not in ("6", "7"):
+            raise serializers.ValidationError(
+                "El teléfono debe empezar con 6 o 7."
+            )
+
         return value    
 
     def _encrypt_fields(self, validated_data: dict) -> dict:
