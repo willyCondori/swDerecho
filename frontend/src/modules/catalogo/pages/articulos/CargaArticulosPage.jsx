@@ -155,7 +155,7 @@ export default function CargaArticulosPage() {
             </div>
 
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
-
+{/* 
             <div className={styles.checkboxRow}>
               <input
                 id="sobrescribir"
@@ -172,6 +172,7 @@ export default function CargaArticulosPage() {
                 duplicados simplemente se omitirán.
               </label>
             </div>
+*/}
 
             <div className={styles.submitRow}>
               <button type="button" className={styles.btnSecondary} onClick={handleReiniciar}>
