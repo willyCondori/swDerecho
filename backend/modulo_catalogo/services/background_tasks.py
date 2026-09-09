@@ -66,9 +66,9 @@ def obtener_progreso(task_id: str):
 
 def lanzar_carga_en_background(
     contenido_pdf: bytes,
-    fuente: str,
     norma_id: int,
     rama_id: int,
+    jerarquia_id: int = None,
     sobrescribir: bool = False,
 ) -> str:
     """
@@ -90,9 +90,9 @@ def lanzar_carga_en_background(
         try:
             resultado = cargar_articulos_desde_bytes(
                 contenido_pdf=contenido_pdf,
-                fuente=fuente,
                 norma_id=norma_id,
                 rama_id=rama_id,
+                jerarquia_id=jerarquia_id,
                 task=progreso,
                 sobrescribir=sobrescribir,
             )

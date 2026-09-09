@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 
 def cargar_articulos_pdf(
     ruta_temporal: str,
-    fuente: str,
     norma_id: int,
     rama_id: int,
+    jerarquia_id: int = None,
     sobrescribir: bool = False,
     usuario_id: int = None,
     task=None,  # 👈 opcional (para compatibilidad si luego vuelves a Celery)
@@ -57,9 +57,9 @@ def cargar_articulos_pdf(
     try:
         resultado = cargar_articulos_desde_bytes(
             contenido_pdf=contenido,
-            fuente=fuente,
             norma_id=norma_id,
             rama_id=rama_id,
+            jerarquia_id=jerarquia_id,
             task=task,  # puede ser None
             sobrescribir=sobrescribir,
         )
@@ -81,9 +81,9 @@ def cargar_articulos_pdf(
                     accion="CREATE",
                     registro_id=norma_id,
                     metadata={
-                        "fuente": fuente,
                         "norma_id": norma_id,
                         "rama_id": rama_id,
+                        "jerarquia_id": jerarquia_id,
                         "guardados": getattr(resultado, "guardados", 0),
                         "duplicados": getattr(resultado, "duplicados", 0),
                         "errores": getattr(resultado, "errores", 0),
