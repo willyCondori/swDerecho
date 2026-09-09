@@ -57,7 +57,7 @@ export default function AppLayout() {
       <aside className={styles.sidebar} aria-label="Navegación principal">
         <div className={styles.sidebarLogo}>
           <div className={styles.sidebarLogoIcon}>⚖</div>
-          <span className={styles.sidebarLogoText}>JurisIA</span>
+          <span className={styles.sidebarLogoText}>Litigiun</span>
         </div>
 
         <nav className={styles.sidebarNav}>
@@ -119,7 +119,7 @@ export default function AppLayout() {
       <header className={styles.topbar}>
         <div className={styles.topbarLeft}>
           <nav className={styles.breadcrumb} aria-label="Ruta de navegación">
-            <span>JurisIA</span>
+            <span>Litiguin</span>
             <span className={styles.breadcrumbSep}>/</span>
             <span className={styles.breadcrumbCurrent} id="page-title">Panel</span>
           </nav>
