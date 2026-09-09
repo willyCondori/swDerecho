@@ -23,10 +23,10 @@ export function validarArchivo(file) {
 
 /**
  * Valida los campos del formulario de carga de artículos.
- * @param {{archivo: File|null, nombreDocumento: string, jerarquiaId: string, ramaId: string}} datos
+ * @param {{archivo: File|null, nombreDocumento: string, sigla: string, jerarquiaId: string, ramaId: string}} datos
  * @returns {Record<string, string>} mapa de errores por campo (vacío si todo es válido).
  */
-export function validarFormulario({ archivo, nombreDocumento, jerarquiaId, ramaId }) {
+export function validarFormulario({ archivo, nombreDocumento, sigla, jerarquiaId, ramaId }) {
   const errores = {}
 
   if (!archivo) errores.archivo = 'Debes seleccionar un archivo PDF.'
@@ -34,6 +34,11 @@ export function validarFormulario({ archivo, nombreDocumento, jerarquiaId, ramaI
     errores.nombreDocumento = 'Escribe el nombre del documento.'
   } else if (nombreDocumento.trim().length < 3) {
     errores.nombreDocumento = 'El nombre debe tener al menos 3 caracteres.'
+  }
+  // La sigla es opcional (ej. "CPP", "CPE"); el backend la usa para
+  // reutilizar la norma si ya existe, igual que el nombre.
+  if (sigla && sigla.trim().length > 50) {
+    errores.sigla = 'La sigla no puede superar los 50 caracteres.'
   }
   if (!jerarquiaId) errores.jerarquiaId = 'Selecciona el tipo de norma (jerarquía).'
   if (!ramaId) errores.ramaId = 'Selecciona la rama de derecho.'
