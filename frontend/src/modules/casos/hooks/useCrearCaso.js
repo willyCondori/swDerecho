@@ -16,6 +16,8 @@ const initialClienteForm = {
   telefono: '',
 }
 
+const NOMBRE_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/
+
 function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistenteId) {
   const errors = {}
 
@@ -28,11 +30,35 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
     errors.archivo = 'Adjunta un archivo PDF.'
   }
 
-  // Datos del cliente
+  // Datos del cliente — mismas reglas que valida el backend
+  // (ClienteWriteSerializer), para no depender del round-trip al
+  // servidor para avisar de un dato inválido.
   if (modoCliente === 'nuevo') {
-    if (!clienteForm.nombres.trim()) errors.nombres = 'Los nombres son obligatorios.'
-    if (!clienteForm.apellidos.trim()) errors.apellidos = 'Los apellidos son obligatorios.'
-    if (!clienteForm.telefono.trim()) errors.telefono = 'El teléfono es obligatorio.'
+    const nombres = clienteForm.nombres.trim()
+    const apellidos = clienteForm.apellidos.trim()
+    const telefono = clienteForm.telefono.trim()
+
+    if (!nombres) {
+      errors.nombres = 'Los nombres son obligatorios.'
+    } else if (nombres.length < 2) {
+      errors.nombres = 'El nombre debe tener al menos 2 caracteres.'
+    } else if (!NOMBRE_REGEX.test(nombres)) {
+      errors.nombres = 'El nombre solo puede contener letras y espacios.'
+    }
+
+    if (!apellidos) {
+      errors.apellidos = 'Los apellidos son obligatorios.'
+    } else if (apellidos.length < 2) {
+      errors.apellidos = 'Los apellidos deben tener al menos 2 caracteres.'
+    } else if (!NOMBRE_REGEX.test(apellidos)) {
+      errors.apellidos = 'Los apellidos solo pueden contener letras y espacios.'
+    }
+
+    if (!telefono) {
+      errors.telefono = 'El teléfono es obligatorio.'
+    } else if (telefono.length !== 8 || !/^\d+$/.test(telefono)) {
+      errors.telefono = 'El teléfono debe tener 8 dígitos.'
+    }
   } else {
     if (!clienteExistenteId) errors.clienteExistente = 'Selecciona un cliente existente.'
   }
