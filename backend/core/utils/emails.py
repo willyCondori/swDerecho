@@ -23,17 +23,16 @@ def enviar_credenciales_usuario(email: str, usuario: str, password: str) -> bool
     contraseña temporal generada. Devuelve True si el envío fue
     exitoso, False si falló (el error queda registrado en el log).
     """
-    asunto = "Tus credenciales de acceso — JurisIA"
+    asunto = "Tus credenciales de acceso"
     mensaje = (
         "Hola,\n\n"
-        "Se ha creado una cuenta para vos en el sistema JurisIA. "
+        "Se ha creado una cuenta para vos en el sistema. "
         "Estas son tus credenciales de acceso:\n\n"
         f"    Usuario:               {usuario}\n"
         f"    Contraseña temporal:   {password}\n\n"
         "Por seguridad, al iniciar sesión por primera vez se te pedirá "
         "que cambies esta contraseña antes de continuar.\n\n"
         "Si no esperabas este correo, contactá al administrador del sistema.\n\n"
-        "— JurisIA"
     )
 
     try:
@@ -67,10 +66,10 @@ def enviar_password_recuperacion(email: str, usuario: str, password: str) -> boo
     igual queda registrado en el log para que se pueda reenviar a
     mano si hace falta.
     """
-    asunto = "Recuperación de contraseña — JurisIA"
+    asunto = "Recuperación de contraseña"
     mensaje = (
         "Hola,\n\n"
-        f"Recibimos una solicitud para recuperar el acceso a tu cuenta '{usuario}' en JurisIA. "
+        f"Recibimos una solicitud para recuperar el acceso a tu cuenta '{usuario}'. "
         "Generamos una contraseña temporal nueva:\n\n"
         f"    Contraseña temporal:   {password}\n\n"
         "Usala para entrar a la pantalla de recuperación (el mismo lugar donde pediste "
@@ -79,7 +78,6 @@ def enviar_password_recuperacion(email: str, usuario: str, password: str) -> boo
         "elegir la nueva.\n\n"
         "Si vos no pediste este cambio, contactá al administrador del sistema: tu "
         "contraseña anterior ya no es válida.\n\n"
-        "— JurisIA"
     )
 
     try:

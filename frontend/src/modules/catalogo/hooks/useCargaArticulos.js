@@ -6,9 +6,8 @@ import catalogoApi from '../../../api/catalogoApi'
 const POLL_INTERVAL_MS = 1500
 
 export function useCargaArticulos() {
-  const [fuentes,   setFuentes]   = useState([])
-  const [normas,    setNormas]    = useState([])
-  const [ramas,     setRamas]     = useState([])
+  const [jerarquias, setJerarquias] = useState([])
+  const [ramas,      setRamas]      = useState([])
   const [loadingOpts, setLoadingOpts] = useState(true)
 
   const [taskId,    setTaskId]    = useState(null)
@@ -26,13 +25,11 @@ export function useCargaArticulos() {
     const load = async () => {
       setLoadingOpts(true)
       try {
-        const [fuentesRes, normasRes, ramasRes] = await Promise.all([
-          cargaArticulosApi.fuentes(),
-          catalogoApi.normas(),
+        const [jerarquiasRes, ramasRes] = await Promise.all([
+          catalogoApi.jerarquias(),
           catalogoApi.ramas(),
         ])
-        setFuentes(fuentesRes.data.fuentes ?? [])
-        setNormas(normasRes.data ?? [])
+        setJerarquias(jerarquiasRes.data ?? [])
         setRamas(ramasRes.data ?? [])
       } catch (e) {
         setError('No se pudieron cargar las opciones del formulario.')
@@ -129,7 +126,7 @@ export function useCargaArticulos() {
   const procesando = estado === 'PENDING' || estado === 'STARTED'
 
   return {
-    fuentes, normas, ramas, loadingOpts,
+    jerarquias, ramas, loadingOpts,
     cargar, reset,
     enviando, procesando,
     taskId, estado, progreso, paso, resumen, error, advertencias,
