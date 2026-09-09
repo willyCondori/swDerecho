@@ -1,25 +1,20 @@
 // modules/catalogo/components/articulos/FuenteInfo.jsx
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
-export default function FuenteInfo({ fuente }) {
-  if (!fuente) return null
-
-  const jerarquiaLabel = fuente.jerarquia
-    ? (fuente.jerarquia.nombre
-        ? `${fuente.jerarquia.nombre} (nivel ${fuente.jerarquia.nivel})`
-        : `Nivel ${fuente.jerarquia.nivel}`)
-    : 'Sin asignar'
+/**
+ * Muestra el nivel de la jerarquía normativa elegida, como contexto para
+ * el usuario mientras completa el formulario de carga.
+ */
+export default function FuenteInfo({ jerarquia }) {
+  if (!jerarquia) return null
 
   return (
     <div className={styles.fuenteInfo}>
       <i className={`ti ti-info-circle ${styles.fuenteInfoIcon}`} aria-hidden="true" />
       <p className={styles.fuenteInfoText}>
-        {fuente.descripcion}
+        <strong>Jerarquía normativa: {jerarquia.nombre} (nivel {jerarquia.nivel})</strong>
         {' · '}
-        <strong>Jerarquía normativa: {jerarquiaLabel}</strong>
-        {fuente.esperados && (
-          <> · Aprox. {fuente.esperados} artículos esperados</>
-        )}
+        Se asignará a este documento solo si todavía no tiene una jerarquía configurada.
       </p>
     </div>
   )

@@ -33,18 +33,38 @@ from rest_framework.response import Response
 
 class RamaDerechoViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/ramas/        — lista
-    POST   /api/ramas/        — crear  [admin]
-    GET    /api/ramas/{id}/   — detalle
-    PATCH  /api/ramas/{id}/   — editar [admin]
-    DELETE /api/ramas/{id}/   — soft-delete [admin]
-    GET    /api/ramas/lista/  — compacto para selects
+    GET    /api/ramas/              — lista ramas activas (o filtradas por ?estado=)
+    POST   /api/ramas/              — crear  [admin]
+    GET    /api/ramas/{id}/         — detalle (incluye inactivas)  [admin]
+    PATCH  /api/ramas/{id}/         — editar [admin]
+    DELETE /api/ramas/{id}/         — soft-delete [admin]
+    POST   /api/ramas/{id}/activar/ — reactivar rama desactivada [admin]
+    GET    /api/ramas/lista/        — compacto para selects (solo activas)
     """
-    queryset        = RamaDerecho.objects.filter(estado=True).order_by("nombre")
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["nombre", "descripcion"]
     ordering_fields = ["nombre"]
     auditoria_tabla = "ramas_derecho"
+
+    # Acciones de detalle en las que un admin necesita poder ver/operar
+    # sobre una rama inactiva (para poder inspeccionarla o reactivarla).
+    _ACCIONES_VEN_INACTIVAS = ("retrieve", "update", "partial_update", "destroy", "activar")
+
+    def get_queryset(self):
+        qs = RamaDerecho.objects.order_by("nombre")
+
+        # ?estado=true|false — usado por el panel de administración
+        # para alternar entre pestañas "Activas" / "Eliminadas".
+        estado = self.request.query_params.get("estado")
+        if estado is not None:
+            return qs.filter(estado=estado.lower() in ["true", "1"])
+
+        if self.action in self._ACCIONES_VEN_INACTIVAS:
+            return qs
+
+        # list / lista sin filtro explícito: comportamiento seguro por
+        # defecto, solo ramas activas.
+        return qs.filter(estado=True)
 
     def get_serializer_class(self):
         if self.action == "lista":
@@ -68,6 +88,14 @@ class RamaDerechoViewSet(AuditoriaMixin, ModelViewSet):
         qs = self.get_queryset()
         return Response(RamaDerechoListSerializer(qs, many=True).data)
 
+    @action(detail=True, methods=["post"], url_path="activar")
+    def activar(self, request, pk=None):
+        """POST /api/ramas/{id}/activar/ — reactiva una rama desactivada."""
+        instance        = self.get_object()
+        instance.estado = True
+        instance.save(update_fields=["estado"])
+        self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
+        return Response({"detail": "Rama de derecho reactivada."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"])
     def debug(self, request):
@@ -84,18 +112,38 @@ class RamaDerechoViewSet(AuditoriaMixin, ModelViewSet):
 
 class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/jerarquias/        — lista
-    POST   /api/jerarquias/        — crear  [admin]
-    GET    /api/jerarquias/{id}/   — detalle
-    PATCH  /api/jerarquias/{id}/   — editar [admin]
-    DELETE /api/jerarquias/{id}/   — soft-delete [admin]
-    GET    /api/jerarquias/lista/  — compacto para selects (al crear/editar una Norma)
+    GET    /api/jerarquias/              — lista jerarquías activas (o filtradas por ?estado=)
+    POST   /api/jerarquias/              — crear  [admin]
+    GET    /api/jerarquias/{id}/         — detalle (incluye inactivas)  [admin]
+    PATCH  /api/jerarquias/{id}/         — editar [admin]
+    DELETE /api/jerarquias/{id}/         — soft-delete [admin]
+    POST   /api/jerarquias/{id}/activar/ — reactivar jerarquía desactivada [admin]
+    GET    /api/jerarquias/lista/        — compacto para selects (al crear/editar una Norma)
     """
-    queryset        = Jerarquia.objects.filter(estado=True).order_by("nivel")
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["nombre"]
     ordering_fields = ["nivel", "nombre"]
     auditoria_tabla = "jerarquias"
+
+    # Acciones de detalle en las que un admin necesita poder ver/operar
+    # sobre una jerarquía inactiva (para poder inspeccionarla o reactivarla).
+    _ACCIONES_VEN_INACTIVAS = ("retrieve", "update", "partial_update", "destroy", "activar")
+
+    def get_queryset(self):
+        qs = Jerarquia.objects.order_by("nivel")
+
+        # ?estado=true|false — usado por el panel de administración
+        # para alternar entre pestañas "Activas" / "Eliminadas".
+        estado = self.request.query_params.get("estado")
+        if estado is not None:
+            return qs.filter(estado=estado.lower() in ["true", "1"])
+
+        if self.action in self._ACCIONES_VEN_INACTIVAS:
+            return qs
+
+        # list / lista sin filtro explícito: comportamiento seguro por
+        # defecto, solo jerarquías activas.
+        return qs.filter(estado=True)
 
     def get_serializer_class(self):
         if self.action == "lista":
@@ -118,6 +166,15 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
     def lista(self, request):
         qs = self.get_queryset()
         return Response(JerarquiaListSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="activar")
+    def activar(self, request, pk=None):
+        """POST /api/jerarquias/{id}/activar/ — reactiva una jerarquía desactivada."""
+        instance        = self.get_object()
+        instance.estado = True
+        instance.save(update_fields=["estado"])
+        self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
+        return Response({"detail": "Jerarquía reactivada."}, status=status.HTTP_200_OK)
 
 
 # ---------------------------------------------------------------------------

@@ -22,7 +22,12 @@ Flujo:
     Guardar EmbeddingArticulo 1:1
 
 Características:
-    - Soporta Civil, Penal, Laboral y CPE.
+    - Los patrones de detección de artículos son GENÉRICOS (no dependen de
+      un "tipo de norma" fijo): cubren todas las formas de numeración que
+      se usan en la legislación boliviana (Código Civil, Penal, Laboral,
+      CPE, CPP, y en general cualquier código/ley/decreto nuevo que se
+      cargue), así que cargar una norma nueva (ej. Código de Procedimiento
+      Penal) no requiere tocar este archivo.
     - El título se CONSTRUYE (no se extrae tal cual) como "Art. {numero} - {paréntesis}".
       Si el artículo no trae paréntesis, el título queda como "Art. {numero}".
     - Quita títulos de capítulo/sección/título que quedan pegados al final del
@@ -87,9 +92,9 @@ def _obtener_modelo():
 
 @dataclass
 class ResultadoCarga:
-    fuente: str
     norma_nombre: str
     rama_nombre: str
+    jerarquia_nombre: str = None
 
     total_encontrados: int = 0
     guardados: int = 0
@@ -100,9 +105,9 @@ class ResultadoCarga:
 
     def resumen(self) -> dict:
         return {
-            "fuente": self.fuente,
             "norma": self.norma_nombre,
             "rama": self.rama_nombre,
+            "jerarquia": self.jerarquia_nombre,
             "total_encontrados": self.total_encontrados,
             "guardados": self.guardados,
             "duplicados": self.duplicados,
@@ -179,41 +184,41 @@ def limpiar_texto(texto: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Patrones por fuente
+# Patrones de detección de artículos (genéricos, no atados a una norma)
 # ---------------------------------------------------------------------------
-
-PATRONES_POR_FUENTE = {
-    "Civil": [
-        r"ARTÍCULO\s+(\d+)\.",
-        r"ARTÍCULO\s+(\d+)-",
-        r"ARTICULO\s+(\d+)\.",
-        r"ARTICULO\s+(\d+)-",
-    ],
-    "Penal": [
-        r"Art\.\s+(\d+)°\.-",
-        r"Art\.\s+(\d+)º\.-",
-        r"Art\.\s+(\d+)°\s*\.-",
-        r"ART\.\s+(\d+)°\.-",
-        r"Art\.\s+(\d+)\.-",
-        r"ARTICULO\s+(\d+)°\.-",
-        r"ARTICULO\s+(\d+)º\.-",
-    ],
-    "Laboral": [
-        r"ARTICULO\s+(\d+)º",
-        r"ARTICULO\s+(\d+)°",
-        r"ARTICULO\s+(\d+)\.",
-        r"ARTICULO\s+(\d+)\s",
-        r"ARTÍCULO\.\s+(\d+)\s*º",
-        r"ARTÍCULO\s+(\d+)\s*º",
-        r"Art\.\s*(\d+)º",
-    ],
-    "CPE": [
-        r"Artículo\s+(\d+)\.",
-        r"Artículo\.\s+(\d+)\.",
-        r"Artículo\s+(\d+)\s",
-        r"Articulo\s+(\d+)\.",
-    ],
-}
+#
+# Antes esta lista estaba dividida por "fuente" (Civil/Penal/Laboral/CPE) y
+# el usuario tenía que elegir una de esas 4 opciones fijas en el formulario
+# de carga — lo que hacía imposible subir una norma nueva (CPP, Código de
+# Comercio, un Decreto Supremo, etc.) sin tocar el código. Se unificaron
+# todos los patrones (deduplicados) en una sola lista que se prueba siempre,
+# sin importar qué norma se esté cargando: cubre "Art.", "Artículo",
+# "ARTÍCULO", "ARTICULO", con °, º, punto, guion o espacio como separador,
+# que es prácticamente el universo de formas de numeración usadas en la
+# legislación boliviana.
+PATRONES_ARTICULO = [
+    r"ARTÍCULO\s+(\d+)\.",
+    r"ARTÍCULO\s+(\d+)-",
+    r"ARTÍCULO\.\s+(\d+)\s*º",
+    r"ARTÍCULO\s+(\d+)\s*º",
+    r"ARTICULO\s+(\d+)\.",
+    r"ARTICULO\s+(\d+)-",
+    r"ARTICULO\s+(\d+)º",
+    r"ARTICULO\s+(\d+)°",
+    r"ARTICULO\s+(\d+)°\.-",
+    r"ARTICULO\s+(\d+)º\.-",
+    r"ARTICULO\s+(\d+)\s",
+    r"Artículo\s+(\d+)\.",
+    r"Artículo\.\s+(\d+)\.",
+    r"Artículo\s+(\d+)\s",
+    r"Articulo\s+(\d+)\.",
+    r"Art\.\s+(\d+)°\.-",
+    r"Art\.\s+(\d+)º\.-",
+    r"Art\.\s+(\d+)°\s*\.-",
+    r"Art\.\s+(\d+)\.-",
+    r"Art\.\s*(\d+)º",
+    r"ART\.\s+(\d+)°\.-",
+]
 
 # IMPORTANTE — cómo se detecta un encabezado de artículo:
 #
@@ -282,37 +287,38 @@ def _es_inicio_valido(texto: str, pos: int) -> bool:
 # ---------------------------------------------------------------------------
 # Jerarquía normativa
 # ---------------------------------------------------------------------------
+#
+# Antes el nivel se adivinaba a partir de una "fuente" fija (CPE=1,
+# Civil/Penal/Laboral=2), lo que era incorrecto en general (un Decreto
+# Supremo, una Ley Orgánica o una Ordenanza Municipal no son "nivel 2") y
+# además obligaba a extender ese dict cada vez que se quería cargar una
+# norma distinta. Ahora el nivel de jerarquía es un campo que el usuario
+# elige explícitamente en el formulario de carga (rama, tipo de norma /
+# jerarquía, nombre del documento), y se asigna directamente a la Norma.
 
-JERARQUIA_POR_FUENTE = {
-    "CPE": 1,      # Constitución
-    "Civil": 2,    # Ley (Código Civil)
-    "Penal": 2,    # Ley (Código Penal)
-    "Laboral": 2,  # Ley (Código Laboral / Ley General del Trabajo)
-}
-
-
-def _asegurar_jerarquia_norma(norma, fuente):
+def _asegurar_jerarquia_norma(norma, jerarquia_id=None):
     """
-    Si la norma aún no tiene jerarquía asignada, se la asigna
-    automáticamente según la fuente del PDF cargado (CPE, Penal, Civil,
-    Laboral), buscando el registro de Jerarquia con ese nivel.
+    Si la norma aún no tiene jerarquía asignada y se indicó una
+    `jerarquia_id` en la carga, se la asigna.
 
     No sobrescribe una jerarquía ya configurada manualmente en la Norma
-    (por ejemplo, desde la pantalla de administración de normas).
+    (por ejemplo, desde la pantalla de administración de normas), para no
+    pisar una corrección manual previa.
     """
     if norma.jerarquia_id:
+        return
+    if not jerarquia_id:
         return
 
     from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 
-    nivel = JERARQUIA_POR_FUENTE.get(fuente, 2)
-    jerarquia_obj = Jerarquia.objects.filter(nivel=nivel, estado=True).first()
-    if jerarquia_obj is None:
+    try:
+        jerarquia_obj = Jerarquia.objects.get(pk=jerarquia_id, estado=True)
+    except Jerarquia.DoesNotExist:
         logger.warning(
-            "No existe una Jerarquia activa con nivel=%s para asignar a la "
-            "norma '%s' (fuente=%s). El artículo se cargará sin jerarquía "
-            "hasta que se configure manualmente en la norma.",
-            nivel, norma, fuente,
+            "jerarquia_id=%s no existe o está inactiva; la norma '%s' "
+            "queda sin jerarquía hasta que se configure manualmente.",
+            jerarquia_id, norma,
         )
         return
 
@@ -397,7 +403,7 @@ def _es_encabezado_seccion(ls: str) -> bool:
     return es_mayuscula_total and sin_digitos
 
 
-def _limpiar_contenido_articulo(contenido: str, fuente: str) -> str:
+def _limpiar_contenido_articulo(contenido: str) -> str:
     """Elimina encabezados de sección línea por línea (cuando hay \\n reales)."""
     lineas = contenido.split("\n")
     lineas_limpias = []
@@ -417,7 +423,11 @@ def _limpiar_contenido_articulo(contenido: str, fuente: str) -> str:
         elif _es_encabezado_seccion(ls):
             es_encabezado = True
 
-        if fuente == "Laboral" and re.match(r"^\d+$", ls):
+        # Una línea que es solo un número (sin nada más) es casi siempre un
+        # número de página u otro artefacto de la extracción del PDF, sin
+        # importar de qué norma se trate — antes esto solo se aplicaba a
+        # "Laboral", pero el mismo ruido aparece en cualquier PDF.
+        if re.match(r"^\d+$", ls):
             es_encabezado = True
 
         if not es_encabezado:
@@ -495,7 +505,7 @@ def construir_texto_embedding(titulo: str, contenido: str) -> str:
 # División por artículos
 # ---------------------------------------------------------------------------
 
-def dividir_por_articulos(texto: str, fuente: str) -> list[dict]:
+def dividir_por_articulos(texto: str) -> list[dict]:
     """
     Divide el texto en artículos.
 
@@ -504,12 +514,15 @@ def dividir_por_articulos(texto: str, fuente: str) -> list[dict]:
             {"numero": 361, "titulo": "Art. 361 - USURA AGRAVADA", "texto": "..."},
             ...
         ]
+
+    Usa la lista genérica PATRONES_ARTICULO — funciona para cualquier norma
+    (Civil, Penal, Laboral, CPE, CPP, o una nueva), no depende de que el
+    usuario elija un "tipo de norma" predefinido.
     """
     texto = limpiar_texto(texto)
-    patrones = PATRONES_POR_FUENTE.get(fuente, PATRONES_POR_FUENTE["Civil"])
 
     todos_matches = []
-    for patron in patrones:
+    for patron in PATRONES_ARTICULO:
         matches = list(re.finditer(patron, texto, re.MULTILINE))
         # Filtra referencias en medio de una oración (ver _es_inicio_valido)
         matches = [m for m in matches if _es_inicio_valido(texto, m.start())]
@@ -531,7 +544,7 @@ def dividir_por_articulos(texto: str, fuente: str) -> list[dict]:
         ultimo_num = num
 
     if not matches_unicos:
-        logger.warning("No se encontraron artículos en el PDF para fuente=%s", fuente)
+        logger.warning("No se encontraron artículos en el PDF (ningún patrón hizo match).")
         return []
 
     articulos = []
@@ -547,7 +560,7 @@ def dividir_por_articulos(texto: str, fuente: str) -> list[dict]:
         fin = matches_unicos[i + 1].start() if i + 1 < len(matches_unicos) else len(texto)
 
         contenido = texto[inicio:fin].strip()
-        contenido = _limpiar_contenido_articulo(contenido, fuente)
+        contenido = _limpiar_contenido_articulo(contenido)
         contenido = _quitar_encabezado_colgante(contenido)
 
         if len(contenido) < 20:
@@ -566,9 +579,9 @@ def dividir_por_articulos(texto: str, fuente: str) -> list[dict]:
 
 def cargar_articulos_desde_bytes(
     contenido_pdf: bytes,
-    fuente: str,
     norma_id: int,
     rama_id: int,
+    jerarquia_id: int = None,
     task=None,
     sobrescribir: bool = False,
 ) -> ResultadoCarga:
@@ -577,10 +590,12 @@ def cargar_articulos_desde_bytes(
 
     Args:
         contenido_pdf: bytes del archivo PDF
-        fuente: "Civil" | "Penal" | "Laboral" | "CPE"
-        norma_id: ID de la Norma (ya debe existir)
+        norma_id: ID de la Norma (ya debe existir — se crea/busca en la vista
+            a partir del nombre de documento ingresado por el usuario)
         rama_id: ID de la RamaDerecho (ya debe existir)
-        task: tarea Celery para reportar progreso (puede ser None)
+        jerarquia_id: ID de la Jerarquia elegida en el formulario. Solo se
+            usa si la Norma todavía no tiene jerarquía asignada.
+        task: reporta progreso (puede ser None)
         sobrescribir: si True elimina artículos previos de esa norma+rama
     """
     from modulo_catalogo.models.norma import Norma
@@ -597,13 +612,13 @@ def cargar_articulos_desde_bytes(
     except RamaDerecho.DoesNotExist:
         raise ValueError(f"No existe la rama con ID {rama_id}.")
 
+    _asegurar_jerarquia_norma(norma, jerarquia_id)
+
     resultado = ResultadoCarga(
-        fuente=fuente,
         norma_nombre=norma.nombre,
         rama_nombre=rama.nombre,
+        jerarquia_nombre=norma.jerarquia.nombre if norma.jerarquia_id else None,
     )
-
-    _asegurar_jerarquia_norma(norma, fuente)
 
     if sobrescribir:
         Articulo.objects.filter(norma=norma, rama=rama).delete()
@@ -616,11 +631,11 @@ def cargar_articulos_desde_bytes(
         raise RuntimeError(f"No se pudo extraer el texto del PDF: {e}")
 
     _update_task(task, 15, "Dividiendo en artículos...")
-    lista_articulos = dividir_por_articulos(texto, fuente)
+    lista_articulos = dividir_por_articulos(texto)
     resultado.total_encontrados = len(lista_articulos)
 
     if not lista_articulos:
-        logger.warning("PDF no produjo artículos. fuente=%s norma=%s", fuente, norma)
+        logger.warning("PDF no produjo artículos. norma=%s", norma)
         return resultado
 
     _update_task(task, 18, "Cargando modelo de embeddings...")

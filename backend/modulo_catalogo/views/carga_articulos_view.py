@@ -12,7 +12,6 @@ from rest_framework.views import APIView
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
-from modulo_catalogo.services.carga_pdf_service import JERARQUIA_POR_FUENTE
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
     obtener_progreso,
@@ -21,55 +20,26 @@ from modulo_catalogo.services.background_tasks import (
 logger = logging.getLogger(__name__)
 
 
-# ─────────────────────────────────────────────
-# FUENTES
-# ─────────────────────────────────────────────
-FUENTES_INFO = {
-    "Civil": {
-        "label": "Código Civil",
-        "descripcion": "Código Civil Boliviano. Patrón: ARTÍCULO N.",
-        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Civil", 2),
-        "esperados": 1570,
-    },
-    "Penal": {
-        "label": "Código Penal",
-        "descripcion": "Código Penal Boliviano. Patrón: Art. N°.-",
-        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Penal", 2),
-        "esperados": 363,
-    },
-    "Laboral": {
-        "label": "Código Laboral",
-        "descripcion": "Ley General del Trabajo",
-        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("Laboral", 2),
-        "esperados": 122,
-    },
-    "CPE": {
-        "label": "Constitución Política del Estado",
-        "descripcion": "CPE Bolivia 2009",
-        "jerarquia_nivel": JERARQUIA_POR_FUENTE.get("CPE", 1),
-        "esperados": 411,
-    },
-}
-
-
 class CargaArticulosView(APIView):
     """
-    POST /api/catalogo/cargar-pdf/
+    POST /api/catalogo/cargar-articulos/
 
-    IMPORTANTE — cambio de comportamiento respecto a la versión síncrona:
-    Este endpoint YA NO espera a que termine todo el procesamiento del
-    PDF. Guarda el archivo, arranca la carga en un hilo de background,
-    y devuelve el task_id de inmediato (202 Accepted). El frontend debe
-    hacer polling a GET /api/catalogo/cargar-pdf/estado/{task_id}/
+    El formulario de carga pide solo 3 campos + el PDF:
+        - rama_id          (rama de derecho)
+        - jerarquia_id      (tipo de norma / jerarquía normativa)
+        - nombre_documento  (nombre en texto del documento, ej. "Código de
+                              Procedimiento Penal")
+
+    Ya NO existe una lista fija de "fuentes" (Civil/Penal/Laboral/CPE): la
+    Norma destino se busca o se crea automáticamente a partir del nombre
+    de documento (ver CargaArticulosPDFSerializer), así que se puede
+    cargar el CPP o cualquier otra norma nueva sin tocar el backend.
+
+    Este endpoint NO espera a que termine todo el procesamiento del PDF.
+    Guarda el archivo, arranca la carga en un hilo de background, y
+    devuelve el task_id de inmediato (202 Accepted). El frontend debe
+    hacer polling a GET /api/catalogo/cargar-articulos/estado/{task_id}/
     hasta que "estado" sea "SUCCESS" o "FAILURE".
-
-    Esto es lo que arregla el bug de "el backend termina bien pero el
-    frontend muestra error": antes, con PDFs grandes (Civil ~1570
-    artículos), el procesamiento completo corría dentro del mismo
-    request HTTP y tardaba minutos — tiempo suficiente para que algo
-    del lado del cliente (timeout de fetch/axios) cortara la conexión
-    antes de que la respuesta llegara, aunque los artículos ya se
-    hubieran guardado en la BD durante el loop.
     """
     permission_classes = [EsOperativo]
     parser_classes = [MultiPartParser, FormParser]
@@ -87,29 +57,30 @@ class CargaArticulosView(APIView):
         data = serializer.validated_data
 
         archivo = data["archivo"]
-        fuente = data["fuente"]
         norma = data["norma"]
         rama = data["rama"]
+        jerarquia = data.get("jerarquia")
         sobrescribir = data.get("sobrescribir", False)
 
         existentes = serializer.context.get("existentes", 0)
+        norma_creada = serializer.context.get("norma_creada", False)
         usuario = request.user
 
         # ─────────────────────────────
         # GUARDAR PDF
         # ─────────────────────────────
         try:
-            carpeta_fuente = fuente.lower()
+            carpeta_norma = (norma.sigla or norma.nombre).lower().replace(" ", "_")
 
             ruta_carpeta = os.path.join(
                 settings.MEDIA_ROOT,
                 "documentos_normativas",
-                carpeta_fuente,
+                carpeta_norma,
             )
 
             os.makedirs(ruta_carpeta, exist_ok=True)
 
-            nombre_archivo = f"{carpeta_fuente}_{archivo.name}"
+            nombre_archivo = f"{carpeta_norma}_{archivo.name}"
             ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
 
             with open(ruta_archivo, "wb+") as destino:
@@ -125,7 +96,6 @@ class CargaArticulosView(APIView):
 
         # ─────────────────────────────
         # LEER CONTENIDO Y LANZAR EN BACKGROUND
-        # (ya no se procesa acá — se dispara el hilo y se responde ya)
         # ─────────────────────────────
         try:
             with open(ruta_archivo, "rb") as f:
@@ -133,9 +103,9 @@ class CargaArticulosView(APIView):
 
             task_id = lanzar_carga_en_background(
                 contenido_pdf=contenido,
-                fuente=fuente,
                 norma_id=norma.id,
                 rama_id=rama.id,
+                jerarquia_id=jerarquia.id if jerarquia else None,
                 sobrescribir=sobrescribir,
             )
 
@@ -152,9 +122,7 @@ class CargaArticulosView(APIView):
             )
 
         # ─────────────────────────────
-        # AUDITORÍA (registra que se INICIÓ la carga, no el resultado final —
-        # eso lo audita el hilo en background si querés, o el frontend puede
-        # loguearlo aparte cuando el polling confirme SUCCESS)
+        # AUDITORÍA
         # ─────────────────────────────
         try:
             registrar_auditoria(
@@ -165,11 +133,12 @@ class CargaArticulosView(APIView):
                 request=request,
                 metadata={
                     "accion": "carga_masiva_pdf_iniciada",
-                    "fuente": fuente,
                     "norma_id": norma.id,
                     "norma_nombre": norma.nombre,
+                    "norma_creada": norma_creada,
                     "rama_id": rama.id,
                     "rama_nombre": rama.nombre,
+                    "jerarquia_id": jerarquia.id if jerarquia else None,
                     "sobrescribir": sobrescribir,
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
@@ -180,13 +149,13 @@ class CargaArticulosView(APIView):
             logger.warning("Error en auditoría (no crítico)")
 
         # ─────────────────────────────
-        # RESPUESTA INMEDIATA — sin esperar el procesamiento
+        # RESPUESTA INMEDIATA
         # ─────────────────────────────
         respuesta = {
             "detail": "Carga de PDF iniciada. Consultá el progreso con el task_id.",
             "task_id": task_id,
-            "fuente": fuente,
             "norma": norma.nombre,
+            "norma_creada": norma_creada,
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
         }
@@ -201,10 +170,10 @@ class CargaArticulosView(APIView):
 
 class EstadoCargaPDFView(APIView):
     """
-    GET /api/catalogo/cargar-pdf/estado/{task_id}/
+    GET /api/catalogo/cargar-articulos/estado/{task_id}/
 
-    El frontend hace polling acá (cada 1-2 segundos, por ejemplo) hasta
-    que "estado" sea "SUCCESS" o "FAILURE".
+    El frontend hace polling acá (cada 1-2 segundos) hasta que "estado"
+    sea "SUCCESS" o "FAILURE".
 
     Respuesta mientras está en curso:
         {"task_id": "...", "estado": "STARTED", "progreso": 45, "paso": "Procesando artículo 180/364..."}
@@ -221,9 +190,6 @@ class EstadoCargaPDFView(APIView):
     permission_classes = [EsOperativo]
 
     def get(self, request, task_id=None):
-        # Acepta el task_id tanto por la URL (/estado/<task_id>/) como
-        # por query param (/estado/?task_id=...) — el log mostró que el
-        # frontend actual usa query param, así que cubrimos los dos casos.
         task_id = task_id or request.query_params.get("task_id")
 
         if not task_id:
@@ -254,37 +220,3 @@ class EstadoCargaPDFView(APIView):
             respuesta["paso"] = meta.get("paso", "procesando")
 
         return Response(respuesta, status=status.HTTP_200_OK)
-
-
-# ─────────────────────────────────────────────
-# FUENTES
-# ─────────────────────────────────────────────
-class FuentesDisponiblesView(APIView):
-    permission_classes = [EsOperativo]
-
-    def get(self, request):
-        from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
-
-        niveles_usados = {info["jerarquia_nivel"] for info in FUENTES_INFO.values()}
-        nombres_por_nivel = dict(
-            Jerarquia.objects.filter(nivel__in=niveles_usados).values_list("nivel", "nombre")
-        )
-
-        fuentes = []
-
-        for clave, info in FUENTES_INFO.items():
-            nivel = info["jerarquia_nivel"]
-            fuentes.append(
-                {
-                    "value": clave,
-                    "label": info["label"],
-                    "descripcion": info["descripcion"],
-                    "jerarquia": {
-                        "nivel": nivel,
-                        "nombre": nombres_por_nivel.get(nivel),
-                    },
-                    "esperados": info["esperados"],
-                }
-            )
-
-        return Response({"fuentes": fuentes})

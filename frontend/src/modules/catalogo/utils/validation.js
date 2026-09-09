@@ -23,15 +23,19 @@ export function validarArchivo(file) {
 
 /**
  * Valida los campos del formulario de carga de artículos.
- * @param {{archivo: File|null, fuente: string, normaId: string, ramaId: string}} datos
+ * @param {{archivo: File|null, nombreDocumento: string, jerarquiaId: string, ramaId: string}} datos
  * @returns {Record<string, string>} mapa de errores por campo (vacío si todo es válido).
  */
-export function validarFormulario({ archivo, fuente, normaId, ramaId }) {
+export function validarFormulario({ archivo, nombreDocumento, jerarquiaId, ramaId }) {
   const errores = {}
 
   if (!archivo) errores.archivo = 'Debes seleccionar un archivo PDF.'
-  if (!fuente) errores.fuente = 'Selecciona el tipo de norma.'
-  if (!normaId) errores.normaId = 'Selecciona la norma destino.'
+  if (!nombreDocumento || !nombreDocumento.trim()) {
+    errores.nombreDocumento = 'Escribe el nombre del documento.'
+  } else if (nombreDocumento.trim().length < 3) {
+    errores.nombreDocumento = 'El nombre debe tener al menos 3 caracteres.'
+  }
+  if (!jerarquiaId) errores.jerarquiaId = 'Selecciona el tipo de norma (jerarquía).'
   if (!ramaId) errores.ramaId = 'Selecciona la rama de derecho.'
 
   return errores
