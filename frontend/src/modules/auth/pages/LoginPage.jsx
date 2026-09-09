@@ -86,7 +86,7 @@ export default function LoginPage() {
         <div className={styles.formHeader}>
           <div className={styles.logo}>
             <div className={styles.logoIcon}>⚖</div>
-            <span className={styles.logoText}>JurisIA</span>
+            <span className={styles.logoText}>Litiguin</span>
           </div>
           <h2 className={styles.formTitle}>Acceder al sistema</h2>
           <p className={styles.formSubtitle}>
@@ -213,7 +213,7 @@ export default function LoginPage() {
         </form>
 
         <footer className={styles.formFooter}>
-          JurisIA · Sistema de análisis jurídico boliviano<br />
+          Litigiun · Sistema de análisis jurídico boliviano<br />
           Datos cifrados · ISO 27001
         </footer>
       </main>

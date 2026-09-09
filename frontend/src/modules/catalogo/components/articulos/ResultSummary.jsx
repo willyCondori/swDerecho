@@ -11,7 +11,8 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         <div>
           <p className={styles.resultTitle}>Procesamiento completado</p>
           <p className={styles.resultSubtitle}>
-            {resumen.norma} · {resumen.rama} · Fuente: {resumen.fuente}
+            {resumen.norma} · {resumen.rama}
+            {resumen.jerarquia && <> · {resumen.jerarquia}</>}
           </p>
         </div>
       </div>
