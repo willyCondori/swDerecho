@@ -13,6 +13,13 @@
 .card { composes: card from '../../../styles/shared.module.css'; }
 .table { composes: table from '../../../styles/shared.module.css'; }
 .badge { composes: badge from '../../../styles/shared.module.css'; }
+.activo { composes: badgeOk from '../../../styles/shared.module.css'; }
+.inactivo {
+  background: rgba(163, 45, 45, 0.15);
+  color: var(--c-red-100);
+  border: 1px solid rgba(163, 45, 45, 0.3);
+}
+
 .actionsCell { composes: actionsCell from '../../../styles/shared.module.css'; }
 .iconBtn { composes: iconBtn from '../../../styles/shared.module.css'; }
 .emptyState { composes: emptyState from '../../../styles/shared.module.css'; }
@@ -42,7 +49,10 @@
 /* ── Específico de esta página ─────────────────────────── */
 .sectionToolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
   margin-bottom: var(--sp-3);
 }
 
