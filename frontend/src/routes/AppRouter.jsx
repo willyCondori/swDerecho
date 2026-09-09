@@ -24,6 +24,7 @@ const EditarUsuarios       = lazy(() => import('../modules/usuarios/pages/Editar
 const RolesPage           = lazy(() => import('../modules/usuarios/pages/RolesPage'))
 const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage'))
 const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
+const EditarClientePage = lazy(() => import('../modules/clientes/pages/EditarClientePage'))
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
 const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
@@ -125,6 +126,9 @@ export default function AppRouter() {
             } />
             <Route path="/clientes/nuevo" element={
               <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
+            } />
+            <Route path="/clientes/:id/editar" element={
+              <Suspense fallback={<PageLoader />}><EditarClientePage /></Suspense>
             } />
 
             {/* Carga de PDFs de normas — espeja EsOperativo en
