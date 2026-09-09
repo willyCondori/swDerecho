@@ -5,6 +5,7 @@ import { useArchivoPdf } from '../../hooks/useArchivoPdf'
 import { validarFormulario } from '../../utils/validation'
 import FileDropzone from '../../components/articulos/FileDropzone'
 import FormSelectField from '../../components/articulos/FormSelectField'
+import FormTextField from '../../components/articulos/FormTextField'
 import FuenteInfo from '../../components/articulos/FuenteInfo'
 import ProgressPanel from '../../components/articulos/ProgressPanel'
 import ResultSummary from '../../components/articulos/ResultSummary'
@@ -12,11 +13,16 @@ import ErrorPanel from '../../components/articulos/ErrorPanel'
 import WarningsList from '../../components/articulos/WarningsList'
 import styles from './CargaArticulosPage.module.css'
 
-const FORM_INICIAL = { fuente: '', normaId: '', ramaId: '', sobrescribir: false }
+// El formulario pide solo lo que hace falta para cargar CUALQUIER norma:
+// rama de derecho, tipo de norma (jerarquía) y el nombre del documento en
+// texto. Ya no hay un <select> fijo de "Civil / Penal / Laboral / CPE": el
+// nombre que escribas (ej. "Código de Procedimiento Penal") crea o
+// reutiliza la Norma automáticamente en el backend.
+const FORM_INICIAL = { nombreDocumento: '', jerarquiaId: '', ramaId: '', sobrescribir: false }
 
 export default function CargaArticulosPage() {
   const {
-    fuentes, normas, ramas, loadingOpts,
+    jerarquias, ramas, loadingOpts,
     cargar, reset,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
@@ -30,7 +36,7 @@ export default function CargaArticulosPage() {
   const [form, setForm] = useState(FORM_INICIAL)
   const [fieldErrors, setFieldErrors] = useState({})
 
-  const fuenteSeleccionada = fuentes.find((f) => f.value === form.fuente)
+  const jerarquiaSeleccionada = jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
   const mostrandoFormulario = !procesando && !resumen && !error
 
   const handleInputChange = (e) => {
@@ -48,8 +54,8 @@ export default function CargaArticulosPage() {
     }
     await cargar({
       archivo,
-      fuente: form.fuente,
-      normaId: form.normaId,
+      nombreDocumento: form.nombreDocumento.trim(),
+      jerarquiaId: form.jerarquiaId,
       ramaId: form.ramaId,
       sobrescribir: form.sobrescribir,
     })
@@ -67,10 +73,12 @@ export default function CargaArticulosPage() {
       <header className={styles.header}>
         <h1 className={styles.title}>Cargar artículos jurídicos</h1>
         <p className={styles.subtitle}>
-          Sube el PDF de un código o norma boliviana (Código Civil, Penal,
-          Laboral o la CPE). El sistema extrae automáticamente cada
-          artículo, lo guarda en el catálogo y genera su embedding
-          semántico para el motor de búsqueda.
+          Sube el PDF de cualquier norma boliviana (Código Civil, Penal,
+          Laboral, de Procedimiento Penal, la CPE, o cualquier otra).
+          Indica la rama de derecho, el tipo de norma y el nombre del
+          documento; el sistema extrae automáticamente cada artículo, lo
+          guarda en el catálogo y genera su embedding semántico para el
+          motor de búsqueda.
         </p>
       </header>
 
@@ -96,29 +104,30 @@ export default function CargaArticulosPage() {
             />
 
             <div className={styles.formGrid}>
-              <FormSelectField
-                id="fuente"
-                label="Tipo de norma"
-                placeholder="Selecciona una fuente..."
-                value={form.fuente}
+              <FormTextField
+                id="nombreDocumento"
+                label="Nombre del documento"
+                placeholder="Ej. Código de Procedimiento Penal"
+                value={form.nombreDocumento}
                 onChange={handleInputChange}
-                options={fuentes}
                 disabled={loadingOpts}
-                error={fieldErrors.fuente}
+                error={fieldErrors.nombreDocumento}
+                helpText="Si ya existe una norma con este nombre, se reutiliza; si no, se crea."
+                fullWidth
               />
 
               <FormSelectField
-                id="normaId"
-                label="Norma destino"
-                placeholder="Selecciona una norma..."
-                value={form.normaId}
+                id="jerarquiaId"
+                label="Tipo de norma (jerarquía)"
+                placeholder="Selecciona una jerarquía..."
+                value={form.jerarquiaId}
                 onChange={handleInputChange}
-                options={normas.map((n) => ({
-                  value: n.id,
-                  label: n.sigla ? `${n.sigla} — ${n.nombre}` : n.nombre,
+                options={jerarquias.map((j) => ({
+                  value: j.id,
+                  label: `${j.nombre} (nivel ${j.nivel})`,
                 }))}
                 disabled={loadingOpts}
-                error={fieldErrors.normaId}
+                error={fieldErrors.jerarquiaId}
               />
 
               <FormSelectField
@@ -130,11 +139,10 @@ export default function CargaArticulosPage() {
                 options={ramas.map((r) => ({ value: r.id, label: r.nombre }))}
                 disabled={loadingOpts}
                 error={fieldErrors.ramaId}
-                fullWidth
               />
             </div>
 
-            <FuenteInfo fuente={fuenteSeleccionada} />
+            <FuenteInfo jerarquia={jerarquiaSeleccionada} />
 
             <div className={styles.checkboxRow}>
               <input
