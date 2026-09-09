@@ -11,7 +11,6 @@ from .views.catalogo_view import (
 from .views.carga_articulos_view import (
     CargaArticulosView,
     EstadoCargaPDFView,
-    FuentesDisponiblesView,
 )
 
 router = DefaultRouter()
@@ -31,5 +30,8 @@ urlpatterns = [
     # /cargar-articulos/estado/<task_id>/ (path param, más RESTful)
     path("cargar-articulos/estado/", EstadoCargaPDFView.as_view()),
     path("cargar-articulos/estado/<str:task_id>/", EstadoCargaPDFView.as_view()),
-    path("cargar-articulos/fuentes/", FuentesDisponiblesView.as_view()),
+    # El "tipo de norma (jerarquía)" del formulario de carga ya usa el
+    # catálogo de jerarquías real (GET /api/catalogo/jerarquias/lista/,
+    # registrado arriba por el router), en vez del viejo endpoint
+    # /cargar-articulos/fuentes/ atado a 4 opciones fijas.
 ]
