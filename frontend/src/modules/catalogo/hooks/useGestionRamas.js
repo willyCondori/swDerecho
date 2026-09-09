@@ -2,15 +2,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import catalogoApi from '../../../api/catalogoApi'
 
-// El backend (RamaDerechoViewSet.get_queryset) solo devuelve ramas activas
-// — no hay filtro por estado ni acción de reactivar para este catálogo —
-// así que esta pantalla es de "crear + ver activas", sin la pestaña de
-// "eliminadas" que sí tiene Roles.
+// 'activas' | 'eliminadas'
 export default function useGestionRamas() {
   const [ramas, setRamas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [estadoFiltro, setEstadoFiltroState] = useState('activas')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -18,6 +16,7 @@ export default function useGestionRamas() {
     try {
       const { data } = await catalogoApi.listarRamasCompleto({
         search: search || undefined,
+        estado: estadoFiltro === 'activas',
         ordering: 'nombre',
       })
       setRamas(Array.isArray(data) ? data : data.results ?? [])
@@ -27,11 +26,13 @@ export default function useGestionRamas() {
     } finally {
       setLoading(false)
     }
-  }, [search])
+  }, [search, estadoFiltro])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const setEstadoFiltro = (value) => setEstadoFiltroState(value)
 
   const crearRama = async (payload) => {
     const { data } = await catalogoApi.crearRama(payload)
@@ -50,15 +51,23 @@ export default function useGestionRamas() {
     await load()
   }
 
+  const activarRama = async (id) => {
+    await catalogoApi.activarRama(id)
+    await load()
+  }
+
   return {
     ramas,
     loading,
     error,
     search,
     setSearch,
+    estadoFiltro,
+    setEstadoFiltro,
     reload: load,
     crearRama,
     actualizarRama,
     eliminarRama,
+    activarRama,
   }
 }

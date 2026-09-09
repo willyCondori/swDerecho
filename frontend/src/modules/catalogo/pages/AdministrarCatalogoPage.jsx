@@ -63,10 +63,16 @@ export default function AdministrarCatalogoPage() {
   )
 }
 
+const ESTADO_TABS = [
+  { value: 'activas', label: 'Activas' },
+  { value: 'eliminadas', label: 'Eliminadas' },
+]
+
 function RamasSection() {
   const {
     ramas, loading, error, reload,
-    crearRama, actualizarRama, eliminarRama,
+    estadoFiltro, setEstadoFiltro,
+    crearRama, actualizarRama, eliminarRama, activarRama,
   } = useGestionRamas()
 
   const [panel, setPanel] = useState('cerrado') // 'cerrado' | 'crear' | { editar: rama }
@@ -115,7 +121,7 @@ function RamasSection() {
   }
 
   const handleEliminar = async (rama) => {
-    if (!window.confirm(`¿Eliminar la rama "${rama.nombre}"? Los artículos ya cargados con esta rama no se ven afectados, pero dejará de aparecer como opción al cargar nuevos documentos.`)) return
+    if (!window.confirm(`¿Eliminar la rama "${rama.nombre}"? Los artículos ya cargados con esta rama no se ven afectados, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarRama(rama.id)
     } catch (e) {
@@ -123,9 +129,30 @@ function RamasSection() {
     }
   }
 
+  const handleRecuperar = async (rama) => {
+    if (!window.confirm(`¿Recuperar la rama "${rama.nombre}"? Volverá a estar disponible como opción al cargar artículos.`)) return
+    try {
+      await activarRama(rama.id)
+    } catch (e) {
+      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la rama de derecho.')
+    }
+  }
+
   return (
     <>
       <div className={styles.sectionToolbar}>
+        <div className={styles.tabs}>
+          {ESTADO_TABS.map((t) => (
+            <button
+              key={t.value}
+              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
+              onClick={() => setEstadoFiltro(t.value)}
+              type="button"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -154,6 +181,7 @@ function RamasSection() {
           onRetry={reload}
           onEditar={abrirEditar}
           onEliminar={handleEliminar}
+          onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
       </div>
@@ -164,7 +192,8 @@ function RamasSection() {
 function JerarquiasSection() {
   const {
     jerarquias, loading, error, reload,
-    crearJerarquia, actualizarJerarquia, eliminarJerarquia,
+    estadoFiltro, setEstadoFiltro,
+    crearJerarquia, actualizarJerarquia, eliminarJerarquia, activarJerarquia,
   } = useGestionJerarquias()
 
   const [panel, setPanel] = useState('cerrado') // 'cerrado' | 'crear' | { editar: jerarquia }
@@ -214,7 +243,7 @@ function JerarquiasSection() {
   }
 
   const handleEliminar = async (jerarquia) => {
-    if (!window.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos.`)) return
+    if (!window.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarJerarquia(jerarquia.id)
     } catch (e) {
@@ -222,9 +251,30 @@ function JerarquiasSection() {
     }
   }
 
+  const handleRecuperar = async (jerarquia) => {
+    if (!window.confirm(`¿Recuperar la jerarquía "${jerarquia.nombre}"? Volverá a estar disponible como opción al cargar artículos.`)) return
+    try {
+      await activarJerarquia(jerarquia.id)
+    } catch (e) {
+      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la jerarquía.')
+    }
+  }
+
   return (
     <>
       <div className={styles.sectionToolbar}>
+        <div className={styles.tabs}>
+          {ESTADO_TABS.map((t) => (
+            <button
+              key={t.value}
+              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
+              onClick={() => setEstadoFiltro(t.value)}
+              type="button"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -253,6 +303,7 @@ function JerarquiasSection() {
           onRetry={reload}
           onEditar={abrirEditar}
           onEliminar={handleEliminar}
+          onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
       </div>

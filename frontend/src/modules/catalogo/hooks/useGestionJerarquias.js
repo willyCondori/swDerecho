@@ -2,11 +2,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import catalogoApi from '../../../api/catalogoApi'
 
+// 'activas' | 'eliminadas'
 export default function useGestionJerarquias() {
   const [jerarquias, setJerarquias] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
+  const [estadoFiltro, setEstadoFiltroState] = useState('activas')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -14,6 +16,7 @@ export default function useGestionJerarquias() {
     try {
       const { data } = await catalogoApi.listarJerarquiasCompleto({
         search: search || undefined,
+        estado: estadoFiltro === 'activas',
         ordering: 'nivel',
       })
       setJerarquias(Array.isArray(data) ? data : data.results ?? [])
@@ -23,11 +26,13 @@ export default function useGestionJerarquias() {
     } finally {
       setLoading(false)
     }
-  }, [search])
+  }, [search, estadoFiltro])
 
   useEffect(() => {
     load()
   }, [load])
+
+  const setEstadoFiltro = (value) => setEstadoFiltroState(value)
 
   const crearJerarquia = async (payload) => {
     const { data } = await catalogoApi.crearJerarquia(payload)
@@ -46,15 +51,23 @@ export default function useGestionJerarquias() {
     await load()
   }
 
+  const activarJerarquia = async (id) => {
+    await catalogoApi.activarJerarquia(id)
+    await load()
+  }
+
   return {
     jerarquias,
     loading,
     error,
     search,
     setSearch,
+    estadoFiltro,
+    setEstadoFiltro,
     reload: load,
     crearJerarquia,
     actualizarJerarquia,
     eliminarJerarquia,
+    activarJerarquia,
   }
 }
