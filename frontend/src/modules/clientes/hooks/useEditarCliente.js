@@ -12,7 +12,13 @@ function validate(form) {
   const errors = {}
   if (!form.nombres.trim()) errors.nombres = 'El nombre es obligatorio.'
   if (!form.apellidos.trim()) errors.apellidos = 'El apellido es obligatorio.'
-  if (form.telefono && form.telefono.length < 7) errors.telefono = 'Teléfono incompleto.'
+  if (form.telefono) {
+    if (form.telefono.length !== 8) {
+      errors.telefono = 'El teléfono debe tener 8 dígitos.'
+    } else if (!/^[67]/.test(form.telefono)) {
+      errors.telefono = 'El teléfono debe empezar con 6 o 7.'
+    }
+  }
   return errors
 }
 
