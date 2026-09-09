@@ -3,6 +3,8 @@
 .root { composes: root from '../../../styles/shared.module.css'; }
 .loaderWrap { composes: loaderWrap from '../../../styles/shared.module.css'; }
 .headerRow { composes: headerRow from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
 .backBtn { composes: backBtn from '../../../styles/shared.module.css'; }
 .headerInfo { composes: headerInfo from '../../../styles/shared.module.css'; }
 .codigoRow { composes: codigoRow from '../../../styles/shared.module.css'; }
