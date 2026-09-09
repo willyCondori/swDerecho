@@ -18,7 +18,7 @@ import styles from './CargaArticulosPage.module.css'
 // texto. Ya no hay un <select> fijo de "Civil / Penal / Laboral / CPE": el
 // nombre que escribas (ej. "Código de Procedimiento Penal") crea o
 // reutiliza la Norma automáticamente en el backend.
-const FORM_INICIAL = { nombreDocumento: '', jerarquiaId: '', ramaId: '', sobrescribir: false }
+const FORM_INICIAL = { nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '', sobrescribir: false }
 
 export default function CargaArticulosPage() {
   const {
@@ -55,6 +55,7 @@ export default function CargaArticulosPage() {
     await cargar({
       archivo,
       nombreDocumento: form.nombreDocumento.trim(),
+      sigla: form.sigla.trim(),
       jerarquiaId: form.jerarquiaId,
       ramaId: form.ramaId,
       sobrescribir: form.sobrescribir,
@@ -114,6 +115,17 @@ export default function CargaArticulosPage() {
                 error={fieldErrors.nombreDocumento}
                 helpText="Si ya existe una norma con este nombre, se reutiliza; si no, se crea."
                 fullWidth
+              />
+
+              <FormTextField
+                id="sigla"
+                label="Sigla (opcional)"
+                placeholder="Ej. CPP"
+                value={form.sigla}
+                onChange={handleInputChange}
+                disabled={loadingOpts}
+                error={fieldErrors.sigla}
+                helpText="Si ya existe una norma con esta sigla, se reutiliza en lugar de crear una nueva."
               />
 
               <FormSelectField
