@@ -26,6 +26,7 @@ const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage')
 const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
 const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
+const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
 
 
 function PageLoader() {
@@ -157,6 +158,15 @@ export default function AppRouter() {
               } />
             <Route path="/usuarios/:id/editar" element={
                 <Suspense fallback={<PageLoader />}><EditarUsuarios /></Suspense>
+              } />
+
+            {/* Ramas de derecho y jerarquías (tipo de norma) — espeja
+                EsAdmin en RamaDerechoViewSet/JerarquiaViewSet: solo el
+                administrador puede crear/editar/eliminar estas entradas
+                de catálogo. Cualquier autenticado sigue pudiendo LEERLAS
+                (para los <select> de casos y de carga de artículos). */}
+            <Route path="/catalogo/administrar" element={
+                <Suspense fallback={<PageLoader />}><AdministrarCatalogoPage /></Suspense>
               } />
           </Route>
         </Route>

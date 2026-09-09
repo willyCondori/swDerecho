@@ -1,0 +1,67 @@
+/* modules/catalogo/pages/AdministrarCatalogoPage.module.css */
+
+.root { composes: root from '../../../styles/shared.module.css'; }
+.header { composes: header from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.tabs { composes: tabs from '../../../styles/shared.module.css'; }
+.tab { composes: tab from '../../../styles/shared.module.css'; }
+.tabActive { composes: tabActive from '../../../styles/shared.module.css'; }
+.card { composes: card from '../../../styles/shared.module.css'; }
+.table { composes: table from '../../../styles/shared.module.css'; }
+.badge { composes: badge from '../../../styles/shared.module.css'; }
+.actionsCell { composes: actionsCell from '../../../styles/shared.module.css'; }
+.iconBtn { composes: iconBtn from '../../../styles/shared.module.css'; }
+.emptyState { composes: emptyState from '../../../styles/shared.module.css'; }
+.emptyIcon { composes: emptyIcon from '../../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
+.skeleton { composes: skeleton from '../../../styles/shared.module.css'; }
+
+/* ── Formulario (crear/editar) ─────────────────────────── */
+.formCard { composes: formCard from '../../../styles/shared.module.css'; }
+.cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
+.formGrid { composes: formGrid from '../../../styles/shared.module.css'; }
+.fullWidth { composes: fullWidth from '../../../styles/shared.module.css'; }
+.field { composes: field from '../../../styles/shared.module.css'; }
+.label { composes: label from '../../../styles/shared.module.css'; }
+.input { composes: input from '../../../styles/shared.module.css'; }
+.textarea { composes: textarea from '../../../styles/shared.module.css'; }
+.fieldError { composes: fieldError from '../../../styles/shared.module.css'; }
+.submitRow { composes: submitRow from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+
+.helpText {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+  margin-top: 2px;
+}
+
+/* ── Específico de esta página ─────────────────────────── */
+.sectionToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: var(--sp-3);
+}
+
+.itemNombre {
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.itemDescripcion {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  max-width: 420px;
+}
+
+@media (max-width: 640px) {
+  .formGrid { grid-template-columns: 1fr; }
+  .submitRow { flex-direction: column; align-items: stretch; }
+}

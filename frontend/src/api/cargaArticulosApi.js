@@ -4,13 +4,12 @@ import api from './axiosInstance'
 const BASE = '/api/catalogo/cargar-articulos'
 
 const cargaArticulosApi = {
-  fuentes: () => api.get(`${BASE}/fuentes/`),
-
   cargar: (payload) => {
     const fd = new FormData()
     fd.append('archivo', payload.archivo)
-    fd.append('fuente', payload.fuente)
-    fd.append('norma_id', payload.normaId)
+    fd.append('nombre_documento', payload.nombreDocumento)
+    if (payload.sigla) fd.append('sigla', payload.sigla)
+    if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
     fd.append('rama_id', payload.ramaId)
     fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
     return api.post(`${BASE}/`, fd, {
