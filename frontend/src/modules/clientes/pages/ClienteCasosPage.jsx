@@ -48,8 +48,12 @@ function validarCliente(form) {
     errors.apellidos = 'Los apellidos solo pueden contener letras y espacios.'
   }
 
-  if (telefono && (telefono.length !== 8 || !/^\d+$/.test(telefono))) {
-    errors.telefono = 'El teléfono debe tener 8 dígitos.'
+  if (telefono) {
+    if (telefono.length !== 8 || !/^\d+$/.test(telefono)) {
+      errors.telefono = 'El teléfono debe tener 8 dígitos.'
+    } else if (!/^[67]/.test(telefono)) {
+      errors.telefono = 'El teléfono debe empezar con 6 o 7.'
+    }
   }
 
   return errors
