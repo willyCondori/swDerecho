@@ -17,9 +17,16 @@ from modulo_catalogo.models.rama import RamaDerecho
 # Cuanto más bajo el nivel, mayor la jerarquía normativa.
 
 class JerarquiaSerializer(serializers.ModelSerializer):
+    # Campo de control, no se guarda en el modelo: cuando el nivel elegido
+    # ya está ocupado por otra jerarquía, el cliente debe reenviar la
+    # petición con confirmar_reemplazo=true para confirmar que quiere
+    # correr hacia abajo (nivel + 1) a la jerarquía existente y a todas
+    # las que tengan un nivel mayor o igual.
+    confirmar_reemplazo = serializers.BooleanField(write_only=True, required=False, default=False)
+
     class Meta:
         model  = Jerarquia
-        fields = ["id", "nombre", "nivel", "estado"]
+        fields = ["id", "nombre", "nivel", "estado", "confirmar_reemplazo"]
 
     def validate_nombre(self, value):
         value = value.strip()
@@ -36,6 +43,14 @@ class JerarquiaSerializer(serializers.ModelSerializer):
         if value < 1:
             raise serializers.ValidationError("El nivel debe ser un entero mayor o igual a 1.")
         return value
+
+    def create(self, validated_data):
+        validated_data.pop("confirmar_reemplazo", None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop("confirmar_reemplazo", None)
+        return super().update(instance, validated_data)
 
 
 class JerarquiaListSerializer(serializers.ModelSerializer):
