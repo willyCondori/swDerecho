@@ -1,12 +1,10 @@
-// modules/clientes/hooks/useCrearCliente.js
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+// modules/clientes/hooks/useEditarCliente.js
+import { useCallback, useEffect, useState } from 'react'
 import clientesApi from '../../../api/clientesApi'
 
 const initialForm = {
   nombres: '',
   apellidos: '',
-  email: '',
   telefono: '',
 }
 
@@ -14,7 +12,6 @@ function validate(form) {
   const errors = {}
   if (!form.nombres.trim()) errors.nombres = 'El nombre es obligatorio.'
   if (!form.apellidos.trim()) errors.apellidos = 'El apellido es obligatorio.'
-  if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) errors.email = 'Correo inválido.'
   if (form.telefono) {
     if (form.telefono.length !== 8) {
       errors.telefono = 'El teléfono debe tener 8 dígitos.'
@@ -25,15 +22,41 @@ function validate(form) {
   return errors
 }
 
-export default function useCrearCliente() {
-  const navigate = useNavigate()
+export default function useEditarCliente(id) {
+  const [clienteOriginal, setClienteOriginal] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [fieldErrors, setFieldErrors] = useState({})
-  const [enviando, setEnviando] = useState(false)
+  const [cargando, setCargando] = useState(true)
   const [error, setError] = useState(null)
+  const [enviando, setEnviando] = useState(false)
+  const [guardadoOk, setGuardadoOk] = useState(false)
+
+  const load = useCallback(async () => {
+    setCargando(true)
+    setError(null)
+    try {
+      const { data } = await clientesApi.obtener(id)
+      setClienteOriginal(data)
+      setForm({
+        nombres: data.nombres ?? '',
+        apellidos: data.apellidos ?? '',
+        telefono: data.telefono ?? '',
+      })
+    } catch (e) {
+      console.error('Error cargando cliente:', e, e?.response?.data)
+      setError('No se pudo cargar el cliente.')
+    } finally {
+      setCargando(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    load()
+  }, [load])
 
   const onChange = (e) => {
     const { name, value } = e.target
+    setGuardadoOk(false)
     setForm((prev) => ({ ...prev, [name]: value }))
     if (fieldErrors[name]) {
       setFieldErrors((prev) => ({ ...prev, [name]: undefined }))
@@ -49,21 +72,34 @@ export default function useCrearCliente() {
     setEnviando(true)
     setError(null)
     try {
-      const { data } = await clientesApi.crear(form)
-      navigate('/clientes')
+      const { data } = await clientesApi.actualizar(id, form)
+      setClienteOriginal(data)
+      setGuardadoOk(true)
       return data
     } catch (e) {
-      console.error('Error creando cliente:', e, e?.response?.data)
+      console.error('Error actualizando cliente:', e, e?.response?.data)
       const apiErrors = e?.response?.data
       if (apiErrors && typeof apiErrors === 'object') {
         setFieldErrors(apiErrors)
       } else {
-        setError('No se pudo crear el cliente.')
+        setError('No se pudo guardar los cambios.')
       }
+      throw e
     } finally {
       setEnviando(false)
     }
   }
 
-  return { form, fieldErrors, enviando, error, onChange, onSubmit }
+  return {
+    cliente: clienteOriginal,
+    form,
+    fieldErrors,
+    cargando,
+    error,
+    enviando,
+    guardadoOk,
+    onChange,
+    onSubmit,
+    reload: load,
+  }
 }
