@@ -186,16 +186,7 @@ def limpiar_texto(texto: str) -> str:
 # ---------------------------------------------------------------------------
 # Patrones de detección de artículos (genéricos, no atados a una norma)
 # ---------------------------------------------------------------------------
-#
-# Antes esta lista estaba dividida por "fuente" (Civil/Penal/Laboral/CPE) y
-# el usuario tenía que elegir una de esas 4 opciones fijas en el formulario
-# de carga — lo que hacía imposible subir una norma nueva (CPP, Código de
-# Comercio, un Decreto Supremo, etc.) sin tocar el código. Se unificaron
-# todos los patrones (deduplicados) en una sola lista que se prueba siempre,
-# sin importar qué norma se esté cargando: cubre "Art.", "Artículo",
-# "ARTÍCULO", "ARTICULO", con °, º, punto, guion o espacio como separador,
-# que es prácticamente el universo de formas de numeración usadas en la
-# legislación boliviana.
+
 PATRONES_ARTICULO = [
     r"ARTÍCULO\s+(\d+)\.",
     r"ARTÍCULO\s+(\d+)-",
@@ -220,50 +211,9 @@ PATRONES_ARTICULO = [
     r"ART\.\s+(\d+)°\.-",
 ]
 
-# IMPORTANTE — cómo se detecta un encabezado de artículo:
-#
-# Los patrones YA NO anclan a inicio de línea (?:^|\n). Algunos PDFs
-# extraídos con pypdf conservan saltos de línea reales entre elementos
-# (títulos, capítulos, artículos); otros — sobre todo si el PDF viene de
-# un visor/navegador o de una exportación distinta — devuelven el texto
-# como un bloque corrido sin \n. Anclar a \n rompe la detección por
-# completo en ese segundo caso (0 matches), así que se sacó el anclaje.
-#
-# Para no confundir una referencia DENTRO de una oración (ej. "...conforme
-# al Artículo 5 de esta Constitución...") con el INICIO real de un
-# artículo nuevo, cada coincidencia se valida con _es_inicio_valido():
-# solo se acepta si el carácter no-espacio inmediatamente anterior NO es
-# una letra minúscula (es decir: inicio de texto, un punto, dos puntos, o
-# una palabra en MAYÚSCULAS de un título de capítulo/sección).
-#
-# Si tu PDF sí conserva \n reales, esto sigue funcionando igual (el
-# carácter antes de un \n normalmente es un punto o mayúscula de todos
-# modos). Si notás falsos positivos o artículos que igual se pierden,
-# mandame ese tramo puntual del texto crudo (con repr(), para ver los \n
-# reales) y se ajusta la validación.
-
 
 def _es_inicio_valido(texto: str, pos: int) -> bool:
-    """
-    True si el match de un encabezado de artículo en `pos` es el INICIO
-    real de un artículo nuevo, y no una referencia dentro del cuerpo de
-    otro artículo (ej. "...conforme al Artículo 5 de esta Constitución...").
 
-    Reglas, en orden:
-      1. Si el carácter no-espacio-horizontal inmediatamente anterior es
-         un salto de línea real (\\n) -> VÁLIDO. El encabezado empieza en
-         su propia línea, que es como vienen casi siempre los "Art. N" /
-         "Artículo N" en el PDF real, con o sin línea en blanco antes
-         (la CPE separa artículos con un solo \\n; el Código Penal usa
-         línea en blanco — ambos casos quedan cubiertos acá).
-      2. Si no hay \\n real inmediato (texto corrido, sin saltos de línea
-         — puede pasar según cómo se haya extraído/pegado el texto), se
-         mira el último carácter no-espacio antes de `pos`:
-           - Si es una letra minúscula -> casi seguro es una referencia
-             en medio de una oración -> INVÁLIDO.
-           - Si es inicio de texto, un punto, dos puntos, o una letra
-             mayúscula (título de capítulo en mayúsculas) -> VÁLIDO.
-    """
     anterior = texto[:pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
@@ -585,19 +535,7 @@ def cargar_articulos_desde_bytes(
     task=None,
     sobrescribir: bool = False,
 ) -> ResultadoCarga:
-    """
-    Procesa un PDF en memoria y guarda los artículos + embeddings en la BD.
-
-    Args:
-        contenido_pdf: bytes del archivo PDF
-        norma_id: ID de la Norma (ya debe existir — se crea/busca en la vista
-            a partir del nombre de documento ingresado por el usuario)
-        rama_id: ID de la RamaDerecho (ya debe existir)
-        jerarquia_id: ID de la Jerarquia elegida en el formulario. Solo se
-            usa si la Norma todavía no tiene jerarquía asignada.
-        task: reporta progreso (puede ser None)
-        sobrescribir: si True elimina artículos previos de esa norma+rama
-    """
+   
     from modulo_catalogo.models.norma import Norma
     from modulo_catalogo.models.rama import RamaDerecho
     from modulo_catalogo.models.articulo import Articulo

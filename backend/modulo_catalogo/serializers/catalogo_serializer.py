@@ -146,8 +146,7 @@ class EntidadJuridicaListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Articulo
 # ---------------------------------------------------------------------------
-# La jerarquía normativa ya NO vive en Articulo: ahora es Norma.jerarquia
-# (FK a Jerarquia). Un artículo hereda la jerarquía de su norma.
+
 
 class ArticuloReadSerializer(serializers.ModelSerializer):
     norma     = NormaListSerializer(read_only=True)
