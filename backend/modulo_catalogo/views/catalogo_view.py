@@ -1,3 +1,5 @@
+from django.db import transaction
+from django.db.models import F
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -155,10 +157,99 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
             return [EsUsuarioAutenticado()]
         return [EsAdmin()]
 
+    @staticmethod
+    def _conflicto_response(nivel, existente):
+        return Response(
+            {
+                "conflicto": True,
+                "nivel": nivel,
+                "existente": {"id": existente.id, "nombre": existente.nombre},
+                "detail": f'Esta jerarquía es mayor que "{existente.nombre}".',
+            },
+            status=status.HTTP_409_CONFLICT,
+        )
+
+    def create(self, request, *args, **kwargs):
+        """
+        Al crear una jerarquía con un nivel ya ocupado por otra activa,
+        se responde 409 con los datos de la jerarquía existente para que
+        el cliente confirme el reemplazo ("Esta jerarquía es mayor que
+        xxxx"). Si el cliente reenvía la petición con
+        confirmar_reemplazo=true, se corren hacia abajo (nivel + 1) la
+        jerarquía existente y todas las que tengan un nivel mayor o igual
+        al nuevo, y luego se crea la jerarquía en el nivel solicitado.
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        nivel     = serializer.validated_data["nivel"]
+        confirmar = serializer.validated_data.get("confirmar_reemplazo", False)
+
+        existente = Jerarquia.objects.filter(nivel=nivel, estado=True).first()
+        if existente and not confirmar:
+            return self._conflicto_response(nivel, existente)
+
+        with transaction.atomic():
+            if existente:
+                Jerarquia.objects.filter(nivel__gte=nivel, estado=True).update(nivel=F("nivel") + 1)
+            self.perform_create(serializer)
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    def update(self, request, *args, **kwargs):
+        """
+        Misma lógica de confirmación/cascada que create(), aplicada cuando
+        se edita el nivel de una jerarquía existente hacia uno ya ocupado
+        por otra jerarquía activa.
+        """
+        partial  = kwargs.pop("partial", False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+
+        nuevo_nivel = serializer.validated_data.get("nivel", instance.nivel)
+        confirmar   = serializer.validated_data.get("confirmar_reemplazo", False)
+
+        if nuevo_nivel != instance.nivel:
+            existente = (
+                Jerarquia.objects.filter(nivel=nuevo_nivel, estado=True)
+                .exclude(pk=instance.pk)
+                .first()
+            )
+            if existente and not confirmar:
+                return self._conflicto_response(nuevo_nivel, existente)
+
+            with transaction.atomic():
+                if existente:
+                    (
+                        Jerarquia.objects
+                        .filter(nivel__gte=nuevo_nivel, estado=True)
+                        .exclude(pk=instance.pk)
+                        .update(nivel=F("nivel") + 1)
+                    )
+                self.perform_update(serializer)
+        else:
+            self.perform_update(serializer)
+
+        if getattr(instance, "_prefetched_objects_cache", None):
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
     def destroy(self, request, *args, **kwargs):
+        """
+        Soft-delete + cascada: al eliminar una jerarquía de nivel N, todas
+        las jerarquías activas con nivel > N bajan un puesto (N+1 pasa a
+        ser N, N+2 pasa a ser N+1, etc.) para que la escala de niveles no
+        quede con huecos.
+        """
         instance        = self.get_object()
-        instance.estado = False
-        instance.save(update_fields=["estado"])
+        nivel_eliminado = instance.nivel
+        with transaction.atomic():
+            instance.estado = False
+            instance.save(update_fields=["estado"])
+            Jerarquia.objects.filter(nivel__gt=nivel_eliminado, estado=True).update(nivel=F("nivel") - 1)
         self._auditar("DELETE", registro_id=instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
