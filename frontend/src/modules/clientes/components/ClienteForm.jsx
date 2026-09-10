@@ -1,16 +1,10 @@
 // modules/clientes/components/ClienteForm.jsx
 import styles from '../pages/ClientesPage.module.css'
-
-// Permite letras (con tildes/ñ) y espacios; descarta números y símbolos
-// a medida que el usuario escribe, en vez de dejar que los tipee y
-// recién avisar con un error después de intentar guardar.
-function soloLetras(value) {
-  return value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
-}
+import { soloLetrasEspacios } from '../../../utils/validators'
 
 export default function ClienteForm({ form, fieldErrors, enviando, onChange, onSubmit, submitLabel = 'Crear cliente' }) {
   const handleSoloLetras = (name) => (e) => {
-    onChange({ target: { name, value: soloLetras(e.target.value) } })
+    onChange({ target: { name, value: soloLetrasEspacios(e.target.value) } })
   }
 
   return (
