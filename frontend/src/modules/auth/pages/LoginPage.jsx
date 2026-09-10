@@ -64,6 +64,7 @@ export default function LoginPage() {
             Procesamiento semántico de casos legales bolivianos.
             Ranking automático de artículos aplicables.
           </p>
+{/*           
           <div className={styles.panelStats}>
             <div className={styles.statItem}>
               <span className={styles.statNum}>127</span>
@@ -77,8 +78,10 @@ export default function LoginPage() {
               <span className={styles.statNum}>48</span>
               <span className={styles.statLabel}>Casos activos</span>
             </div>
+            
           </div>
-        </div>
+ */}
+          </div>
       </aside>
 
       {/* ── Formulario ──────────────────────────────────── */}

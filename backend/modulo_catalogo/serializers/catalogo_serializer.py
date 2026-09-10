@@ -26,7 +26,8 @@ class JerarquiaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Jerarquia
-        fields = ["id", "nombre", "nivel", "estado", "confirmar_reemplazo"]
+        fields = ["id", "nombre", "nivel", "nivel_anterior", "estado", "confirmar_reemplazo"]
+        read_only_fields = ["nivel_anterior"]
 
     def validate_nombre(self, value):
         value = value.strip()
@@ -161,8 +162,7 @@ class EntidadJuridicaListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 # Articulo
 # ---------------------------------------------------------------------------
-# La jerarquía normativa ya NO vive en Articulo: ahora es Norma.jerarquia
-# (FK a Jerarquia). Un artículo hereda la jerarquía de su norma.
+
 
 class ArticuloReadSerializer(serializers.ModelSerializer):
     norma     = NormaListSerializer(read_only=True)

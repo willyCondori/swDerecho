@@ -1,5 +1,6 @@
 // modules/catalogo/components/administrar/RamaForm.jsx
 import styles from '../../pages/AdministrarCatalogoPage.module.css'
+import { sanearTextoLibre } from '../../../../utils/validators'
 
 export default function RamaForm({
   mode = 'crear', // 'crear' | 'editar'
@@ -27,7 +28,7 @@ export default function RamaForm({
             className={styles.input}
             name="nombre"
             value={form.nombre}
-            onChange={onChange}
+            onChange={(e) => onChange({ target: { name: 'nombre', value: sanearTextoLibre(e.target.value) } })}
             placeholder="Ej: Derecho Procesal Penal"
             disabled={enviando}
           />
@@ -43,7 +44,7 @@ export default function RamaForm({
             className={styles.textarea}
             name="descripcion"
             value={form.descripcion}
-            onChange={onChange}
+            onChange={(e) => onChange({ target: { name: 'descripcion', value: sanearTextoLibre(e.target.value) } })}
             placeholder="Qué tipo de casos y normas cubre esta rama..."
             disabled={enviando}
           />
