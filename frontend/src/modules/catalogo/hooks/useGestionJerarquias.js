@@ -34,6 +34,11 @@ export default function useGestionJerarquias() {
 
   const setEstadoFiltro = (value) => setEstadoFiltroState(value)
 
+  // Intenta crear la jerarquía. Si el nivel elegido ya está ocupado por
+  // otra jerarquía activa, el backend responde 409 con
+  // { conflicto: true, nivel, existente: { id, nombre } } en vez de
+  // lanzar un error de validación normal; ese caso se deja pasar tal
+  // cual para que la pantalla decida si pide confirmación al usuario.
   const crearJerarquia = async (payload) => {
     const { data } = await catalogoApi.crearJerarquia(payload)
     await load()
