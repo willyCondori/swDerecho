@@ -50,6 +50,7 @@ import logging
 from dataclasses import dataclass, field
 
 from django.conf import settings
+from django.db import transaction
 
 
 logger = logging.getLogger(__name__)
@@ -558,10 +559,6 @@ def cargar_articulos_desde_bytes(
         jerarquia_nombre=norma.jerarquia.nombre if norma.jerarquia_id else None,
     )
 
-    if sobrescribir:
-        Articulo.objects.filter(norma=norma, rama=rama).delete()
-        logger.info("Artículos previos eliminados. norma=%s rama=%s", norma, rama)
-
     _update_task(task, 5, "Extrayendo texto del PDF...")
     try:
         texto = extraer_texto_pdf_bytes(contenido_pdf)
@@ -582,70 +579,93 @@ def cargar_articulos_desde_bytes(
 
     total = len(lista_articulos)
 
-    for idx, art_dict in enumerate(lista_articulos, start=1):
-        numero = art_dict["numero"]
-        titulo = art_dict["titulo"]
-        texto_articulo = art_dict["texto"]
+    # ------------------------------------------------------------------
+    # Todo lo que escribe en la base de datos (borrado por "sobrescribir",
+    # creación de artículos, embeddings y vínculos con entidades) queda
+    # dentro de una única transacción atómica. Si algo revienta a mitad
+    # de la carga con una excepción NO controlada (ej. se cae la conexión
+    # a la BD, un bug inesperado, el proceso se interrumpe de forma
+    # anómala), Django revierte TODO lo hecho en esta llamada — no deja
+    # la norma con artículos a medias. Los errores "esperables" de un
+    # artículo puntual (texto muy corto, embedding con dimensión
+    # incorrecta, fallo al vincular entidades) se siguen capturando por
+    # artículo dentro del try/except correspondiente y NO disparan un
+    # rollback: ese artículo se cuenta como error y se sigue con el
+    # resto, que es el comportamiento que ya se quería mantener.
+    # ------------------------------------------------------------------
+    with transaction.atomic():
+        if sobrescribir:
+            Articulo.objects.filter(norma=norma, rama=rama).delete()
+            logger.info("Artículos previos eliminados. norma=%s rama=%s", norma, rama)
 
-        if idx % 10 == 0 or idx == total:
-            pct = int(18 + (idx / total) * 80)
-            _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
+        for idx, art_dict in enumerate(lista_articulos, start=1):
+            numero = art_dict["numero"]
+            titulo = art_dict["titulo"]
+            texto_articulo = art_dict["texto"]
 
-        if Articulo.objects.filter(
-            norma=norma, rama=rama, numero_articulo=str(numero)
-        ).exists():
-            resultado.duplicados += 1
-            continue
+            if idx % 10 == 0 or idx == total:
+                pct = int(18 + (idx / total) * 80)
+                _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
 
-        if not texto_articulo or len(texto_articulo.strip()) < 20:
-            resultado.errores += 1
-            resultado.errores_detalle.append(f"Art. {numero}: texto muy corto")
-            continue
+            if Articulo.objects.filter(
+                norma=norma, rama=rama, numero_articulo=str(numero)
+            ).exists():
+                resultado.duplicados += 1
+                continue
 
-        try:
-            articulo = Articulo.objects.create(
-                numero_articulo=str(numero),
-                titulo=titulo,
-                contenido=texto_articulo,
-                norma=norma,
-                rama=rama,
-                frecuencia_historica=0,
-                estado=True,
-            )
-        except Exception as e:
-            resultado.errores += 1
-            resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
-            logger.error("Error guardando Art.%s: %s", numero, e)
-            continue
+            if not texto_articulo or len(texto_articulo.strip()) < 20:
+                resultado.errores += 1
+                resultado.errores_detalle.append(f"Art. {numero}: texto muy corto")
+                continue
 
-        try:
-            texto_embed = construir_texto_embedding(titulo, texto_articulo)
-            vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
+            try:
+                # savepoint por artículo: si el guardado del artículo en
+                # sí falla, solo se descarta ese savepoint (no toda la
+                # transacción), y se sigue con el resto del documento.
+                with transaction.atomic():
+                    articulo = Articulo.objects.create(
+                        numero_articulo=str(numero),
+                        titulo=titulo,
+                        contenido=texto_articulo,
+                        norma=norma,
+                        rama=rama,
+                        frecuencia_historica=0,
+                        estado=True,
+                    )
+            except Exception as e:
+                resultado.errores += 1
+                resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
+                logger.error("Error guardando Art.%s: %s", numero, e)
+                continue
 
-            if len(vector) != DIMENSION_VECTOR:
-                raise ValueError(
-                    f"El embedding del Art. {numero} tiene {len(vector)} "
-                    f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+            try:
+                texto_embed = construir_texto_embedding(titulo, texto_articulo)
+                vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
+
+                if len(vector) != DIMENSION_VECTOR:
+                    raise ValueError(
+                        f"El embedding del Art. {numero} tiene {len(vector)} "
+                        f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+                    )
+
+                EmbeddingArticulo.objects.update_or_create(
+                    articulo=articulo,
+                    defaults={"vector": vector},
                 )
+            except Exception as e:
+                resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
+                logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
+                # El artículo ya está guardado; se informa el problema pero no se
+                # cuenta dos veces como error total del artículo.
 
-            EmbeddingArticulo.objects.update_or_create(
-                articulo=articulo,
-                defaults={"vector": vector},
-            )
-        except Exception as e:
-            resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
-            logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
-            # El artículo ya está guardado; se informa el problema pero no se
-            # cuenta dos veces como error total del artículo.
+            try:
+                ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
+            except Exception as e:
+                resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
+                logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)
+                # Igual que el embedding: no bloquea el artículo ya guardado.
 
-        try:
-            ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
-        except Exception as e:
-            resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
-            logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)
-            # Igual que el embedding: no bloquea el artículo ya guardado.
-
-        resultado.guardados += 1
+            resultado.guardados += 1
 
     _update_task(task, 100, "Carga completada.")
     logger.info(
