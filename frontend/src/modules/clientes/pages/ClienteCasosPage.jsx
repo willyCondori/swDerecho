@@ -5,6 +5,7 @@ import useClienteCasos from '../hooks/useClienteCasos'
 import useAuthStore from '../../auth/store/authStore'
 import clientesApi from '../../../api/clientesApi'
 import ClienteForm from '../components/ClienteForm'
+import { tieneEspaciosExcesivos } from '../../../utils/validators'
 import styles from './ClienteCasosPage.module.css'
 
 function getNombreCompleto(cliente) {
@@ -38,6 +39,8 @@ function validarCliente(form) {
     errors.nombres = 'El nombre debe tener al menos 2 caracteres.'
   } else if (!soloLetras.test(nombres)) {
     errors.nombres = 'El nombre solo puede contener letras y espacios.'
+  } else if (tieneEspaciosExcesivos(form.nombres)) {
+    errors.nombres = 'El nombre no puede tener más de 2 espacios seguidos.'
   }
 
   if (!apellidos) {
@@ -46,6 +49,8 @@ function validarCliente(form) {
     errors.apellidos = 'Los apellidos deben tener al menos 2 caracteres.'
   } else if (!soloLetras.test(apellidos)) {
     errors.apellidos = 'Los apellidos solo pueden contener letras y espacios.'
+  } else if (tieneEspaciosExcesivos(form.apellidos)) {
+    errors.apellidos = 'Los apellidos no pueden tener más de 2 espacios seguidos.'
   }
 
   if (telefono) {
