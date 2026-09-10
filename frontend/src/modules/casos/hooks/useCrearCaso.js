@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import casosApi from '../../../api/casosApi'
 import clientesApi from '../../../api/clientesApi'
+import { tieneEspaciosExcesivos, tieneEmoji } from '../../../utils/validators'
 
 const initialForm = {
   titulo: '',
@@ -22,7 +23,13 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
   const errors = {}
 
   // Datos del caso
-  if (!form.titulo.trim()) errors.titulo = 'El título es obligatorio.'
+  if (!form.titulo.trim()) {
+    errors.titulo = 'El título es obligatorio.'
+  } else if (tieneEmoji(form.titulo)) {
+    errors.titulo = 'El título no puede contener emojis.'
+  } else if (tieneEspaciosExcesivos(form.titulo)) {
+    errors.titulo = 'El título no puede tener más de 2 espacios seguidos.'
+  }
   if (modo === 'texto' && !form.descripcion.trim()) {
     errors.descripcion = 'Describe el caso o cambia a modo PDF.'
   }
@@ -44,6 +51,8 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
       errors.nombres = 'El nombre debe tener al menos 2 caracteres.'
     } else if (!NOMBRE_REGEX.test(nombres)) {
       errors.nombres = 'El nombre solo puede contener letras y espacios.'
+    } else if (tieneEspaciosExcesivos(clienteForm.nombres)) {
+      errors.nombres = 'El nombre no puede tener más de 2 espacios seguidos.'
     }
 
     if (!apellidos) {
@@ -52,6 +61,8 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
       errors.apellidos = 'Los apellidos deben tener al menos 2 caracteres.'
     } else if (!NOMBRE_REGEX.test(apellidos)) {
       errors.apellidos = 'Los apellidos solo pueden contener letras y espacios.'
+    } else if (tieneEspaciosExcesivos(clienteForm.apellidos)) {
+      errors.apellidos = 'Los apellidos no pueden tener más de 2 espacios seguidos.'
     }
 
     if (!telefono) {

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import clientesApi from '../../../api/clientesApi'
+import { tieneEspaciosExcesivos } from '../../../utils/validators'
 
 const initialForm = {
   nombres: '',
@@ -23,6 +24,8 @@ function validate(form) {
     errors.nombres = 'El nombre debe tener al menos 2 caracteres.'
   } else if (!NOMBRE_REGEX.test(nombres)) {
     errors.nombres = 'El nombre solo puede contener letras y espacios.'
+  } else if (tieneEspaciosExcesivos(form.nombres)) {
+    errors.nombres = 'El nombre no puede tener más de 2 espacios seguidos.'
   }
 
   if (!apellidos) {
@@ -31,6 +34,8 @@ function validate(form) {
     errors.apellidos = 'El apellido debe tener al menos 2 caracteres.'
   } else if (!NOMBRE_REGEX.test(apellidos)) {
     errors.apellidos = 'El apellido solo puede contener letras y espacios.'
+  } else if (tieneEspaciosExcesivos(form.apellidos)) {
+    errors.apellidos = 'El apellido no puede tener más de 2 espacios seguidos.'
   }
 
   if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) errors.email = 'Correo inválido.'
