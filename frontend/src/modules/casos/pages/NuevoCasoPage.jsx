@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import useCrearCaso from '../hooks/useCrearCaso'
 import catalogoApi from '../../../api/catalogoApi'
 import clientesApi from '../../../api/clientesApi'
+import { soloLetrasEspacios, sanearTextoLibre } from '../../../utils/validators'
 import styles from './NuevoCasoPage.module.css'
 
 function BuscadorCliente({ clienteExistenteId, clienteExistenteNombre, onSeleccionar, error }) {
@@ -137,13 +138,25 @@ export default function NuevoCasoPage() {
             <div className={styles.formGrid}>
               <div className={styles.field}>
                 <label className={styles.label}>Nombres</label>
-                <input className={styles.input} name="nombres" value={clienteForm.nombres} onChange={onChange} placeholder="Nombres" />
+                <input
+                  className={styles.input}
+                  name="nombres"
+                  value={clienteForm.nombres}
+                  onChange={(e) => onChange({ target: { name: 'nombres', value: soloLetrasEspacios(e.target.value) } })}
+                  placeholder="Nombres"
+                />
                 {fieldErrors.nombres && <span className={styles.fieldError}>{fieldErrors.nombres}</span>}
               </div>
 
               <div className={styles.field}>
                 <label className={styles.label}>Apellidos</label>
-                <input className={styles.input} name="apellidos" value={clienteForm.apellidos} onChange={onChange} placeholder="Apellidos" />
+                <input
+                  className={styles.input}
+                  name="apellidos"
+                  value={clienteForm.apellidos}
+                  onChange={(e) => onChange({ target: { name: 'apellidos', value: soloLetrasEspacios(e.target.value) } })}
+                  placeholder="Apellidos"
+                />
                 {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
               </div>
 
@@ -204,7 +217,7 @@ export default function NuevoCasoPage() {
                 className={styles.input}
                 name="titulo"
                 value={form.titulo}
-                onChange={onChange}
+                onChange={(e) => onChange({ target: { name: 'titulo', value: sanearTextoLibre(e.target.value) } })}
                 placeholder="Ej. Demanda por incumplimiento de contrato"
               />
               {fieldErrors.titulo && <span className={styles.fieldError}>{fieldErrors.titulo}</span>}
@@ -233,7 +246,7 @@ export default function NuevoCasoPage() {
                   className={styles.textarea}
                   name="descripcion"
                   value={form.descripcion}
-                  onChange={onChange}
+                  onChange={(e) => onChange({ target: { name: 'descripcion', value: sanearTextoLibre(e.target.value) } })}
                   placeholder="Describe los hechos, antecedentes y lo que buscas resolver..."
                 />
                 {fieldErrors.descripcion && <span className={styles.fieldError}>{fieldErrors.descripcion}</span>}

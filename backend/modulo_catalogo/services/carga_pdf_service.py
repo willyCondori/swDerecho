@@ -50,6 +50,7 @@ import logging
 from dataclasses import dataclass, field
 
 from django.conf import settings
+from django.db import transaction
 
 
 logger = logging.getLogger(__name__)
@@ -186,16 +187,7 @@ def limpiar_texto(texto: str) -> str:
 # ---------------------------------------------------------------------------
 # Patrones de detección de artículos (genéricos, no atados a una norma)
 # ---------------------------------------------------------------------------
-#
-# Antes esta lista estaba dividida por "fuente" (Civil/Penal/Laboral/CPE) y
-# el usuario tenía que elegir una de esas 4 opciones fijas en el formulario
-# de carga — lo que hacía imposible subir una norma nueva (CPP, Código de
-# Comercio, un Decreto Supremo, etc.) sin tocar el código. Se unificaron
-# todos los patrones (deduplicados) en una sola lista que se prueba siempre,
-# sin importar qué norma se esté cargando: cubre "Art.", "Artículo",
-# "ARTÍCULO", "ARTICULO", con °, º, punto, guion o espacio como separador,
-# que es prácticamente el universo de formas de numeración usadas en la
-# legislación boliviana.
+
 PATRONES_ARTICULO = [
     r"ARTÍCULO\s+(\d+)\.",
     r"ARTÍCULO\s+(\d+)-",
@@ -220,50 +212,9 @@ PATRONES_ARTICULO = [
     r"ART\.\s+(\d+)°\.-",
 ]
 
-# IMPORTANTE — cómo se detecta un encabezado de artículo:
-#
-# Los patrones YA NO anclan a inicio de línea (?:^|\n). Algunos PDFs
-# extraídos con pypdf conservan saltos de línea reales entre elementos
-# (títulos, capítulos, artículos); otros — sobre todo si el PDF viene de
-# un visor/navegador o de una exportación distinta — devuelven el texto
-# como un bloque corrido sin \n. Anclar a \n rompe la detección por
-# completo en ese segundo caso (0 matches), así que se sacó el anclaje.
-#
-# Para no confundir una referencia DENTRO de una oración (ej. "...conforme
-# al Artículo 5 de esta Constitución...") con el INICIO real de un
-# artículo nuevo, cada coincidencia se valida con _es_inicio_valido():
-# solo se acepta si el carácter no-espacio inmediatamente anterior NO es
-# una letra minúscula (es decir: inicio de texto, un punto, dos puntos, o
-# una palabra en MAYÚSCULAS de un título de capítulo/sección).
-#
-# Si tu PDF sí conserva \n reales, esto sigue funcionando igual (el
-# carácter antes de un \n normalmente es un punto o mayúscula de todos
-# modos). Si notás falsos positivos o artículos que igual se pierden,
-# mandame ese tramo puntual del texto crudo (con repr(), para ver los \n
-# reales) y se ajusta la validación.
-
 
 def _es_inicio_valido(texto: str, pos: int) -> bool:
-    """
-    True si el match de un encabezado de artículo en `pos` es el INICIO
-    real de un artículo nuevo, y no una referencia dentro del cuerpo de
-    otro artículo (ej. "...conforme al Artículo 5 de esta Constitución...").
 
-    Reglas, en orden:
-      1. Si el carácter no-espacio-horizontal inmediatamente anterior es
-         un salto de línea real (\\n) -> VÁLIDO. El encabezado empieza en
-         su propia línea, que es como vienen casi siempre los "Art. N" /
-         "Artículo N" en el PDF real, con o sin línea en blanco antes
-         (la CPE separa artículos con un solo \\n; el Código Penal usa
-         línea en blanco — ambos casos quedan cubiertos acá).
-      2. Si no hay \\n real inmediato (texto corrido, sin saltos de línea
-         — puede pasar según cómo se haya extraído/pegado el texto), se
-         mira el último carácter no-espacio antes de `pos`:
-           - Si es una letra minúscula -> casi seguro es una referencia
-             en medio de una oración -> INVÁLIDO.
-           - Si es inicio de texto, un punto, dos puntos, o una letra
-             mayúscula (título de capítulo en mayúsculas) -> VÁLIDO.
-    """
     anterior = texto[:pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
@@ -585,19 +536,7 @@ def cargar_articulos_desde_bytes(
     task=None,
     sobrescribir: bool = False,
 ) -> ResultadoCarga:
-    """
-    Procesa un PDF en memoria y guarda los artículos + embeddings en la BD.
-
-    Args:
-        contenido_pdf: bytes del archivo PDF
-        norma_id: ID de la Norma (ya debe existir — se crea/busca en la vista
-            a partir del nombre de documento ingresado por el usuario)
-        rama_id: ID de la RamaDerecho (ya debe existir)
-        jerarquia_id: ID de la Jerarquia elegida en el formulario. Solo se
-            usa si la Norma todavía no tiene jerarquía asignada.
-        task: reporta progreso (puede ser None)
-        sobrescribir: si True elimina artículos previos de esa norma+rama
-    """
+   
     from modulo_catalogo.models.norma import Norma
     from modulo_catalogo.models.rama import RamaDerecho
     from modulo_catalogo.models.articulo import Articulo
@@ -620,10 +559,6 @@ def cargar_articulos_desde_bytes(
         jerarquia_nombre=norma.jerarquia.nombre if norma.jerarquia_id else None,
     )
 
-    if sobrescribir:
-        Articulo.objects.filter(norma=norma, rama=rama).delete()
-        logger.info("Artículos previos eliminados. norma=%s rama=%s", norma, rama)
-
     _update_task(task, 5, "Extrayendo texto del PDF...")
     try:
         texto = extraer_texto_pdf_bytes(contenido_pdf)
@@ -644,70 +579,93 @@ def cargar_articulos_desde_bytes(
 
     total = len(lista_articulos)
 
-    for idx, art_dict in enumerate(lista_articulos, start=1):
-        numero = art_dict["numero"]
-        titulo = art_dict["titulo"]
-        texto_articulo = art_dict["texto"]
+    # ------------------------------------------------------------------
+    # Todo lo que escribe en la base de datos (borrado por "sobrescribir",
+    # creación de artículos, embeddings y vínculos con entidades) queda
+    # dentro de una única transacción atómica. Si algo revienta a mitad
+    # de la carga con una excepción NO controlada (ej. se cae la conexión
+    # a la BD, un bug inesperado, el proceso se interrumpe de forma
+    # anómala), Django revierte TODO lo hecho en esta llamada — no deja
+    # la norma con artículos a medias. Los errores "esperables" de un
+    # artículo puntual (texto muy corto, embedding con dimensión
+    # incorrecta, fallo al vincular entidades) se siguen capturando por
+    # artículo dentro del try/except correspondiente y NO disparan un
+    # rollback: ese artículo se cuenta como error y se sigue con el
+    # resto, que es el comportamiento que ya se quería mantener.
+    # ------------------------------------------------------------------
+    with transaction.atomic():
+        if sobrescribir:
+            Articulo.objects.filter(norma=norma, rama=rama).delete()
+            logger.info("Artículos previos eliminados. norma=%s rama=%s", norma, rama)
 
-        if idx % 10 == 0 or idx == total:
-            pct = int(18 + (idx / total) * 80)
-            _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
+        for idx, art_dict in enumerate(lista_articulos, start=1):
+            numero = art_dict["numero"]
+            titulo = art_dict["titulo"]
+            texto_articulo = art_dict["texto"]
 
-        if Articulo.objects.filter(
-            norma=norma, rama=rama, numero_articulo=str(numero)
-        ).exists():
-            resultado.duplicados += 1
-            continue
+            if idx % 10 == 0 or idx == total:
+                pct = int(18 + (idx / total) * 80)
+                _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
 
-        if not texto_articulo or len(texto_articulo.strip()) < 20:
-            resultado.errores += 1
-            resultado.errores_detalle.append(f"Art. {numero}: texto muy corto")
-            continue
+            if Articulo.objects.filter(
+                norma=norma, rama=rama, numero_articulo=str(numero)
+            ).exists():
+                resultado.duplicados += 1
+                continue
 
-        try:
-            articulo = Articulo.objects.create(
-                numero_articulo=str(numero),
-                titulo=titulo,
-                contenido=texto_articulo,
-                norma=norma,
-                rama=rama,
-                frecuencia_historica=0,
-                estado=True,
-            )
-        except Exception as e:
-            resultado.errores += 1
-            resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
-            logger.error("Error guardando Art.%s: %s", numero, e)
-            continue
+            if not texto_articulo or len(texto_articulo.strip()) < 20:
+                resultado.errores += 1
+                resultado.errores_detalle.append(f"Art. {numero}: texto muy corto")
+                continue
 
-        try:
-            texto_embed = construir_texto_embedding(titulo, texto_articulo)
-            vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
+            try:
+                # savepoint por artículo: si el guardado del artículo en
+                # sí falla, solo se descarta ese savepoint (no toda la
+                # transacción), y se sigue con el resto del documento.
+                with transaction.atomic():
+                    articulo = Articulo.objects.create(
+                        numero_articulo=str(numero),
+                        titulo=titulo,
+                        contenido=texto_articulo,
+                        norma=norma,
+                        rama=rama,
+                        frecuencia_historica=0,
+                        estado=True,
+                    )
+            except Exception as e:
+                resultado.errores += 1
+                resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
+                logger.error("Error guardando Art.%s: %s", numero, e)
+                continue
 
-            if len(vector) != DIMENSION_VECTOR:
-                raise ValueError(
-                    f"El embedding del Art. {numero} tiene {len(vector)} "
-                    f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+            try:
+                texto_embed = construir_texto_embedding(titulo, texto_articulo)
+                vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
+
+                if len(vector) != DIMENSION_VECTOR:
+                    raise ValueError(
+                        f"El embedding del Art. {numero} tiene {len(vector)} "
+                        f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+                    )
+
+                EmbeddingArticulo.objects.update_or_create(
+                    articulo=articulo,
+                    defaults={"vector": vector},
                 )
+            except Exception as e:
+                resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
+                logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
+                # El artículo ya está guardado; se informa el problema pero no se
+                # cuenta dos veces como error total del artículo.
 
-            EmbeddingArticulo.objects.update_or_create(
-                articulo=articulo,
-                defaults={"vector": vector},
-            )
-        except Exception as e:
-            resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
-            logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
-            # El artículo ya está guardado; se informa el problema pero no se
-            # cuenta dos veces como error total del artículo.
+            try:
+                ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
+            except Exception as e:
+                resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
+                logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)
+                # Igual que el embedding: no bloquea el artículo ya guardado.
 
-        try:
-            ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
-        except Exception as e:
-            resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
-            logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)
-            # Igual que el embedding: no bloquea el artículo ya guardado.
-
-        resultado.guardados += 1
+            resultado.guardados += 1
 
     _update_task(task, 100, "Carga completada.")
     logger.info(
