@@ -26,7 +26,8 @@ class JerarquiaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Jerarquia
-        fields = ["id", "nombre", "nivel", "estado", "confirmar_reemplazo"]
+        fields = ["id", "nombre", "nivel", "nivel_anterior", "estado", "confirmar_reemplazo"]
+        read_only_fields = ["nivel_anterior"]
 
     def validate_nombre(self, value):
         value = value.strip()

@@ -9,8 +9,14 @@ export default function JerarquiaForm({
   onChange,
   onSubmit,
   onCancel,
+  nivelAnterior = null,
+  onVolverNivelAnterior,
 }) {
   const esEdicion = mode === 'editar'
+  const mostrarVolverNivel =
+    esEdicion &&
+    nivelAnterior != null &&
+    String(nivelAnterior) !== String(form.nivel)
 
   return (
     <form onSubmit={onSubmit} noValidate className={styles.formCard}>
@@ -55,6 +61,18 @@ export default function JerarquiaForm({
           <span className={styles.helpText}>
             Cuanto más bajo el número, mayor rango normativo (1 = Constitución).
           </span>
+          {mostrarVolverNivel && (
+            <button
+              type="button"
+              className={styles.btnSecondary}
+              onClick={onVolverNivelAnterior}
+              disabled={enviando}
+              style={{ marginTop: 'var(--sp-2, 8px)', width: 'fit-content' }}
+            >
+              <i className="ti ti-history" aria-hidden="true" />
+              Volver al nivel anterior ({nivelAnterior})
+            </button>
+          )}
         </div>
       </div>
 
