@@ -177,7 +177,9 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
         xxxx"). Si el cliente reenvía la petición con
         confirmar_reemplazo=true, se corren hacia abajo (nivel + 1) la
         jerarquía existente y todas las que tengan un nivel mayor o igual
-        al nuevo, y luego se crea la jerarquía en el nivel solicitado.
+        al nuevo (guardando en nivel_anterior el nivel que tenían antes
+        del corrimiento), y luego se crea la jerarquía en el nivel
+        solicitado.
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -191,7 +193,9 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
 
         with transaction.atomic():
             if existente:
-                Jerarquia.objects.filter(nivel__gte=nivel, estado=True).update(nivel=F("nivel") + 1)
+                Jerarquia.objects.filter(nivel__gte=nivel, estado=True).update(
+                    nivel_anterior=F("nivel"), nivel=F("nivel") + 1
+                )
             self.perform_create(serializer)
 
         headers = self.get_success_headers(serializer.data)
@@ -201,7 +205,10 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
         """
         Misma lógica de confirmación/cascada que create(), aplicada cuando
         se edita el nivel de una jerarquía existente hacia uno ya ocupado
-        por otra jerarquía activa.
+        por otra jerarquía activa. Antes de aplicar el nuevo nivel (propio
+        o de las jerarquías corridas en cascada) se guarda el nivel
+        anterior en nivel_anterior, para poder revertir el cambio desde
+        "Editar" más adelante.
         """
         partial  = kwargs.pop("partial", False)
         instance = self.get_object()
@@ -212,6 +219,7 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
         confirmar   = serializer.validated_data.get("confirmar_reemplazo", False)
 
         if nuevo_nivel != instance.nivel:
+            nivel_anterior_propio = instance.nivel
             existente = (
                 Jerarquia.objects.filter(nivel=nuevo_nivel, estado=True)
                 .exclude(pk=instance.pk)
@@ -226,9 +234,10 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
                         Jerarquia.objects
                         .filter(nivel__gte=nuevo_nivel, estado=True)
                         .exclude(pk=instance.pk)
-                        .update(nivel=F("nivel") + 1)
+                        .update(nivel_anterior=F("nivel"), nivel=F("nivel") + 1)
                     )
-                self.perform_update(serializer)
+                instance_actualizada = serializer.save(nivel_anterior=nivel_anterior_propio)
+                self._auditar("UPDATE", registro_id=instance_actualizada.pk)
         else:
             self.perform_update(serializer)
 
@@ -241,15 +250,19 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
         """
         Soft-delete + cascada: al eliminar una jerarquía de nivel N, todas
         las jerarquías activas con nivel > N bajan un puesto (N+1 pasa a
-        ser N, N+2 pasa a ser N+1, etc.) para que la escala de niveles no
-        quede con huecos.
+        ser N, N+2 pasa a ser N+1, etc.), guardando en nivel_anterior el
+        nivel que tenían antes de correrse. La jerarquía eliminada NO
+        cambia su propio nivel: lo conserva tal cual para poder
+        reactivarse correctamente más adelante (ver `activar`).
         """
         instance        = self.get_object()
         nivel_eliminado = instance.nivel
         with transaction.atomic():
             instance.estado = False
             instance.save(update_fields=["estado"])
-            Jerarquia.objects.filter(nivel__gt=nivel_eliminado, estado=True).update(nivel=F("nivel") - 1)
+            Jerarquia.objects.filter(nivel__gt=nivel_eliminado, estado=True).update(
+                nivel_anterior=F("nivel"), nivel=F("nivel") - 1
+            )
         self._auditar("DELETE", registro_id=instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -260,10 +273,39 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
 
     @action(detail=True, methods=["post"], url_path="activar")
     def activar(self, request, pk=None):
-        """POST /api/jerarquias/{id}/activar/ — reactiva una jerarquía desactivada."""
-        instance        = self.get_object()
-        instance.estado = True
-        instance.save(update_fields=["estado"])
+        """
+        POST /api/jerarquias/{id}/activar/ — reactiva una jerarquía
+        desactivada, en el nivel original que conservaba desde que fue
+        eliminada. Si ese nivel ya está ocupado por otra jerarquía activa
+        (por ejemplo, porque los niveles se corrieron mientras estaba
+        eliminada), se aplica la misma lógica de confirmación/cascada que
+        create()/update(): responde 409 pidiendo confirmar_reemplazo=true
+        para correr hacia abajo a la jerarquía existente y a las
+        siguientes antes de reactivar.
+        """
+        instance  = self.get_object()
+        nivel     = instance.nivel
+        confirmar = bool(request.data.get("confirmar_reemplazo", False))
+
+        existente = (
+            Jerarquia.objects.filter(nivel=nivel, estado=True)
+            .exclude(pk=instance.pk)
+            .first()
+        )
+        if existente and not confirmar:
+            return self._conflicto_response(nivel, existente)
+
+        with transaction.atomic():
+            if existente:
+                (
+                    Jerarquia.objects
+                    .filter(nivel__gte=nivel, estado=True)
+                    .exclude(pk=instance.pk)
+                    .update(nivel_anterior=F("nivel"), nivel=F("nivel") + 1)
+                )
+            instance.estado = True
+            instance.save(update_fields=["estado"])
+
         self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
         return Response({"detail": "Jerarquía reactivada."}, status=status.HTTP_200_OK)
 

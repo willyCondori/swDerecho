@@ -56,8 +56,8 @@ export default function useGestionJerarquias() {
     await load()
   }
 
-  const activarJerarquia = async (id) => {
-    await catalogoApi.activarJerarquia(id)
+  const activarJerarquia = async (id, payload = {}) => {
+    await catalogoApi.activarJerarquia(id, payload)
     await load()
   }
 

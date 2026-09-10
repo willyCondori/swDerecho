@@ -25,7 +25,7 @@ const catalogoApi = {
   crearJerarquia:           (data)        => api.post('/api/catalogo/jerarquias/', data),
   actualizarJerarquia:      (id, data)    => api.patch(`/api/catalogo/jerarquias/${id}/`, data),
   eliminarJerarquia:         (id)          => api.delete(`/api/catalogo/jerarquias/${id}/`),
-  activarJerarquia:          (id)          => api.post(`/api/catalogo/jerarquias/${id}/activar/`),
+  activarJerarquia:          (id, data = {}) => api.post(`/api/catalogo/jerarquias/${id}/activar/`, data),
 }
 
 export default catalogoApi

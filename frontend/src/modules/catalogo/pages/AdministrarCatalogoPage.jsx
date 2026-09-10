@@ -223,6 +223,21 @@ function JerarquiasSection() {
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
   }
 
+  // Nivel que tenía la jerarquía en edición justo antes del último cambio
+  // (guardado por el backend cuando se editó su nivel o cuando se corrió
+  // en cascada por otra operación). Permite mostrar el botón "Volver al
+  // nivel anterior" dentro del formulario de edición.
+  const nivelAnteriorEdicion =
+    panel && panel.editar && panel.editar.nivel_anterior != null
+      ? panel.editar.nivel_anterior
+      : null
+
+  const volverNivelAnterior = () => {
+    if (nivelAnteriorEdicion == null) return
+    setForm((prev) => ({ ...prev, nivel: String(nivelAnteriorEdicion) }))
+    if (fieldErrors.nivel) setFieldErrors((prev) => ({ ...prev, nivel: null }))
+  }
+
   // Intenta guardar (crear o actualizar) una jerarquía. Si el backend
   // responde 409 (nivel ya ocupado por otra jerarquía activa), pregunta
   // al usuario si quiere continuar; si confirma, reenvía la misma
@@ -288,11 +303,13 @@ function JerarquiasSection() {
   }
 
   const handleRecuperar = async (jerarquia) => {
-    if (!window.confirm(`¿Recuperar la jerarquía "${jerarquia.nombre}"? Volverá a estar disponible como opción al cargar artículos.`)) return
+    if (!window.confirm(`¿Recuperar la jerarquía "${jerarquia.nombre}"? Volverá a estar disponible en su nivel original (nivel ${jerarquia.nivel}) como opción al cargar artículos.`)) return
     try {
-      await activarJerarquia(jerarquia.id)
+      await guardarConConfirmacionDeNivel((p) => activarJerarquia(jerarquia.id, p), {})
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la jerarquía.')
+      if (!e?.cancelado) {
+        window.alert(e?.response?.data?.detail || 'No se pudo recuperar la jerarquía.')
+      }
     }
   }
 
@@ -328,6 +345,8 @@ function JerarquiasSection() {
           onChange={handleChange}
           onSubmit={handleSubmit}
           onCancel={cerrarPanel}
+          nivelAnterior={nivelAnteriorEdicion}
+          onVolverNivelAnterior={volverNivelAnterior}
         />
       )}
 
