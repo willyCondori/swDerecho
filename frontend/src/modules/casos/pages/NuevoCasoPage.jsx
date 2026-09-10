@@ -137,13 +137,25 @@ export default function NuevoCasoPage() {
             <div className={styles.formGrid}>
               <div className={styles.field}>
                 <label className={styles.label}>Nombres</label>
-                <input className={styles.input} name="nombres" value={clienteForm.nombres} onChange={onChange} placeholder="Nombres" />
+                <input
+                  className={styles.input}
+                  name="nombres"
+                  value={clienteForm.nombres}
+                  onChange={(e) => onChange({ target: { name: 'nombres', value: e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '') } })}
+                  placeholder="Nombres"
+                />
                 {fieldErrors.nombres && <span className={styles.fieldError}>{fieldErrors.nombres}</span>}
               </div>
 
               <div className={styles.field}>
                 <label className={styles.label}>Apellidos</label>
-                <input className={styles.input} name="apellidos" value={clienteForm.apellidos} onChange={onChange} placeholder="Apellidos" />
+                <input
+                  className={styles.input}
+                  name="apellidos"
+                  value={clienteForm.apellidos}
+                  onChange={(e) => onChange({ target: { name: 'apellidos', value: e.target.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '') } })}
+                  placeholder="Apellidos"
+                />
                 {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
               </div>
 

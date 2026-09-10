@@ -10,10 +10,29 @@ const initialForm = {
   telefono: '',
 }
 
+const NOMBRE_REGEX = /^[a-zA-ZáéíóúÁÉÍÓÚñÑ\s]+$/
+
 function validate(form) {
   const errors = {}
-  if (!form.nombres.trim()) errors.nombres = 'El nombre es obligatorio.'
-  if (!form.apellidos.trim()) errors.apellidos = 'El apellido es obligatorio.'
+  const nombres = form.nombres.trim()
+  const apellidos = form.apellidos.trim()
+
+  if (!nombres) {
+    errors.nombres = 'El nombre es obligatorio.'
+  } else if (nombres.length < 2) {
+    errors.nombres = 'El nombre debe tener al menos 2 caracteres.'
+  } else if (!NOMBRE_REGEX.test(nombres)) {
+    errors.nombres = 'El nombre solo puede contener letras y espacios.'
+  }
+
+  if (!apellidos) {
+    errors.apellidos = 'El apellido es obligatorio.'
+  } else if (apellidos.length < 2) {
+    errors.apellidos = 'El apellido debe tener al menos 2 caracteres.'
+  } else if (!NOMBRE_REGEX.test(apellidos)) {
+    errors.apellidos = 'El apellido solo puede contener letras y espacios.'
+  }
+
   if (form.email && !/^\S+@\S+\.\S+$/.test(form.email)) errors.email = 'Correo inválido.'
   if (form.telefono) {
     if (form.telefono.length !== 8) {

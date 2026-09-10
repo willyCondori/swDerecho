@@ -58,6 +58,8 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
       errors.telefono = 'El teléfono es obligatorio.'
     } else if (telefono.length !== 8 || !/^\d+$/.test(telefono)) {
       errors.telefono = 'El teléfono debe tener 8 dígitos.'
+    } else if (!/^[67]/.test(telefono)) {
+      errors.telefono = 'El teléfono debe empezar con 6 o 7.'
     }
   } else {
     if (!clienteExistenteId) errors.clienteExistente = 'Selecciona un cliente existente.'

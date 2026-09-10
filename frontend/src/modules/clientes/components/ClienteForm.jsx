@@ -1,20 +1,31 @@
 // modules/clientes/components/ClienteForm.jsx
 import styles from '../pages/ClientesPage.module.css'
 
+// Permite letras (con tildes/ñ) y espacios; descarta números y símbolos
+// a medida que el usuario escribe, en vez de dejar que los tipee y
+// recién avisar con un error después de intentar guardar.
+function soloLetras(value) {
+  return value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ\s]/g, '')
+}
+
 export default function ClienteForm({ form, fieldErrors, enviando, onChange, onSubmit, submitLabel = 'Crear cliente' }) {
+  const handleSoloLetras = (name) => (e) => {
+    onChange({ target: { name, value: soloLetras(e.target.value) } })
+  }
+
   return (
     <form onSubmit={onSubmit} noValidate>
       <div className={styles.formCard}>
         <div className={styles.formGrid}>
           <div className={styles.field}>
             <label className={styles.label}>Nombres</label>
-            <input className={styles.input} name="nombres" value={form.nombres} onChange={onChange} placeholder="Nombres" />
+            <input className={styles.input} name="nombres" value={form.nombres} onChange={handleSoloLetras('nombres')} placeholder="Nombres" />
             {fieldErrors.nombres && <span className={styles.fieldError}>{fieldErrors.nombres}</span>}
           </div>
 
           <div className={styles.field}>
             <label className={styles.label}>Apellidos</label>
-            <input className={styles.input} name="apellidos" value={form.apellidos} onChange={onChange} placeholder="Apellidos" />
+            <input className={styles.input} name="apellidos" value={form.apellidos} onChange={handleSoloLetras('apellidos')} placeholder="Apellidos" />
             {fieldErrors.apellidos && <span className={styles.fieldError}>{fieldErrors.apellidos}</span>}
           </div>
 
