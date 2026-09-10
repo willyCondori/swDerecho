@@ -1,7 +1,9 @@
 // modules/catalogo/components/articulos/ResultSummary.jsx
+import { useNavigate } from 'react-router-dom'
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
 export default function ResultSummary({ resumen, onReiniciar }) {
+  const navigate = useNavigate()
   return (
     <div className={styles.resultCard}>
       <div className={styles.resultHeader}>
@@ -51,6 +53,14 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         <button className={styles.btnSecondary} onClick={onReiniciar}>
           <i className="ti ti-plus" aria-hidden="true" />
           Cargar otro documento
+        </button>
+        <button
+          type="button"
+          className={styles.btnPrimary}
+          onClick={() => navigate('/catalogo/articulos')}
+        >
+          <i className="ti ti-list-details" aria-hidden="true" />
+          Ver artículos
         </button>
       </div>
     </div>

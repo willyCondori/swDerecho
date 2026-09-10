@@ -223,6 +223,37 @@ function JerarquiasSection() {
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
   }
 
+  // Intenta guardar (crear o actualizar) una jerarquía. Si el backend
+  // responde 409 (nivel ya ocupado por otra jerarquía activa), pregunta
+  // al usuario si quiere continuar; si confirma, reenvía la misma
+  // petición con confirmar_reemplazo=true para que el backend corra
+  // hacia abajo los niveles siguientes. Si cancela, se aborta el guardado
+  // sin mostrar un error de formulario.
+  const guardarConConfirmacionDeNivel = async (guardar, payload) => {
+    try {
+      await guardar(payload)
+    } catch (err) {
+      const data = err?.response?.data
+      if (err?.response?.status === 409 && data?.conflicto) {
+        const siguienteNivel = data.nivel + 1
+        const confirmar = window.confirm(
+          `Esta jerarquía es mayor que "${data.existente.nombre}".\n\n` +
+          `Si continúas, "${data.existente.nombre}" y las jerarquías con nivel ${data.nivel} en adelante ` +
+          `pasarán al siguiente nivel (nivel ${data.nivel} → ${siguienteNivel}, ${siguienteNivel} → ${siguienteNivel + 1}, y así sucesivamente).\n\n` +
+          `¿Deseas continuar?`
+        )
+        if (!confirmar) {
+          const cancelado = new Error('Registro cancelado por el usuario.')
+          cancelado.cancelado = true
+          throw cancelado
+        }
+        await guardar({ ...payload, confirmar_reemplazo: true })
+        return
+      }
+      throw err
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     setEnviando(true)
@@ -230,20 +261,25 @@ function JerarquiasSection() {
     try {
       const payload = { nombre: form.nombre, nivel: Number(form.nivel) }
       if (panel === 'crear') {
-        await crearJerarquia(payload)
+        await guardarConConfirmacionDeNivel(crearJerarquia, payload)
       } else if (panel && panel.editar) {
-        await actualizarJerarquia(panel.editar.id, payload)
+        await guardarConConfirmacionDeNivel(
+          (p) => actualizarJerarquia(panel.editar.id, p),
+          payload
+        )
       }
       cerrarPanel()
     } catch (err) {
-      setFieldErrors(extraerErroresCampo(err, 'No se pudo guardar la jerarquía.'))
+      if (!err?.cancelado) {
+        setFieldErrors(extraerErroresCampo(err, 'No se pudo guardar la jerarquía.'))
+      }
     } finally {
       setEnviando(false)
     }
   }
 
   const handleEliminar = async (jerarquia) => {
-    if (!window.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
+    if (!window.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las jerarquías con nivel mayor bajarán un puesto (por ejemplo, si eliminas el nivel ${jerarquia.nivel}, el nivel ${jerarquia.nivel + 1} pasará a ser ${jerarquia.nivel}). Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarJerarquia(jerarquia.id)
     } catch (e) {
