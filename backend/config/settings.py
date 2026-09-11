@@ -278,4 +278,18 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),
+
+    # Antes no había ninguna paginación configurada: cada GET de lista
+    # (/api/casos/, /api/clientes/, /api/catalogo/articulos/,
+    # /api/auditoria/...) devolvía la tabla completa en un solo
+    # request. El frontend ya está armado para recibir la respuesta
+    # paginada de DRF (ver core/pagination.py), así que esto es solo
+    # activar lo que ya se esperaba del otro lado.
+    #
+    # Los endpoints tipo /lista/ (los @action usados para poblar los
+    # <select> del frontend, ej. /api/catalogo/ramas/lista/) NO pasan
+    # por acá — no llaman a self.paginate_queryset(), así que siguen
+    # devolviendo el array completo como hasta ahora.
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.DefaultPagination",
+    "PAGE_SIZE": 20,
 }
