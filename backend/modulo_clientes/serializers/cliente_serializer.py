@@ -3,7 +3,7 @@ from datetime import date
 
 from rest_framework import serializers
 
-from core.encryption.aes_encryption import encrypt, safe_decrypt
+from core.encryption.aes_encryption import encrypt, safe_decrypt, hash_lookup
 from modulo_clientes.models.cliente import Cliente
 
 
@@ -109,17 +109,71 @@ class ClienteWriteSerializer(serializers.ModelSerializer):
                 "El teléfono debe empezar con 6 o 7."
             )
 
-        return value    
+        # Unicidad vía telefono_hash (HMAC-SHA256 determinístico): el
+        # campo cifrado en sí no sirve para esto, porque AES-GCM usa
+        # un nonce aleatorio y el mismo teléfono da un ciphertext
+        # distinto cada vez. Con telefono_hash es un filter() directo.
+        qs = Cliente.objects.filter(telefono_hash=hash_lookup(value))
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError(
+                "Ya existe un cliente registrado con este teléfono."
+            )
+
+        return value
+
+    def validate(self, attrs):
+        # El nombre completo se arma con nombres + apellidos juntos,
+        # así que el chequeo de duplicado va a nivel de objeto (no de
+        # un solo campo) para tener ambos valores disponibles incluso
+        # en un PATCH parcial que solo mande uno de los dos.
+        nombres = attrs.get("nombres")
+        apellidos = attrs.get("apellidos")
+        if self.instance:
+            nombres = nombres if nombres is not None else safe_decrypt(self.instance.nombres)
+            apellidos = apellidos if apellidos is not None else safe_decrypt(self.instance.apellidos)
+
+        if nombres and apellidos:
+            nombre_completo = f"{nombres.strip()} {apellidos.strip()}".strip()
+            qs = Cliente.objects.filter(nombre_completo_hash=hash_lookup(nombre_completo))
+            if self.instance:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"nombres": "Ya existe un cliente registrado con este nombre y apellido."}
+                )
+
+        return attrs
 
     def _encrypt_fields(self, validated_data: dict) -> dict:
-        if "nombres" in validated_data:
-            validated_data["nombres"] = encrypt(validated_data["nombres"])
+        nombres = validated_data.get("nombres")
+        apellidos = validated_data.get("apellidos")
 
-        if "apellidos" in validated_data:
-            validated_data["apellidos"] = encrypt(validated_data["apellidos"])
+        if nombres is not None:
+            validated_data["nombres"] = encrypt(nombres)
 
-        if validated_data.get("telefono"):
-            validated_data["telefono"] = encrypt(validated_data["telefono"])
+        if apellidos is not None:
+            validated_data["apellidos"] = encrypt(apellidos)
+
+        # nombre_completo_hash se recalcula si cambió cualquiera de los
+        # dos, usando el valor plano definitivo del otro (el ya
+        # guardado en la instancia, si no vino en este request).
+        if nombres is not None or apellidos is not None:
+            nombres_final = nombres if nombres is not None else (
+                safe_decrypt(self.instance.nombres) if self.instance else ""
+            )
+            apellidos_final = apellidos if apellidos is not None else (
+                safe_decrypt(self.instance.apellidos) if self.instance else ""
+            )
+            nombre_completo = f"{nombres_final.strip()} {apellidos_final.strip()}".strip()
+            validated_data["nombre_completo_hash"] = hash_lookup(nombre_completo)
+
+        if "telefono" in validated_data:
+            telefono = validated_data.get("telefono")
+            validated_data["telefono_hash"] = hash_lookup(telefono) if telefono else None
+            if telefono:
+                validated_data["telefono"] = encrypt(telefono)
 
         return validated_data
 
