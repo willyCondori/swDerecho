@@ -26,6 +26,12 @@ const catalogoApi = {
   actualizarJerarquia:      (id, data)    => api.patch(`/api/catalogo/jerarquias/${id}/`, data),
   eliminarJerarquia:         (id)          => api.delete(`/api/catalogo/jerarquias/${id}/`),
   activarJerarquia:          (id, data = {}) => api.post(`/api/catalogo/jerarquias/${id}/activar/`, data),
+
+  listarEntidadesCompleto: (params = {}) => api.get('/api/catalogo/entidades/', { params }),
+  crearEntidad:            (data)        => api.post('/api/catalogo/entidades/', data),
+  actualizarEntidad:       (id, data)    => api.patch(`/api/catalogo/entidades/${id}/`, data),
+  eliminarEntidad:          (id)          => api.delete(`/api/catalogo/entidades/${id}/`),
+  activarEntidad:           (id)          => api.post(`/api/catalogo/entidades/${id}/activar/`),
 }
 
 export default catalogoApi

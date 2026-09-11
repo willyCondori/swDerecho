@@ -2,19 +2,24 @@
 import { useState } from 'react'
 import useGestionRamas from '../hooks/useGestionRamas'
 import useGestionJerarquias from '../hooks/useGestionJerarquias'
+import useGestionEntidades from '../hooks/useGestionEntidades'
 import RamaForm from '../components/administrar/RamaForm'
 import RamaTable from '../components/administrar/RamaTable'
 import JerarquiaForm from '../components/administrar/JerarquiaForm'
 import JerarquiaTable from '../components/administrar/JerarquiaTable'
+import EntidadForm from '../components/administrar/EntidadForm'
+import EntidadTable from '../components/administrar/EntidadTable'
 import styles from './AdministrarCatalogoPage.module.css'
 
 const TABS = [
   { value: 'ramas', label: 'Ramas de derecho', icon: 'ti-gavel' },
   { value: 'jerarquias', label: 'Jerarquías (tipos de norma)', icon: 'ti-stack-2' },
+  { value: 'entidades', label: 'Entidades jurídicas', icon: 'ti-users' },
 ]
 
 const FORM_RAMA_VACIO = { nombre: '', descripcion: '' }
 const FORM_JERARQUIA_VACIO = { nombre: '', nivel: '' }
+const FORM_ENTIDAD_VACIO = { nombre: '', descripcion: '' }
 
 function extraerErroresCampo(err, mensajeDefault) {
   const data = err.response?.data
@@ -35,11 +40,12 @@ export default function AdministrarCatalogoPage() {
     <div className={styles.root}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Ramas y jerarquías</h1>
+          <h1 className={styles.title}>Catálogo jurídico</h1>
           <p className={styles.subtitle}>
-            Administra las ramas de derecho y los tipos de norma (jerarquía)
-            disponibles en el catálogo. Cualquiera que crees acá aparece de
-            inmediato en el formulario de "Cargar artículos jurídicos".
+            Administra las ramas de derecho, los tipos de norma (jerarquía) y
+            las entidades jurídicas del catálogo. Cualquiera que crees acá
+            aparece de inmediato en el formulario de "Cargar artículos
+            jurídicos" y en el análisis de nuevos casos.
           </p>
         </div>
       </header>
@@ -58,7 +64,9 @@ export default function AdministrarCatalogoPage() {
         ))}
       </div>
 
-      {tab === 'ramas' ? <RamasSection /> : <JerarquiasSection />}
+      {tab === 'ramas' && <RamasSection />}
+      {tab === 'jerarquias' && <JerarquiasSection />}
+      {tab === 'entidades' && <EntidadesSection />}
     </div>
   )
 }
@@ -353,6 +361,127 @@ function JerarquiasSection() {
       <div className={styles.card}>
         <JerarquiaTable
           jerarquias={jerarquias}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          onEditar={abrirEditar}
+          onEliminar={handleEliminar}
+          onRecuperar={handleRecuperar}
+          onCrearPrimero={abrirCrear}
+        />
+      </div>
+    </>
+  )
+}
+
+function EntidadesSection() {
+  const {
+    entidades, loading, error, reload,
+    estadoFiltro, setEstadoFiltro,
+    crearEntidad, actualizarEntidad, eliminarEntidad, activarEntidad,
+  } = useGestionEntidades()
+
+  const [panel, setPanel] = useState('cerrado') // 'cerrado' | 'crear' | { editar: entidad }
+  const [form, setForm] = useState(FORM_ENTIDAD_VACIO)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [enviando, setEnviando] = useState(false)
+
+  const abrirCrear = () => {
+    setForm(FORM_ENTIDAD_VACIO)
+    setFieldErrors({})
+    setPanel('crear')
+  }
+  const abrirEditar = (entidad) => {
+    setForm({ nombre: entidad.nombre, descripcion: entidad.descripcion || '' })
+    setFieldErrors({})
+    setPanel({ editar: entidad })
+  }
+  const cerrarPanel = () => {
+    setPanel('cerrado')
+    setForm(FORM_ENTIDAD_VACIO)
+    setFieldErrors({})
+  }
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm((prev) => ({ ...prev, [name]: value }))
+    if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setEnviando(true)
+    setFieldErrors({})
+    try {
+      if (panel === 'crear') {
+        await crearEntidad(form)
+      } else if (panel && panel.editar) {
+        await actualizarEntidad(panel.editar.id, form)
+      }
+      cerrarPanel()
+    } catch (err) {
+      setFieldErrors(extraerErroresCampo(err, 'No se pudo guardar la entidad jurídica.'))
+    } finally {
+      setEnviando(false)
+    }
+  }
+
+  const handleEliminar = async (entidad) => {
+    if (!window.confirm(`¿Eliminar la entidad "${entidad.nombre}"? Los artículos que ya la tienen vinculada no se ven afectados, pero dejará de considerarse en nuevos análisis de casos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
+    try {
+      await eliminarEntidad(entidad.id)
+    } catch (e) {
+      window.alert(e?.response?.data?.detail || 'No se pudo eliminar la entidad jurídica.')
+    }
+  }
+
+  const handleRecuperar = async (entidad) => {
+    if (!window.confirm(`¿Recuperar la entidad "${entidad.nombre}"? Volverá a considerarse en el análisis de nuevos casos.`)) return
+    try {
+      await activarEntidad(entidad.id)
+    } catch (e) {
+      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la entidad jurídica.')
+    }
+  }
+
+  return (
+    <>
+      <div className={styles.sectionToolbar}>
+        <div className={styles.tabs}>
+          {ESTADO_TABS.map((t) => (
+            <button
+              key={t.value}
+              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
+              onClick={() => setEstadoFiltro(t.value)}
+              type="button"
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {panel === 'cerrado' && (
+          <button className={styles.btnPrimary} onClick={abrirCrear}>
+            <i className="ti ti-plus" aria-hidden="true" />
+            Nueva entidad jurídica
+          </button>
+        )}
+      </div>
+
+      {panel !== 'cerrado' && (
+        <EntidadForm
+          mode={panel === 'crear' ? 'crear' : 'editar'}
+          form={form}
+          fieldErrors={fieldErrors}
+          enviando={enviando}
+          onChange={handleChange}
+          onSubmit={handleSubmit}
+          onCancel={cerrarPanel}
+        />
+      )}
+
+      <div className={styles.card}>
+        <EntidadTable
+          entidades={entidades}
           loading={loading}
           error={error}
           onRetry={reload}

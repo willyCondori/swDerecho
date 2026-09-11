@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import F
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -372,18 +373,38 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
 
 class EntidadJuridicaViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/entidades/        — lista
-    POST   /api/entidades/        — crear  [admin]
-    GET    /api/entidades/{id}/   — detalle
-    PATCH  /api/entidades/{id}/   — editar [admin]
-    DELETE /api/entidades/{id}/   — soft-delete [admin]
-    GET    /api/entidades/lista/  — compacto para selects
+    GET    /api/entidades/              — lista entidades activas (o filtradas por ?estado=)
+    POST   /api/entidades/              — crear  [admin]
+    GET    /api/entidades/{id}/         — detalle (incluye inactivas)  [admin]
+    PATCH  /api/entidades/{id}/         — editar [admin]
+    DELETE /api/entidades/{id}/         — soft-delete [admin]
+    POST   /api/entidades/{id}/activar/ — reactivar entidad desactivada [admin]
+    GET    /api/entidades/lista/        — compacto para selects (solo activas)
     """
-    queryset        = EntidadJuridica.objects.filter(estado=True).order_by("nombre")
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["nombre", "descripcion"]
     ordering_fields = ["nombre"]
     auditoria_tabla = "entidades_juridicas"
+
+    # Acciones de detalle en las que un admin necesita poder ver/operar
+    # sobre una entidad inactiva (para poder inspeccionarla o reactivarla).
+    _ACCIONES_VEN_INACTIVAS = ("retrieve", "update", "partial_update", "destroy", "activar")
+
+    def get_queryset(self):
+        qs = EntidadJuridica.objects.order_by("nombre")
+
+        # ?estado=true|false — usado por el panel de administración
+        # para alternar entre pestañas "Activas" / "Eliminadas".
+        estado = self.request.query_params.get("estado")
+        if estado is not None:
+            return qs.filter(estado=estado.lower() in ["true", "1"])
+
+        if self.action in self._ACCIONES_VEN_INACTIVAS:
+            return qs
+
+        # list / lista sin filtro explícito: comportamiento seguro por
+        # defecto, solo entidades activas.
+        return qs.filter(estado=True)
 
     def get_serializer_class(self):
         if self.action == "lista":
@@ -398,7 +419,7 @@ class EntidadJuridicaViewSet(AuditoriaMixin, ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance            = self.get_object()
         instance.estado     = False
-        instance.deleted_at = __import__("django.utils.timezone", fromlist=["now"]).now()
+        instance.deleted_at = timezone.now()
         instance.save(update_fields=["estado", "deleted_at"])
         self._auditar("DELETE", registro_id=instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -407,6 +428,16 @@ class EntidadJuridicaViewSet(AuditoriaMixin, ModelViewSet):
     def lista(self, request):
         qs = self.get_queryset()
         return Response(EntidadJuridicaListSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=["post"], url_path="activar")
+    def activar(self, request, pk=None):
+        """POST /api/entidades/{id}/activar/ — reactiva una entidad desactivada."""
+        instance            = self.get_object()
+        instance.estado     = True
+        instance.deleted_at = None
+        instance.save(update_fields=["estado", "deleted_at"])
+        self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
+        return Response({"detail": "Entidad jurídica reactivada."}, status=status.HTTP_200_OK)
 
 
 # ---------------------------------------------------------------------------
