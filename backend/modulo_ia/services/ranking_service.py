@@ -327,16 +327,26 @@ class RankingService:
             elif score_float > heap[0][0]:
                 heapq.heapreplace(heap, item)
 
-        # Orden final: primero los resultados más acertados (es_sugerencia=False,
-        # False < True en Python así que quedan primero de forma natural),
-        # y dentro de cada grupo, de mayor a menor score. Así el frontend
-        # siempre recibe la lista con los principales antes que las
-        # sugerencias complementarias, sin depender de que el score de una
-        # sugerencia nunca supere al de un principal (podría pasar en algún
-        # caso límite y no queremos que eso reordene los grupos).
+        # Orden final: las figuras transversales detectadas explícitamente
+        # en el texto (es_sugerencia=True — tentativa, legítima defensa,
+        # complicidad...) van PRIMERO, antes que los resultados por
+        # coincidencia semántica/tipo de delito (es_sugerencia=False).
+        #
+        # Motivo: si el caso dice literalmente "tentativa de robo", que
+        # se trate de una tentativa es la información jurídica más
+        # relevante para el abogado —modifica la pena y el tratamiento
+        # legal de cualquier delito de fondo— aunque el artículo de
+        # TENTATIVA en sí (Art. 8) nunca va a ganarle en similitud
+        # semántica a "ROBO AGRAVADO" comparado palabra por palabra: su
+        # redacción es genérica y no menciona "robo" ni "armas". La
+        # fórmula de score no puede reflejar esa prioridad conceptual
+        # por sí sola (60% del peso es semántico), así que se resuelve
+        # a nivel de agrupación en vez de intentar que el score de la
+        # figura le gane al del delito principal.
+        # Dentro de cada grupo, de mayor a menor score.
         top_ordenado = sorted(
             heap,
-            key=lambda item: (item[4], -item[0]),
+            key=lambda item: (not item[4], -item[0]),
         )
 
         from modulo_ia.models.resultado import ResultadoArticulo
