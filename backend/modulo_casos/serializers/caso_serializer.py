@@ -186,8 +186,12 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
     rama_detectada_id = serializers.PrimaryKeyRelatedField(
         queryset=RamaDerecho.objects.filter(estado=True),
         source="rama_detectada",
-        required=False,
-        allow_null=True,
+        required=True,
+        allow_null=False,
+        error_messages={
+            "required": "Debes indicar la rama del derecho del caso (penal, civil, u otra).",
+            "null": "Debes indicar la rama del derecho del caso (penal, civil, u otra).",
+        },
     )
 
     class Meta:

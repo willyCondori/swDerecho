@@ -30,6 +30,9 @@ function validate(form, clienteForm, modo, archivo, modoCliente, clienteExistent
   } else if (tieneEspaciosExcesivos(form.titulo)) {
     errors.titulo = 'El título no puede tener más de 2 espacios seguidos.'
   }
+  if (!form.rama_id) {
+    errors.rama_id = 'Selecciona la rama del derecho del caso (penal, civil, u otra).'
+  }
   if (modo === 'texto' && !form.descripcion.trim()) {
     errors.descripcion = 'Describe el caso o cambia a modo PDF.'
   }
@@ -177,14 +180,14 @@ export default function useCrearCaso() {
         data.append('descripcion', form.descripcion || '')
         data.append('cliente_id', clienteId)
         data.append('archivo_pdf', archivo)
-        if (form.rama_id) data.append('rama_detectada_id', form.rama_id)
+        data.append('rama_detectada_id', form.rama_id)
         config = { headers: { 'Content-Type': 'multipart/form-data' } }
       } else {
         data = {
           titulo: form.titulo,
           descripcion: form.descripcion,
           cliente_id: clienteId,
-          ...(form.rama_id ? { rama_detectada_id: form.rama_id } : {}),
+          rama_detectada_id: form.rama_id,
         }
       }
 

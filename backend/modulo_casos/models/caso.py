@@ -34,7 +34,13 @@ class Caso(models.Model):
                            null=True,
                            blank=True,
                            related_name="casos",
-                           help_text="Rama jurídica detectada por el análisis IA.",
+                           help_text=(
+                               "Rama jurídica del caso, seleccionada por el usuario al "
+                               "registrarlo (penal, civil, etc.). Nullable a nivel de BD "
+                               "solo para sobrevivir a on_delete=SET_NULL si la rama se "
+                               "elimina del catálogo más adelante; la creación de casos "
+                               "la exige (ver CasoCreateSerializer)."
+                           ),
                        )
     estado           = models.BooleanField(default=True)
     created_at       = models.DateTimeField(auto_now_add=True)

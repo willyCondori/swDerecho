@@ -104,7 +104,7 @@ export default function NuevoCasoPage() {
         </button>
         <div>
           <h1 className={styles.title}>Nuevo caso</h1>
-          <p className={styles.subtitle}>Registra al cliente y describe el caso con texto o un PDF.</p>
+          <p className={styles.subtitle}>Registra al cliente, elige la rama del derecho y describe el caso con texto o un PDF.</p>
         </div>
       </div>
 
@@ -230,8 +230,9 @@ export default function NuevoCasoPage() {
                 name="rama_id"
                 value={form.rama_id || ''}
                 onChange={onChange}
+                required
               >
-                <option value="">Detectar automáticamente</option>
+                <option value="" disabled>Selecciona una rama (penal, civil, u otra)...</option>
                 {ramas.map((r) => (
                   <option key={r.id} value={r.id}>{r.nombre}</option>
                 ))}
