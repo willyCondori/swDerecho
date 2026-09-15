@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from modulo_casos.serializers.caso_serializer import CasoCreateSerializer
 from modulo_clientes.serializers.cliente_serializer import ClienteWriteSerializer
+from modulo_catalogo.models.rama import RamaDerecho
 
 
 class CasoConClienteSerializer(serializers.Serializer):
@@ -31,8 +32,14 @@ class CasoConClienteSerializer(serializers.Serializer):
     apellidos        = serializers.CharField(max_length=200)
 
     # Datos del caso
-    titulo      = serializers.CharField(max_length=500)
-    descripcion = serializers.CharField(required=False, allow_blank=True)
+    titulo             = serializers.CharField(max_length=500)
+    descripcion        = serializers.CharField(required=False, allow_blank=True)
+    rama_detectada_id  = serializers.PrimaryKeyRelatedField(
+        queryset=RamaDerecho.objects.filter(estado=True),
+        error_messages={
+            "required": "Debes indicar la rama del derecho del caso (penal, civil, u otra).",
+        },
+    )
 
     def validate(self, attrs):
         tiene_pdf = self.context.get("tiene_pdf", False)
@@ -77,6 +84,7 @@ class CasoConClienteSerializer(serializers.Serializer):
                     "titulo": validated_data["titulo"],
                     "descripcion": validated_data.get("descripcion", ""),
                     "cliente_id": cliente.pk,
+                    "rama_detectada_id": validated_data["rama_detectada_id"].pk,
                 },
                 context=self.context,
             )
