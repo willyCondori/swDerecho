@@ -392,28 +392,9 @@
 
 /* Jerarquía */
 .jerarquiaCell { white-space: nowrap; }
-.jerarquiaBar  {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.jerarquiaTrack {
-  width: 52px;
-  height: 4px;
-  background: var(--c-bg-active);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-.jerarquiaFill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  background: var(--c-purple-500);
-}
 .jerarquiaNum {
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
-  width: 28px;
-  text-align: right;
   font-family: var(--font-mono);
 }
 
