@@ -113,6 +113,8 @@
   /* ── Z-index ─────────────────────────────────────────────── */
   --z-sidebar:  100;
   --z-topbar:   200;
+  --z-drawer-overlay: 250;
+  --z-drawer:   260;
   --z-modal:    300;
   --z-toast:    400;
 }
