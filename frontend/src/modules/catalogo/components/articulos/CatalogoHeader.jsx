@@ -1,7 +1,7 @@
 // modules/catalogo/components/articulos/CatalogoHeader.jsx
 import styles from '../../pages/articulos/VerArticulos.module.css'
 
-export default function CatalogoHeader({ totalCount, onRecargar, onCargarPdf }) {
+export default function CatalogoHeader({ totalCount, onRecargar, onCargarPdf, onAdministrarNormas }) {
   return (
     <header className={styles.header}>
       <div className={styles.headerLeft}>
@@ -17,6 +17,12 @@ export default function CatalogoHeader({ totalCount, onRecargar, onCargarPdf }) 
           <i className="ti ti-refresh" aria-hidden="true" />
           Recargar
         </button>
+        {onAdministrarNormas && (
+          <button className={styles.btnSecondary} onClick={onAdministrarNormas}>
+            <i className="ti ti-books" aria-hidden="true" />
+            Administrar normas
+          </button>
+        )}
         <button className={styles.btnPrimary} onClick={onCargarPdf}>
           <i className="ti ti-file-upload" aria-hidden="true" />
           Cargar PDF

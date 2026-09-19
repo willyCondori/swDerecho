@@ -1,5 +1,6 @@
 // modules/catalogo/pages/articulos/VerArticulos.jsx
 import { useNavigate } from 'react-router-dom'
+import useAuthStore from '../../../auth/store/authStore'
 import { useCatalogoArticulos } from '../../hooks/useCatalogoArticulos'
 import CatalogoHeader from '../../components/articulos/CatalogoHeader'
 import StatsRow from '../../components/articulos/StatsRow'
@@ -10,6 +11,7 @@ import styles from './VerArticulos.module.css'
 
 export default function VerArticulos() {
   const navigate = useNavigate()
+  const esAdmin = useAuthStore((s) => s.isAdmin())
   const {
     ramas, normas,
     search, setSearch,
@@ -31,6 +33,7 @@ export default function VerArticulos() {
         totalCount={totalCount}
         onRecargar={recargar}
         onCargarPdf={irACargarPdf}
+        onAdministrarNormas={esAdmin ? () => navigate('/catalogo/normas') : undefined}
       />
 
       <StatsRow
