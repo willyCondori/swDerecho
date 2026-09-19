@@ -1,20 +1,6 @@
 // modules/catalogo/components/administrar/JerarquiaTable.jsx
+import DataTable from '../../../../components/ui/DataTable'
 import styles from '../../pages/AdministrarCatalogoPage.module.css'
-
-function SkeletonRows({ rows = 4 }) {
-  return (
-    <>
-      {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className={styles.skeletonRow}>
-          <td><div className={styles.skeleton} style={{ width: 50 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 220 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 70 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 60, marginLeft: 'auto' }} /></td>
-        </tr>
-      ))}
-    </>
-  )
-}
 
 export default function JerarquiaTable({
   jerarquias,
@@ -26,82 +12,69 @@ export default function JerarquiaTable({
   onRecuperar,
   onCrearPrimero,
 }) {
-  if (!loading && error) {
-    return (
-      <div className={styles.emptyState}>
-        <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-        <p className={styles.emptyText}>{error}</p>
-        <button className={styles.btnSecondary} onClick={onRetry}>Reintentar</button>
-      </div>
-    )
-  }
-
-  if (!loading && jerarquias.length === 0) {
-    return (
-      <div className={styles.emptyState}>
-        <i className={`ti ti-stack-2 ${styles.emptyIcon}`} aria-hidden="true" />
-        <p className={styles.emptyText}>Todavía no hay jerarquías normativas registradas.</p>
-        <button className={styles.btnPrimary} onClick={onCrearPrimero}>
-          <i className="ti ti-plus" aria-hidden="true" /> Nueva jerarquía
-        </button>
-      </div>
-    )
-  }
+  const columns = [
+    {
+      key: 'nivel',
+      header: 'Nivel',
+      skeletonWidth: 50,
+      render: (j) => <span className={styles.badge}>{j.nivel}</span>,
+    },
+    {
+      key: 'nombre',
+      header: 'Nombre',
+      skeletonWidth: 220,
+      render: (j) => <span className={styles.itemNombre}>{j.nombre}</span>,
+    },
+    {
+      key: 'estado',
+      header: 'Estado',
+      skeletonWidth: 70,
+      render: (j) => (
+        <span className={`${styles.badge} ${j.estado ? styles.activo : styles.inactivo}`}>
+          {j.estado ? 'Activa' : 'Eliminada'}
+        </span>
+      ),
+    },
+    {
+      key: 'acciones',
+      ariaLabel: 'Acciones',
+      actions: true,
+      render: (j) => (
+        j.estado ? (
+          <>
+            <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(j)}>
+              <i className="ti ti-pencil" aria-hidden="true" />
+            </button>
+            <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(j)}>
+              <i className="ti ti-trash" aria-hidden="true" />
+            </button>
+          </>
+        ) : (
+          <button className={styles.iconBtn} title="Recuperar jerarquía" onClick={() => onRecuperar(j)}>
+            <i className="ti ti-rotate-clockwise" aria-hidden="true" />
+          </button>
+        )
+      ),
+    },
+  ]
 
   return (
-    <div className={styles.tableScroll}>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            <th>Nivel</th>
-            <th>Nombre</th>
-            <th>Estado</th>
-            <th aria-label="Acciones" />
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <SkeletonRows />
-          ) : (
-            jerarquias.map((j) => {
-              const inactiva = !j.estado
-              return (
-                <tr key={j.id}>
-                  <td><span className={styles.badge}>{j.nivel}</span></td>
-                  <td><span className={styles.itemNombre}>{j.nombre}</span></td>
-                  <td>
-                    <span className={`${styles.badge} ${j.estado ? styles.activo : styles.inactivo}`}>
-                      {j.estado ? 'Activa' : 'Eliminada'}
-                    </span>
-                  </td>
-                  <td>
-                    <div className={styles.actionsCell}>
-                      {inactiva ? (
-                        <button
-                          className={styles.iconBtn}
-                          title="Recuperar jerarquía"
-                          onClick={() => onRecuperar(j)}
-                        >
-                          <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                        </button>
-                      ) : (
-                        <>
-                          <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(j)}>
-                            <i className="ti ti-pencil" aria-hidden="true" />
-                          </button>
-                          <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(j)}>
-                            <i className="ti ti-trash" aria-hidden="true" />
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )
-            })
-          )}
-        </tbody>
-      </table>
-    </div>
+    <DataTable
+      columns={columns}
+      rows={jerarquias}
+      loading={loading}
+      error={error}
+      onRetry={onRetry}
+      skeletonRows={4}
+      empty={{
+        icon: 'ti-stack-2',
+        text: 'Todavía no hay jerarquías normativas registradas.',
+        action: (
+          <button className={styles.btnPrimary} onClick={onCrearPrimero}>
+            <i className="ti ti-plus" aria-hidden="true" /> Nueva jerarquía
+          </button>
+        ),
+      }}
+    />
   )
 }
