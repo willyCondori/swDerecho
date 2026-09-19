@@ -62,51 +62,53 @@ export default function NormaTable({
   }
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Sigla</th>
-          <th>Jerarquía</th>
-          <th>Estado</th>
-          <th aria-label="Acciones" />
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <SkeletonRows />
-        ) : (
-          normas.map((norma) => (
-            <tr key={norma.id}>
-              <td><span className={styles.itemNombre}>{norma.nombre}</span></td>
-              <td><span className={styles.itemDescripcion}>{norma.sigla || '—'}</span></td>
-              <td>
-                <span className={styles.itemDescripcion}>
-                  {norma.jerarquia?.nombre || 'Sin jerarquía'}
-                </span>
-              </td>
-              <td>
-                <span className={`${styles.badge} ${norma.estado ? styles.activo : styles.inactivo}`}>
-                  {norma.estado ? 'Activa' : 'Eliminada'}
-                </span>
-              </td>
-              <td>
-                <div className={styles.actionsCell}>
-                  {norma.estado ? (
-                    <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(norma)}>
-                      <i className="ti ti-trash" aria-hidden="true" />
-                    </button>
-                  ) : (
-                    <button className={styles.iconBtn} title="Recuperar norma" onClick={() => onRecuperar(norma)}>
-                      <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))
-        )}
-      </tbody>
-    </table>
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Sigla</th>
+            <th>Jerarquía</th>
+            <th>Estado</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows />
+          ) : (
+            normas.map((norma) => (
+              <tr key={norma.id}>
+                <td><span className={styles.itemNombre}>{norma.nombre}</span></td>
+                <td><span className={styles.itemDescripcion}>{norma.sigla || '—'}</span></td>
+                <td>
+                  <span className={styles.itemDescripcion}>
+                    {norma.jerarquia?.nombre || 'Sin jerarquía'}
+                  </span>
+                </td>
+                <td>
+                  <span className={`${styles.badge} ${norma.estado ? styles.activo : styles.inactivo}`}>
+                    {norma.estado ? 'Activa' : 'Eliminada'}
+                  </span>
+                </td>
+                <td>
+                  <div className={styles.actionsCell}>
+                    {norma.estado ? (
+                      <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(norma)}>
+                        <i className="ti ti-trash" aria-hidden="true" />
+                      </button>
+                    ) : (
+                      <button className={styles.iconBtn} title="Recuperar norma" onClick={() => onRecuperar(norma)}>
+                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }
