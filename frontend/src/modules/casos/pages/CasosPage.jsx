@@ -32,6 +32,12 @@ export default function CasosPage() {
             Filtros
           </button>
           {puedeEscribir && (
+            <button className={styles.btnSecondary} onClick={() => navigate('/casos/papelera')}>
+              <i className="ti ti-trash" aria-hidden="true" />
+              Papelera
+            </button>
+          )}
+          {puedeEscribir && (
             <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
               <i className="ti ti-plus" aria-hidden="true" />
               Nuevo caso
