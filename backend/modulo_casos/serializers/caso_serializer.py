@@ -7,6 +7,8 @@ from modulo_casos.models.caso import Caso
 from modulo_casos.models.hecho import Hecho, HechoCaso
 from modulo_casos.models.petitorio import Petitorio, PetitorioCaso
 from modulo_casos.models.resultado_caso import ResultadoCaso
+from modulo_casos.serializers.seguimiento_serializer import nombre_visible_usuario
+from modulo_casos.services.papelera_service import enviar_a_papelera
 from modulo_casos.services.seguimiento_service import registrar_seguimiento_inicial
 from modulo_catalogo.models.rama import RamaDerecho
 from modulo_clientes.models.cliente import Cliente
@@ -244,10 +246,25 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
 
 
 class CasoUpdateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializer):
-    """Actualización parcial: solo título, descripción y estado."""
+    """
+    Actualización parcial: solo título, descripción y estado.
+
+    Poner estado=False equivale a eliminar el caso: pasa por la papelera
+    (queda quién y cuándo, y se puede restaurar). Reactivar un caso
+    eliminado no se hace por aquí sino con POST /casos/{id}/restaurar/.
+    """
     class Meta:
         model  = Caso
         fields = ["titulo", "descripcion", "estado"]
+
+    def update(self, instance, validated_data):
+        desactivar = validated_data.pop("estado", True) is False and instance.estado
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+            if desactivar:
+                request = self.context["request"]
+                enviar_a_papelera(instance, request.user)
+        return instance
 
 
 class CasoListSerializer(serializers.ModelSerializer):
@@ -282,3 +299,21 @@ class CasoListSerializer(serializers.ModelSerializer):
 
     def get_tiene_resultado(self, obj):
         return hasattr(obj, "resultado")
+
+
+class CasoPapeleraSerializer(CasoListSerializer):
+    """Caso eliminado, para el listado de la papelera."""
+    eliminado_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Caso
+        fields = [
+            "id", "codigo", "titulo",
+            "cliente_nombre", "rama_detectada",
+            "etapa", "etapa_display",
+            "eliminado_at", "eliminado_por_nombre",
+            "created_at",
+        ]
+
+    def get_eliminado_por_nombre(self, obj):
+        return nombre_visible_usuario(obj.eliminado_por)

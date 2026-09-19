@@ -5,6 +5,21 @@ from modulo_casos.models.etapas import EtapaCaso
 from modulo_casos.models.seguimiento import SeguimientoCaso
 
 
+def nombre_visible_usuario(usuario):
+    """Nombre y apellidos del perfil (descifrados); si no hay, el usuario. None si no hay usuario."""
+    if usuario is None:
+        return None
+    perfil = getattr(usuario, "perfil", None)
+    if perfil is not None:
+        nombres   = safe_decrypt(perfil.nombres, fallback=None)
+        apellidos = safe_decrypt(perfil.apellidos, fallback=None)
+        if nombres is not None and apellidos is not None:
+            completo = f"{nombres} {apellidos}".strip()
+            if completo:
+                return completo
+    return usuario.usuario
+
+
 class SeguimientoCasoSerializer(serializers.ModelSerializer):
     """Entrada de la línea de tiempo de un caso (solo lectura)."""
     etapa_display          = serializers.CharField(source="get_etapa_display", read_only=True)
@@ -24,16 +39,7 @@ class SeguimientoCasoSerializer(serializers.ModelSerializer):
         return obj.get_etapa_anterior_display() if obj.etapa_anterior else None
 
     def get_usuario_nombre(self, obj):
-        """Nombre y apellidos del perfil (descifrados); si no hay, el usuario."""
-        perfil = getattr(obj.usuario, "perfil", None)
-        if perfil is not None:
-            nombres   = safe_decrypt(perfil.nombres, fallback=None)
-            apellidos = safe_decrypt(perfil.apellidos, fallback=None)
-            if nombres is not None and apellidos is not None:
-                completo = f"{nombres} {apellidos}".strip()
-                if completo:
-                    return completo
-        return obj.usuario.usuario
+        return nombre_visible_usuario(obj.usuario)
 
 
 class CambiarEtapaSerializer(serializers.Serializer):
