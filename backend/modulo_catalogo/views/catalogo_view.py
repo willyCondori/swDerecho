@@ -1,5 +1,5 @@
 from django.db import transaction
-from django.db.models import F
+from django.db.models import F, Q
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -8,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin
+from core.permissions.roles import es_administrador
 from core.permissions.roles_permission import EsAbogado, EsAdmin, EsUsuarioAutenticado
 from modulo_catalogo.models.articulo import Articulo
 from modulo_catalogo.models.entidad import EntidadJuridica
@@ -317,23 +318,47 @@ class JerarquiaViewSet(AuditoriaMixin, ModelViewSet):
 
 class NormaViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/normas/        — lista
-    POST   /api/normas/        — crear  [admin]
-    GET    /api/normas/{id}/   — detalle
-    PATCH  /api/normas/{id}/   — editar [admin]
-    DELETE /api/normas/{id}/   — soft-delete [admin]
-    GET    /api/normas/lista/  — compacto para selects
+    GET    /api/normas/               — lista normas activas (o filtradas por ?estado=)
+    POST   /api/normas/               — crear  [admin]
+    GET    /api/normas/{id}/          — detalle
+    PATCH  /api/normas/{id}/          — editar [admin]
+    DELETE /api/normas/{id}/          — eliminación lógica [admin]
+    POST   /api/normas/{id}/activar/  — restaurar una norma eliminada [admin]
+    GET    /api/normas/lista/         — compacto para selects (solo activas)
+
+    Eliminar una norma NO borra nada: solo la marca como inactiva. Sus
+    artículos quedan intactos pero dejan de verse en el catálogo y de
+    entrar al ranking del análisis (se filtran por norma__estado); al
+    restaurarla vuelven exactamente como estaban.
     """
-    queryset        = (
-        Norma.objects
-        .filter(estado=True)
-        .select_related("jerarquia")
-        .order_by("nombre")
-    )
     filter_backends = [SearchFilter, OrderingFilter]
     search_fields   = ["nombre", "sigla"]
     ordering_fields = ["nombre", "sigla", "jerarquia__nivel"]
     auditoria_tabla = "normas"
+
+    # Acciones de detalle en las que un admin necesita poder operar sobre
+    # una norma inactiva (inspeccionarla o restaurarla).
+    _ACCIONES_VEN_INACTIVAS = ("retrieve", "update", "partial_update", "destroy", "activar")
+
+    def get_queryset(self):
+        qs   = Norma.objects.select_related("jerarquia").order_by("nombre")
+        user = self.request.user
+
+        # Solo el administrador puede ver normas eliminadas.
+        if not (user.is_authenticated and es_administrador(user)):
+            return qs.filter(estado=True)
+
+        # ?estado=true|false — usado por el panel de administración
+        # para alternar entre las pestañas "Activas" / "Eliminadas".
+        estado = self.request.query_params.get("estado")
+        if estado is not None:
+            return qs.filter(estado=estado.lower() in ["true", "1"])
+
+        if self.action in self._ACCIONES_VEN_INACTIVAS:
+            return qs
+
+        # list / lista sin filtro explícito: solo normas activas.
+        return qs.filter(estado=True)
 
     def get_serializer_class(self):
         if self.action == "lista":
@@ -346,11 +371,65 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
         return [EsAdmin()]
 
     def destroy(self, request, *args, **kwargs):
-        instance        = self.get_object()
+        instance = self.get_object()
+        if not instance.estado:
+            return Response(
+                {"detail": "La norma ya está eliminada."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         instance.estado = False
         instance.save(update_fields=["estado"])
         self._auditar("DELETE", registro_id=instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @staticmethod
+    def _norma_activa_en_conflicto(instance):
+        """
+        Otra norma ACTIVA con el mismo nombre o la misma sigla (sin
+        distinguir mayúsculas). Se revisa al restaurar para no terminar
+        con dos normas iguales: la carga de PDF busca/crea la norma por
+        nombre, así que mientras esta estaba eliminada pudo haberse
+        creado otra igual.
+        """
+        filtro = Q(nombre__iexact=instance.nombre)
+        if instance.sigla:
+            filtro |= Q(sigla__iexact=instance.sigla)
+        return (
+            Norma.objects
+            .filter(estado=True)
+            .exclude(pk=instance.pk)
+            .filter(filtro)
+            .first()
+        )
+
+    @action(detail=True, methods=["post"], url_path="activar")
+    def activar(self, request, pk=None):
+        """POST /api/normas/{id}/activar/ — restaura una norma eliminada."""
+        instance = self.get_object()
+        if instance.estado:
+            return Response(
+                {"detail": "La norma ya está activa."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        existente = self._norma_activa_en_conflicto(instance)
+        if existente:
+            return Response(
+                {
+                    "conflicto": True,
+                    "existente": {"id": existente.id, "nombre": existente.nombre},
+                    "detail": (
+                        f'No se puede restaurar: ya existe una norma activa '
+                        f'("{existente.nombre}") con el mismo nombre o sigla.'
+                    ),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        instance.estado = True
+        instance.save(update_fields=["estado"])
+        self._auditar("UPDATE", registro_id=instance.pk, metadata={"campo": "estado", "valor": True})
+        return Response({"detail": "Norma restaurada."}, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"], url_path="lista")
     def lista(self, request):
@@ -457,7 +536,7 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     """
     queryset        = (
         Articulo.objects
-        .filter(estado=True)
+        .filter(estado=True, norma__estado=True)
         .select_related("norma", "norma__jerarquia", "rama")
         .prefetch_related("entidades")
         .order_by("norma", "numero_articulo")
