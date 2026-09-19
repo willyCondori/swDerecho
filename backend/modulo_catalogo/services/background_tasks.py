@@ -33,11 +33,21 @@ import threading
 import uuid
 
 from django.core.cache import cache
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 CACHE_PREFIX = "carga_pdf_task:"
 CACHE_TTL_SEGUNDOS = 60 * 60 * 2  # 2 horas — tiempo de sobra para que el usuario revise el resultado
+
+# Índice de las cargas que están corriendo, para poder mostrarlas cuando el
+# usuario sale de la pantalla de carga y vuelve a entrar (el task_id solo
+# vivía en el estado de React y se perdía). Es un dict {task_id: info} en
+# el mismo cache que el progreso, así que hereda la misma limitación
+# multi-worker descrita arriba.
+INDICE_KEY = "carga_pdf_tasks_index"
+_ESTADOS_EN_CURSO = ("PENDING", "STARTED")
+_indice_lock = threading.Lock()
 
 
 class ProgresoTask:
@@ -64,16 +74,72 @@ def obtener_progreso(task_id: str):
     return cache.get(CACHE_PREFIX + task_id)
 
 
+def _guardar_indice(indice: dict):
+    cache.set(INDICE_KEY, indice, timeout=CACHE_TTL_SEGUNDOS)
+
+
+def _registrar_en_indice(task_id: str, info: dict):
+    with _indice_lock:
+        indice = cache.get(INDICE_KEY) or {}
+        indice[task_id] = info
+        _guardar_indice(indice)
+
+
+def _quitar_del_indice(task_id: str):
+    with _indice_lock:
+        indice = cache.get(INDICE_KEY) or {}
+        if indice.pop(task_id, None) is not None:
+            _guardar_indice(indice)
+
+
+def listar_cargas_activas() -> list:
+    """
+    Cargas de PDF que están corriendo ahora mismo, la más reciente primero.
+
+    Cada elemento trae los datos con que se registró la carga (documento,
+    archivo, quién la inició, cuándo) más su estado y progreso actuales.
+    Las entradas cuyo progreso ya expiró del cache, o que ya terminaron,
+    se limpian del índice.
+    """
+    activas = []
+    with _indice_lock:
+        indice = cache.get(INDICE_KEY) or {}
+        vigentes = {}
+        for task_id, info in indice.items():
+            actual = cache.get(CACHE_PREFIX + task_id)
+            if actual is None or actual.get("state") not in _ESTADOS_EN_CURSO:
+                continue
+            vigentes[task_id] = info
+            meta = actual.get("meta") or {}
+            activas.append({
+                **info,
+                "task_id": task_id,
+                "estado": actual["state"],
+                "progreso": meta.get("progreso", 0),
+                "paso": meta.get("paso", "procesando"),
+            })
+        if len(vigentes) != len(indice):
+            _guardar_indice(vigentes)
+
+    activas.sort(key=lambda a: a.get("iniciada_at") or "", reverse=True)
+    return activas
+
+
 def lanzar_carga_en_background(
     contenido_pdf: bytes,
     norma_id: int,
     rama_id: int,
     jerarquia_id: int = None,
     sobrescribir: bool = False,
+    info: dict = None,
 ) -> str:
     """
     Arranca el procesamiento del PDF en un hilo aparte y devuelve
     inmediatamente un task_id para hacer polling del progreso.
+
+    `info` (opcional) son datos descriptivos de la carga (nombre del
+    documento, archivo, usuario...) que se devuelven en
+    listar_cargas_activas() mientras la carga esté en curso.
     """
     from modulo_catalogo.services.carga_pdf_service import cargar_articulos_desde_bytes
 
@@ -85,6 +151,7 @@ def lanzar_carga_en_background(
         {"state": "PENDING", "meta": {"paso": "En cola..."}},
         timeout=CACHE_TTL_SEGUNDOS,
     )
+    _registrar_en_indice(task_id, {**(info or {}), "iniciada_at": timezone.now().isoformat()})
 
     def _run():
         try:
@@ -108,6 +175,8 @@ def lanzar_carga_en_background(
                 {"state": "FAILURE", "meta": {"error": str(e)}},
                 timeout=CACHE_TTL_SEGUNDOS,
             )
+        finally:
+            _quitar_del_indice(task_id)
 
     hilo = threading.Thread(target=_run, daemon=True)
     hilo.start()
