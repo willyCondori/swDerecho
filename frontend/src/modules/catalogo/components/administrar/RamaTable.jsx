@@ -49,61 +49,63 @@ export default function RamaTable({
   }
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Descripción</th>
-          <th>Estado</th>
-          <th aria-label="Acciones" />
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <SkeletonRows />
-        ) : (
-          ramas.map((rama) => {
-            const inactiva = !rama.estado
-            return (
-              <tr key={rama.id}>
-                <td><span className={styles.itemNombre}>{rama.nombre}</span></td>
-                <td>
-                  <span className={styles.itemDescripcion}>
-                    {rama.descripcion || 'Sin descripción'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`${styles.badge} ${rama.estado ? styles.activo : styles.inactivo}`}>
-                    {rama.estado ? 'Activa' : 'Eliminada'}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actionsCell}>
-                    {inactiva ? (
-                      <button
-                        className={styles.iconBtn}
-                        title="Recuperar rama"
-                        onClick={() => onRecuperar(rama)}
-                      >
-                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <>
-                        <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(rama)}>
-                          <i className="ti ti-pencil" aria-hidden="true" />
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows />
+          ) : (
+            ramas.map((rama) => {
+              const inactiva = !rama.estado
+              return (
+                <tr key={rama.id}>
+                  <td><span className={styles.itemNombre}>{rama.nombre}</span></td>
+                  <td>
+                    <span className={styles.itemDescripcion}>
+                      {rama.descripcion || 'Sin descripción'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`${styles.badge} ${rama.estado ? styles.activo : styles.inactivo}`}>
+                      {rama.estado ? 'Activa' : 'Eliminada'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionsCell}>
+                      {inactiva ? (
+                        <button
+                          className={styles.iconBtn}
+                          title="Recuperar rama"
+                          onClick={() => onRecuperar(rama)}
+                        >
+                          <i className="ti ti-rotate-clockwise" aria-hidden="true" />
                         </button>
-                        <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(rama)}>
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          })
-        )}
-      </tbody>
-    </table>
+                      ) : (
+                        <>
+                          <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(rama)}>
+                            <i className="ti ti-pencil" aria-hidden="true" />
+                          </button>
+                          <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(rama)}>
+                            <i className="ti ti-trash" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }

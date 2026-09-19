@@ -33,8 +33,10 @@
 .headerRight {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--sp-3);
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* ── Botones ─────────────────────────────────────────────── */

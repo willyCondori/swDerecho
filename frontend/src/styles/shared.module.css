@@ -168,6 +168,8 @@
 /* ── Tabs ───────────────────────────────────────────────── */
 .tabs {
   display: inline-flex;
+  flex-wrap: wrap;
+  max-width: 100%;
   gap: 4px;
   padding: 4px;
   background: var(--c-bg-elevated);
@@ -176,6 +178,9 @@
 }
 
 .tab {
+  flex: 1 1 auto;
+  text-align: center;
+  white-space: nowrap;
   padding: 6px 14px;
   border-radius: var(--radius-md);
   border: none;
