@@ -217,6 +217,10 @@
   font-family: var(--font-sans);
   transition: border-color var(--transition-fast);
   min-width: 150px;
+  /* Un <select> mide lo que mide su opción más larga (los nombres de norma
+     son largos): se limita para que nunca se salga de la barra. */
+  max-width: min(100%, 280px);
+  text-overflow: ellipsis;
 }
 .filterSelect:focus  { border-color: var(--c-border-focus); }
 .filterSelect option { background: var(--c-bg-elevated); }
@@ -539,8 +543,12 @@
   .statsRow { display: none; }
 }
 @media (max-width: 768px) {
-  .filtersBar { flex-direction: column; align-items: stretch; }
-  .searchWrapper { min-width: unset; }
+  /* En columna NO debe envolver: con flex-wrap el ancho de la columna lo
+     decide el contenido (el <select> más largo) y no la barra. */
+  .filtersBar { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .searchWrapper { min-width: 0; }
+  .filterSelect { width: 100%; max-width: 100%; min-width: 0; }
+  .filtersDivider { display: none; }
   .header { flex-direction: column; }
   .headerRight { width: 100%; }
 }
