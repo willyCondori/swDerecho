@@ -12,6 +12,7 @@ export default function useCasoDetail(id) {
   const [error, setError] = useState(null)
   const [analizando, setAnalizando] = useState(false)
   const [subiendoPdf, setSubiendoPdf] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -107,6 +108,20 @@ export default function useCasoDetail(id) {
     }
   }
 
+  // Envía el caso a la papelera. Devuelve { ok: true } o { ok: false, error }.
+  const eliminar = async () => {
+    setEliminando(true)
+    try {
+      await casosApi.eliminar(id)
+      return { ok: true }
+    } catch (e) {
+      console.error('Error eliminando caso:', e, e?.response?.data)
+      return { ok: false, error: mensajeErrorApi(e, 'No se pudo eliminar el caso.') }
+    } finally {
+      setEliminando(false)
+    }
+  }
+
   return {
     caso,
     articulos,
@@ -117,6 +132,8 @@ export default function useCasoDetail(id) {
     error,
     analizando,
     subiendoPdf,
+    eliminando,
+    eliminar,
     analizar,
     subirPdf,
     reload: cargar,

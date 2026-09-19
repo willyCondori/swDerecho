@@ -26,8 +26,19 @@ const casosApi = {
     return api.patch(`/api/casos/${id}/`, data)
   },
 
+  /** DELETE /api/casos/{id}/ — envía el caso a la papelera (se puede restaurar) */
   eliminar(id) {
     return api.delete(`/api/casos/${id}/`)
+  },
+
+  /** GET /api/casos/papelera/ — casos eliminados (admin y abogado). Params: page, page_size, search */
+  papelera(params = {}) {
+    return api.get('/api/casos/papelera/', { params })
+  },
+
+  /** POST /api/casos/{id}/restaurar/ — saca el caso de la papelera */
+  restaurar(id) {
+    return api.post(`/api/casos/${id}/restaurar/`)
   },
 
   subirPdf(id, formData) {
