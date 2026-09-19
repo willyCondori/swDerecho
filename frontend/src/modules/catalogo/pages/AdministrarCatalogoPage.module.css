@@ -59,14 +59,6 @@
   margin-bottom: var(--sp-3);
 }
 
-/* Las tablas se deslizan de lado cuando no caben (como la de artículos);
-   sin esto la card recortaba las últimas columnas, incluidas las acciones. */
-.tableScroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-.tableScroll > table { min-width: 600px; }
-
 .itemNombre {
   font-weight: var(--fw-medium);
   color: var(--c-text-primary);
