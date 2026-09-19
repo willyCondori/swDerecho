@@ -55,7 +55,26 @@ class Caso(models.Model):
                            ),
                        )
     etapa_actualizada_at = models.DateTimeField(null=True, blank=True)
-    estado           = models.BooleanField(default=True)
+    estado           = models.BooleanField(
+                           default=True,
+                           help_text=(
+                               "True = caso activo. False = caso en la papelera "
+                               "(soft-delete; se recupera con papelera_service.restaurar_desde_papelera)."
+                           ),
+                       )
+    eliminado_at     = models.DateTimeField(
+                           null=True,
+                           blank=True,
+                           help_text="Cuándo se envió el caso a la papelera. Nulo si está activo.",
+                       )
+    eliminado_por    = models.ForeignKey(
+                           Usuario,
+                           on_delete=models.SET_NULL,
+                           null=True,
+                           blank=True,
+                           related_name="casos_eliminados",
+                           help_text="Quién envió el caso a la papelera. Nulo si está activo.",
+                       )
     created_at       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
