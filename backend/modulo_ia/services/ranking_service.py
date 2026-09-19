@@ -83,7 +83,7 @@ class RankingService:
         if not embeddings_chunk.exists():
             raise ValueError("El caso no tiene chunks con embeddings para comparar.")
 
-        candidatos_qs = EmbeddingArticulo.objects.filter(articulo__estado=True)
+        candidatos_qs = EmbeddingArticulo.objects.filter(articulo__estado=True, articulo__norma__estado=True)
 
         if caso.rama_detectada_id:
             candidatos_qs = candidatos_qs.filter(articulo__rama_id=caso.rama_detectada_id)

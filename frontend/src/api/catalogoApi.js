@@ -27,6 +27,12 @@ const catalogoApi = {
   eliminarJerarquia:         (id)          => api.delete(`/api/catalogo/jerarquias/${id}/`),
   activarJerarquia:          (id, data = {}) => api.post(`/api/catalogo/jerarquias/${id}/activar/`, data),
 
+  // Normas: solo se listan, se eliminan (borrado lógico) y se restauran.
+  // Se crean al cargar un PDF de artículos.
+  listarNormasCompleto:    (params = {}) => api.get('/api/catalogo/normas/', { params }),
+  eliminarNorma:            (id)          => api.delete(`/api/catalogo/normas/${id}/`),
+  activarNorma:             (id)          => api.post(`/api/catalogo/normas/${id}/activar/`),
+
   listarEntidadesCompleto: (params = {}) => api.get('/api/catalogo/entidades/', { params }),
   crearEntidad:            (data)        => api.post('/api/catalogo/entidades/', data),
   actualizarEntidad:       (id, data)    => api.patch(`/api/catalogo/entidades/${id}/`, data),

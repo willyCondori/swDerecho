@@ -10,6 +10,7 @@ documento que escribe el usuario, para poder sumar cualquier norma nueva
 (CPP, Código de Comercio, un Decreto Supremo, etc.) sin tocar el backend.
 """
 
+from django.db.models import Q
 from rest_framework import serializers
 
 from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
@@ -99,6 +100,20 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                 nombre__iexact=nombre_documento, estado=True
             ).first()
         if norma is None:
+            # Si esa norma existe pero está eliminada, no se crea otra
+            # igual: hay que restaurarla primero (así no se duplican
+            # normas ni se pierden los artículos que ya tenía).
+            filtro = Q(nombre__iexact=nombre_documento)
+            if sigla:
+                filtro |= Q(sigla__iexact=sigla)
+            eliminada = Norma.objects.filter(estado=False).filter(filtro).first()
+            if eliminada:
+                raise serializers.ValidationError({
+                    "nombre_documento": (
+                        f'La norma "{eliminada.nombre}" está eliminada. '
+                        "Restaurala desde Administrar catálogo antes de cargarle artículos."
+                    )
+                })
             norma = Norma.objects.create(
                 nombre=nombre_documento,
                 sigla=sigla,
