@@ -1,10 +1,23 @@
 import re
 from datetime import date
 
+from django.db import transaction
 from rest_framework import serializers
 
 from core.encryption.aes_encryption import encrypt, safe_decrypt, hash_lookup
+from core.utils.usuarios import nombre_visible_usuario
 from modulo_clientes.models.cliente import Cliente
+from modulo_clientes.services.papelera_service import (
+    ClienteConCasosActivosError,
+    enviar_cliente_a_papelera,
+)
+
+AVISO_EN_PAPELERA = " Ese cliente está en la papelera: restáuralo desde Clientes → Papelera."
+
+
+def _aviso_si_esta_en_papelera(queryset_duplicados):
+    """Si el duplicado es un cliente eliminado, avisa dónde recuperarlo."""
+    return AVISO_EN_PAPELERA if queryset_duplicados.filter(estado=False).exists() else ""
 
 
 class ClienteNombreMixin:
@@ -56,6 +69,38 @@ class ClienteListSerializer(ClienteNombreMixin, serializers.ModelSerializer):
     class Meta:
         model  = Cliente
         fields = ["id", "nombre_completo"]
+
+
+class ClientePapeleraSerializer(ClienteNombreMixin, serializers.ModelSerializer):
+    """
+    Cliente eliminado, para el listado de la papelera. `casos_para_restaurar`
+    son los casos que se eliminaron junto con él y que volverán al restaurarlo.
+    """
+    nombre_completo       = serializers.SerializerMethodField()
+    telefono              = serializers.SerializerMethodField()
+    eliminado_por_nombre  = serializers.SerializerMethodField()
+    casos_para_restaurar  = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Cliente
+        fields = [
+            "id", "nombre_completo", "telefono",
+            "eliminado_at", "eliminado_por_nombre",
+            "casos_para_restaurar", "created_at",
+        ]
+
+    def get_telefono(self, obj):
+        return safe_decrypt(obj.telefono)
+
+    def get_eliminado_por_nombre(self, obj):
+        return nombre_visible_usuario(obj.eliminado_por)
+
+    def get_casos_para_restaurar(self, obj):
+        # La vista lo anota con un COUNT; si no viene anotado, se cuenta aquí.
+        anotado = getattr(obj, "casos_para_restaurar", None)
+        if anotado is not None:
+            return anotado
+        return obj.casos.filter(estado=False, eliminado_con_cliente=True).count()
 
 
 class ClienteWriteSerializer(serializers.ModelSerializer):
@@ -119,6 +164,7 @@ class ClienteWriteSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError(
                 "Ya existe un cliente registrado con este teléfono."
+                + _aviso_si_esta_en_papelera(qs)
             )
 
         return value
@@ -141,7 +187,8 @@ class ClienteWriteSerializer(serializers.ModelSerializer):
                 qs = qs.exclude(pk=self.instance.pk)
             if qs.exists():
                 raise serializers.ValidationError(
-                    {"nombres": "Ya existe un cliente registrado con este nombre y apellido."}
+                    {"nombres": "Ya existe un cliente registrado con este nombre y apellido."
+                                + _aviso_si_esta_en_papelera(qs)}
                 )
 
         return attrs
@@ -181,4 +228,17 @@ class ClienteWriteSerializer(serializers.ModelSerializer):
         return super().create(self._encrypt_fields(validated_data))
 
     def update(self, instance, validated_data):
-        return super().update(instance, self._encrypt_fields(validated_data))
+        # estado=False equivale a eliminar: pasa por la papelera (queda quién
+        # y cuándo) y respeta la regla de los casos activos. Reactivar un
+        # cliente eliminado no se hace por aquí sino con POST /restaurar/.
+        desactivar = validated_data.pop("estado", True) is False and instance.estado
+        with transaction.atomic():
+            instance = super().update(instance, self._encrypt_fields(validated_data))
+            if desactivar:
+                try:
+                    enviar_cliente_a_papelera(instance, self.context["request"].user, eliminar_casos=False)
+                except ClienteConCasosActivosError as e:
+                    raise serializers.ValidationError({
+                        "estado": f"No se puede eliminar un cliente con casos activos. {e}",
+                    })
+        return instance
