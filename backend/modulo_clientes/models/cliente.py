@@ -1,5 +1,7 @@
 from django.db import models
 
+from modulo_usuarios.models.usuario import Usuario
+
 
 class Cliente(models.Model):
     """
@@ -28,7 +30,26 @@ class Cliente(models.Model):
     # reales entre los clientes ya cargados (mismo patrón de dos
     # pasos que modulo_usuarios.email_hash — ver 0006/0008 ahí).
 
-    estado = models.BooleanField(default=True)
+    estado = models.BooleanField(
+        default=True,
+        help_text=(
+            "True = cliente activo. False = cliente en la papelera (soft-delete; "
+            "se recupera con papelera_service.restaurar_cliente)."
+        ),
+    )
+    eliminado_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text="Cuándo se envió el cliente a la papelera. Nulo si está activo.",
+    )
+    eliminado_por = models.ForeignKey(
+        Usuario,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="clientes_eliminados",
+        help_text="Quién envió el cliente a la papelera. Nulo si está activo.",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
