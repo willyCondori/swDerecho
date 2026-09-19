@@ -8,6 +8,7 @@ import FormSelectField from '../../components/articulos/FormSelectField'
 import FormTextField from '../../components/articulos/FormTextField'
 import FuenteInfo from '../../components/articulos/FuenteInfo'
 import ProgressPanel from '../../components/articulos/ProgressPanel'
+import CargasEnCursoAviso from '../../components/articulos/CargasEnCursoAviso'
 import ResultSummary from '../../components/articulos/ResultSummary'
 import ErrorPanel from '../../components/articulos/ErrorPanel'
 import WarningsList from '../../components/articulos/WarningsList'
@@ -26,6 +27,7 @@ export default function CargaArticulosPage() {
     cargar, reset,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
+    cargaRetomada, otrasCargas,
   } = useCargaArticulos()
 
   const {
@@ -82,6 +84,8 @@ export default function CargaArticulosPage() {
           motor de búsqueda.
         </p>
       </header>
+
+      {!resumen && <CargasEnCursoAviso cargas={otrasCargas} />}
 
       {mostrandoFormulario && (
         <form onSubmit={handleSubmit} noValidate>
@@ -196,7 +200,14 @@ export default function CargaArticulosPage() {
         </form>
       )}
 
-      {procesando && <ProgressPanel paso={paso} progreso={progreso} />}
+      {procesando && (
+        <ProgressPanel
+          paso={paso}
+          progreso={progreso}
+          documento={cargaRetomada?.nombre_documento || form.nombreDocumento.trim()}
+          retomada={Boolean(cargaRetomada)}
+        />
+      )}
 
       {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} />}
 

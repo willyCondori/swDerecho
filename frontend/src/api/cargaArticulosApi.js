@@ -19,6 +19,10 @@ const cargaArticulosApi = {
 
   estado: (taskId) =>
     api.get(`${BASE}/estado/`, { params: { task_id: taskId } }),
+
+  // Cargas que siguen corriendo en el servidor (de cualquier usuario), la
+  // más reciente primero. Permite retomar la vista de progreso al volver.
+  activas: () => api.get(`${BASE}/activas/`),
 }
 
 export default cargaArticulosApi
