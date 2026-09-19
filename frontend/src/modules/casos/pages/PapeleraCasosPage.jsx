@@ -9,9 +9,10 @@ import styles from './PapeleraCasosPage.module.css'
 function textoEliminacion(caso) {
   if (!caso.eliminado_at) return 'Eliminado antes de que existiera la papelera (fecha desconocida)'
   const cuando = formatFechaHora(caso.eliminado_at)
-  return caso.eliminado_por_nombre
+  const texto = caso.eliminado_por_nombre
     ? `Eliminado el ${cuando} por ${caso.eliminado_por_nombre}`
     : `Eliminado el ${cuando}`
+  return caso.eliminado_con_cliente ? `${texto}, junto con su cliente` : texto
 }
 
 export default function PapeleraCasosPage() {
