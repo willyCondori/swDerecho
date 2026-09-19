@@ -376,10 +376,13 @@
 .normaName {
   font-size: var(--fs-xs);
   color: var(--c-text-secondary);
-  white-space: nowrap;
+  max-width: 220px;
+  /* El nombre completo, en hasta 2 líneas; si es más largo se corta con
+     "…" y el nombre entero queda en el tooltip (title). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
 }
 .normaSigla {
   font-size: 10px;
