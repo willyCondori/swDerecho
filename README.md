@@ -226,7 +226,7 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `GET` | `/api/casos/{id}/seguimiento/` | Línea de tiempo del caso (historial de etapas y notas), más reciente primero. |
 | `POST` | `/api/casos/{id}/cambiar_etapa/` | Cambia la etapa del caso y/o agrega una nota (`etapa`, `nota` opcional). Cada llamada crea una entrada en el historial y queda en auditoría. Administrador y abogado. |
 | `GET` | `/api/casos/papelera/` | Casos eliminados, los enviados más recientemente primero (`search` por código, título o descripción; paginado). Administrador y abogado. |
-| `POST` | `/api/casos/{id}/restaurar/` | Restaura un caso de la papelera y deja constancia en el seguimiento y en la auditoría. `409` si el cliente del caso fue eliminado. Administrador y abogado. |
+| `POST` | `/api/casos/{id}/restaurar/` | Restaura un caso de la papelera y deja constancia en el seguimiento y en la auditoría. `409` si el cliente del caso fue eliminado (hay que restaurar primero al cliente). Administrador y abogado. |
 
 ### Clientes (`/api/clientes/`)
 
@@ -236,7 +236,9 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `POST` | `/api/clientes/` | Crea un cliente. |
 | `GET` | `/api/clientes/{id}/` | Detalle del cliente (datos descifrados). |
 | `PATCH` | `/api/clientes/{id}/` | Actualiza un cliente. |
-| `DELETE` | `/api/clientes/{id}/` | Soft-delete (solo si no tiene casos activos; solo administrador). |
+| `DELETE` | `/api/clientes/{id}/` | Envía el cliente a la papelera (soft-delete: guarda quién y cuándo). Con casos activos responde `400` (`code: cliente_con_casos_activos`, `casos_activos: N`) sin cambiar nada; con `?eliminar_casos=true` también envía sus casos a la papelera. Administrador y abogado. |
+| `GET` | `/api/clientes/papelera/` | Clientes eliminados, los enviados más recientemente primero (`search` por nombre o apellido, mínimo 2 caracteres; paginado). Cada fila trae `casos_para_restaurar`. Administrador y abogado. |
+| `POST` | `/api/clientes/{id}/restaurar/` | Restaura al cliente y **solo los casos que se eliminaron junto con él** (los eliminados antes por separado siguen en la papelera de casos). Deja constancia en el seguimiento de cada caso y en la auditoría. Responde el cliente con `casos_restaurados`. Administrador y abogado. |
 | `GET` | `/api/clientes/lista/` | Listado compacto (`id`, `nombre_completo`) para selects. |
 | `GET` | `/api/clientes/{id}/casos/` | Casos asociados al cliente. |
 | `GET` | `/api/clientes/buscar/?q=` | Búsqueda por nombre/apellido descifrado (mínimo 2 caracteres). |

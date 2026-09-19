@@ -75,6 +75,13 @@ class Caso(models.Model):
                            related_name="casos_eliminados",
                            help_text="Quién envió el caso a la papelera. Nulo si está activo.",
                        )
+    eliminado_con_cliente = models.BooleanField(
+                           default=False,
+                           help_text=(
+                               "True si el caso se envió a la papelera junto con su cliente "
+                               "(al restaurar al cliente se restauran solo estos casos)."
+                           ),
+                       )
     created_at       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
