@@ -15,6 +15,11 @@ from modulo_catalogo.models.entidad import EntidadJuridica
 from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
 from modulo_catalogo.models.rama import RamaDerecho
+from modulo_catalogo.ordenamiento import (
+    ArticuloOrderingFilter,
+    anotar_numero_orden,
+    orden_natural_articulo,
+)
 from modulo_catalogo.serializers.catalogo_serializer import (
     ArticuloListSerializer,
     ArticuloReadSerializer,
@@ -534,14 +539,18 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     GET    /api/articulos/por_rama/       — filtrar por rama_id
     GET    /api/articulos/{id}/entidades/ — entidades del artículo
     """
+    # Orden por defecto: por norma y, dentro de cada una, por número de
+    # artículo en orden natural (1, 2, 10, 100 y no 1, 10, 100, 2).
     queryset        = (
-        Articulo.objects
-        .filter(estado=True, norma__estado=True)
-        .select_related("norma", "norma__jerarquia", "rama")
-        .prefetch_related("entidades")
-        .order_by("norma", "numero_articulo")
+        anotar_numero_orden(
+            Articulo.objects
+            .filter(estado=True, norma__estado=True)
+            .select_related("norma", "norma__jerarquia", "rama")
+            .prefetch_related("entidades")
+        )
+        .order_by("norma", *orden_natural_articulo())
     )
-    filter_backends = [SearchFilter, OrderingFilter]
+    filter_backends = [SearchFilter, ArticuloOrderingFilter]
     search_fields   = ["numero_articulo", "titulo", "contenido"]
     ordering_fields = ["numero_articulo", "norma__jerarquia__nivel", "frecuencia_historica"]
     auditoria_tabla = "articulos"
