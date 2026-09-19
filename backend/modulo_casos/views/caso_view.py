@@ -7,6 +7,7 @@ from rest_framework.viewsets import ModelViewSet
 from core.permissions.auditoria_mixin import AuditoriaMixin
 from core.permissions.roles_permission import EsOperativo
 from modulo_casos.models.caso import Caso
+from modulo_casos.models.etapas import EtapaCaso
 from modulo_casos.models.hecho import Hecho
 from modulo_casos.models.petitorio import Petitorio
 from modulo_casos.serializers.caso_con_cliente_serializer import CasoConClienteSerializer
@@ -19,6 +20,11 @@ from modulo_casos.serializers.caso_serializer import (
     PetitorioSerializer,
     ResultadoCasoSerializer,
 )
+from modulo_casos.serializers.seguimiento_serializer import (
+    CambiarEtapaSerializer,
+    SeguimientoCasoSerializer,
+)
+from modulo_casos.services.seguimiento_service import registrar_seguimiento
 
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
     """
@@ -35,6 +41,11 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     GET    /api/casos/{id}/articulos/     — artículos del ranking
     POST   /api/casos/{id}/analizar/      — disparar pipeline IA [admin, abogado]
     GET    /api/casos/mis_casos/          — casos del usuario autenticado (filtro de conveniencia)
+    GET    /api/casos/etapas/             — catálogo de etapas de seguimiento (value, label)
+    GET    /api/casos/{id}/seguimiento/   — línea de tiempo del caso (más reciente primero)
+    POST   /api/casos/{id}/cambiar_etapa/ — cambia la etapa y/o agrega una nota al historial [admin, abogado]
+
+    Filtro extra en el listado: ?etapa=<value> (ver GET /api/casos/etapas/).
 
     Permisos (ver core.permissions.roles_permission.EsOperativo):
     Administrador, Abogado y Asistente ven todos los casos activos.
@@ -65,7 +76,10 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         fecha_desde = self.request.query_params.get("fecha_desde")
         fecha_hasta = self.request.query_params.get("fecha_hasta")
         tiene_pdf   = self.request.query_params.get("tiene_pdf")
+        etapa       = self.request.query_params.get("etapa")
 
+        if etapa:
+            qs = qs.filter(etapa=etapa)
         if rama_id:
             qs = qs.filter(rama_detectada_id=rama_id)
         if cliente_id:
@@ -191,6 +205,73 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="etapas")
+    def etapas(self, request):
+        """GET /api/casos/etapas/ — etapas disponibles, en orden cronológico."""
+        return Response([
+            {"value": valor, "label": etiqueta, "orden": orden}
+            for orden, (valor, etiqueta) in enumerate(EtapaCaso.choices, start=1)
+        ])
+
+    @action(detail=True, methods=["get"], url_path="seguimiento")
+    def seguimiento(self, request, pk=None):
+        """GET /api/casos/{id}/seguimiento/ — línea de tiempo, más reciente primero."""
+        caso = self.get_object()
+        entradas = (
+            caso.seguimientos
+            .select_related("usuario", "usuario__perfil")
+            .order_by("-created_at", "-id")
+        )
+        return Response(
+            SeguimientoCasoSerializer(entradas, many=True, context=self.get_serializer_context()).data
+        )
+
+    @action(detail=True, methods=["post"], url_path="cambiar_etapa")
+    def cambiar_etapa(self, request, pk=None):
+        """
+        POST /api/casos/{id}/cambiar_etapa/
+        Body: etapa (obligatoria), nota (opcional, máx. 2000 caracteres).
+
+        Crea una entrada en el historial y actualiza la etapa actual del
+        caso. Si 'etapa' es la que ya tiene, solo se acepta con nota
+        (actualización de seguimiento sin cambio de etapa).
+        """
+        caso = self.get_object()
+        serializer = CambiarEtapaSerializer(
+            data=request.data,
+            context={**self.get_serializer_context(), "caso": caso},
+        )
+        serializer.is_valid(raise_exception=True)
+
+        etapa_anterior = caso.etapa
+        seguimiento = registrar_seguimiento(
+            caso,
+            etapa=serializer.validated_data["etapa"],
+            usuario=request.user,
+            nota=serializer.validated_data["nota"],
+        )
+        self._auditar(
+            "UPDATE",
+            registro_id=caso.pk,
+            metadata={
+                "accion": "cambiar_etapa",
+                "etapa_anterior": etapa_anterior,
+                "etapa_nueva": seguimiento.etapa,
+                "seguimiento_id": seguimiento.pk,
+            },
+        )
+        return Response(
+            {
+                "etapa": caso.etapa,
+                "etapa_display": caso.get_etapa_display(),
+                "etapa_actualizada_at": caso.etapa_actualizada_at,
+                "seguimiento": SeguimientoCasoSerializer(
+                    seguimiento, context=self.get_serializer_context()
+                ).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"], url_path="subir_pdf")
     def subir_pdf(self, request, pk=None):

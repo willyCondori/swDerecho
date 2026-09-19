@@ -2,6 +2,12 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
+import useEtapasCaso from '../hooks/useEtapasCaso'
+import EtapaBadge from '../components/EtapaBadge'
+import SeguimientoTimeline from '../components/SeguimientoTimeline'
+import CambiarEtapaForm from '../components/CambiarEtapaForm'
+import { formatFechaHora } from '../utils/etapas'
+import seguimientoStyles from '../components/Seguimiento.module.css'
 import useAuthStore from '../../auth/store/authStore'
 import styles from './CasoDetailPage.module.css'
 
@@ -25,7 +31,9 @@ export default function CasoDetailPage() {
   const {
     caso, articulos, loading, error,
     analizando, subiendoPdf, analizar, subirPdf, reload,
+    seguimientos, guardandoEtapa, cambiarEtapa,
   } = useCasoDetail(id)
+  const etapas = useEtapasCaso(puedeEscribir)
 
   if (loading) {
     return <div className={styles.loaderWrap}>Cargando caso...</div>
@@ -125,6 +133,13 @@ export default function CasoDetailPage() {
             </div>
           </div>
 
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>
+              <i className="ti ti-timeline" aria-hidden="true" /> Seguimiento del caso
+            </h2>
+            <SeguimientoTimeline seguimientos={seguimientos} />
+          </div>
+
           {caso.hechos?.length > 0 && (
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>
@@ -215,6 +230,28 @@ export default function CasoDetailPage() {
 
         {/* Columna lateral */}
         <div className={styles.sideCol}>
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>
+              <i className="ti ti-route" aria-hidden="true" /> Etapa actual
+            </h2>
+            <div className={seguimientoStyles.etapaActual}>
+              <EtapaBadge etapa={caso.etapa} label={caso.etapa_display} />
+              {caso.etapa_actualizada_at && (
+                <p className={seguimientoStyles.etapaFecha}>
+                  Actualizada el {formatFechaHora(caso.etapa_actualizada_at)}
+                </p>
+              )}
+            </div>
+            {puedeEscribir && (
+              <CambiarEtapaForm
+                etapas={etapas}
+                etapaActual={caso.etapa}
+                guardando={guardandoEtapa}
+                onSubmit={cambiarEtapa}
+              />
+            )}
+          </div>
+
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>
               <i className="ti ti-user" aria-hidden="true" /> Cliente

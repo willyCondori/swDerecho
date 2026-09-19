@@ -1,5 +1,6 @@
 // modules/casos/components/CasoCard.jsx
 import styles from '../pages/CasosPage.module.css'
+import EtapaBadge from './EtapaBadge'
 
 function getClienteNombre(caso) {
   // Listado: CasoListSerializer ya manda el nombre armado como string plano
@@ -39,6 +40,10 @@ export default function CasoCard({ caso, onVerDetalle }) {
       <div className={styles.casoCliente}>
         <i className="ti ti-user" aria-hidden="true" />
         {getClienteNombre(caso)}
+      </div>
+
+      <div className={styles.casoEtapa}>
+        <EtapaBadge etapa={caso.etapa} label={caso.etapa_display} />
       </div>
 
       <div className={styles.casoFooter}>

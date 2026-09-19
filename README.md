@@ -209,7 +209,7 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/casos/` | Lista de casos, con filtros (`rama_id`, `cliente_id`, `fecha_desde`, `fecha_hasta`, `tiene_pdf`, `search`). Un abogado solo ve sus propios casos; un administrador ve todos. |
+| `GET` | `/api/casos/` | Lista de casos, con filtros (`rama_id`, `cliente_id`, `fecha_desde`, `fecha_hasta`, `tiene_pdf`, `etapa`, `search`). Un abogado solo ve sus propios casos; un administrador ve todos. |
 | `POST` | `/api/casos/` | Crea un caso para un cliente ya existente. Acepta texto y/o PDF. |
 | `POST` | `/api/casos/crear_con_cliente/` | Crea cliente y caso en una sola transacción atómica. |
 | `GET` | `/api/casos/{id}/` | Detalle completo del caso (incluye cliente, hechos, petitorios, resultado). |
@@ -222,6 +222,9 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `GET` | `/api/casos/{id}/articulos/` | Ranking de artículos aplicables, con desglose de scores. |
 | `POST` | `/api/casos/{id}/analizar/` | Dispara el pipeline de análisis completo. |
 | `GET` | `/api/casos/mis_casos/` | Casos del usuario autenticado. |
+| `GET` | `/api/casos/etapas/` | Catálogo de etapas de seguimiento (`value`, `label`, `orden`). |
+| `GET` | `/api/casos/{id}/seguimiento/` | Línea de tiempo del caso (historial de etapas y notas), más reciente primero. |
+| `POST` | `/api/casos/{id}/cambiar_etapa/` | Cambia la etapa del caso y/o agrega una nota (`etapa`, `nota` opcional). Cada llamada crea una entrada en el historial y queda en auditoría. Administrador y abogado. |
 
 ### Clientes (`/api/clientes/`)
 
