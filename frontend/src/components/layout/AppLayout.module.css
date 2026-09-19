@@ -287,6 +287,27 @@
   overflow-y: auto;
 }
 
+/* ── Botones solo para móvil (ocultos en escritorio) ─────── */
+.menuBtn,
+.sidebarCloseBtn,
+.overlay {
+  display: none;
+}
+
+.sidebarCloseBtn {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: var(--sp-1);
+  border-radius: var(--radius);
+}
+
+.sidebarCloseBtn:hover { color: var(--c-text-secondary); }
+
+/* ── Móvil / tablet: el menú lateral pasa a ser un panel ─── */
 @media (max-width: 900px) {
   .root {
     grid-template-columns: 1fr;
@@ -294,7 +315,53 @@
       "topbar"
       "main";
   }
-  .sidebar  { display: none; }
-  .topbar   { left: 0; }
-  .main     { margin-left: 0; }
+
+  .sidebar {
+    width: min(280px, 85vw);
+    height: 100vh;
+    height: 100dvh;
+    z-index: var(--z-drawer);
+    transform: translateX(-100%);
+    /* Cerrado no debe poder enfocarse con el teclado. */
+    visibility: hidden;
+    transition: transform 200ms ease, visibility 0s linear 200ms;
+  }
+
+  .sidebarOpen {
+    transform: translateX(0);
+    visibility: visible;
+    box-shadow: var(--shadow-lg);
+    transition: transform 200ms ease, visibility 0s;
+  }
+
+  .overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: var(--z-drawer-overlay);
+  }
+
+  .menuBtn,
+  .sidebarCloseBtn { display: flex; }
+
+  .menuBtn { font-size: 22px; }
+
+  .topbar {
+    left: 0;
+    padding: 0 var(--sp-4);
+  }
+
+  .topbarLeft { min-width: 0; }
+  .topbarRight { gap: var(--sp-3); }
+
+  .main {
+    margin-left: 0;
+    padding: var(--sp-4);
+    min-width: 0;
+  }
+}
+
+@media (max-width: 480px) {
+  .main { padding: var(--sp-3); }
 }
