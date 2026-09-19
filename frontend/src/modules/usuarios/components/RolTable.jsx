@@ -53,80 +53,82 @@ export default function RolTable({
   }
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Descripción</th>
-          <th>Estado</th>
-          <th aria-label="Acciones" />
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <SkeletonRows />
-        ) : (
-          roles.map((rol) => {
-            const inactivo = !rol.estado
-            const esRolSistema = ROLES_SISTEMA.includes(rol.nombre?.trim().toLowerCase())
-            return (
-              <tr key={rol.id}>
-                <td>
-                  <div className={styles.rolNombre}>
-                    {rol.nombre}
-                    {esRolSistema && (
-                      <span className={styles.badgePurple} title="Rol del sistema, no se puede desactivar">
-                        <i className="ti ti-lock" aria-hidden="true" /> sistema
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <span className={styles.rolDescripcion}>
-                    {rol.descripcion || 'Sin descripción'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`${styles.badge} ${rol.estado ? styles.activo : styles.inactivo}`}>
-                    {rol.estado ? 'Activo' : 'Eliminado'}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actionsCell}>
-                    {inactivo ? (
-                      <button
-                        className={styles.iconBtn}
-                        title="Recuperar rol"
-                        onClick={() => onRecuperar(rol)}
-                      >
-                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <>
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows />
+          ) : (
+            roles.map((rol) => {
+              const inactivo = !rol.estado
+              const esRolSistema = ROLES_SISTEMA.includes(rol.nombre?.trim().toLowerCase())
+              return (
+                <tr key={rol.id}>
+                  <td>
+                    <div className={styles.rolNombre}>
+                      {rol.nombre}
+                      {esRolSistema && (
+                        <span className={styles.badgePurple} title="Rol del sistema, no se puede desactivar">
+                          <i className="ti ti-lock" aria-hidden="true" /> sistema
+                        </span>
+                      )}
+                    </div>
+                  </td>
+                  <td>
+                    <span className={styles.rolDescripcion}>
+                      {rol.descripcion || 'Sin descripción'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`${styles.badge} ${rol.estado ? styles.activo : styles.inactivo}`}>
+                      {rol.estado ? 'Activo' : 'Eliminado'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionsCell}>
+                      {inactivo ? (
                         <button
                           className={styles.iconBtn}
-                          title="Editar"
-                          onClick={() => onEditar(rol)}
+                          title="Recuperar rol"
+                          onClick={() => onRecuperar(rol)}
                         >
-                          <i className="ti ti-pencil" aria-hidden="true" />
+                          <i className="ti ti-rotate-clockwise" aria-hidden="true" />
                         </button>
-                        <button
-                          className={styles.iconBtn}
-                          title={esRolSistema ? 'El rol Administrador no puede desactivarse' : 'Eliminar'}
-                          disabled={esRolSistema}
-                          onClick={() => onEliminar(rol)}
-                        >
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          })
-        )}
-      </tbody>
-    </table>
+                      ) : (
+                        <>
+                          <button
+                            className={styles.iconBtn}
+                            title="Editar"
+                            onClick={() => onEditar(rol)}
+                          >
+                            <i className="ti ti-pencil" aria-hidden="true" />
+                          </button>
+                          <button
+                            className={styles.iconBtn}
+                            title={esRolSistema ? 'El rol Administrador no puede desactivarse' : 'Eliminar'}
+                            disabled={esRolSistema}
+                            onClick={() => onEliminar(rol)}
+                          >
+                            <i className="ti ti-trash" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }
