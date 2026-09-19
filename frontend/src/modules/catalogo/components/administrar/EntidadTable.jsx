@@ -61,61 +61,63 @@ export default function EntidadTable({
   }
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Nombre</th>
-          <th>Descripción</th>
-          <th>Estado</th>
-          <th aria-label="Acciones" />
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <SkeletonRows />
-        ) : (
-          entidades.map((entidad) => {
-            const inactiva = !entidad.estado
-            return (
-              <tr key={entidad.id}>
-                <td><span className={styles.itemNombre}>{entidad.nombre}</span></td>
-                <td>
-                  <span className={styles.itemDescripcion}>
-                    {entidad.descripcion || 'Sin descripción'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`${styles.badge} ${entidad.estado ? styles.activo : styles.inactivo}`}>
-                    {entidad.estado ? 'Activa' : 'Eliminada'}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actionsCell}>
-                    {inactiva ? (
-                      <button
-                        className={styles.iconBtn}
-                        title="Recuperar entidad"
-                        onClick={() => onRecuperar(entidad)}
-                      >
-                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <>
-                        <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(entidad)}>
-                          <i className="ti ti-pencil" aria-hidden="true" />
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Descripción</th>
+            <th>Estado</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows />
+          ) : (
+            entidades.map((entidad) => {
+              const inactiva = !entidad.estado
+              return (
+                <tr key={entidad.id}>
+                  <td><span className={styles.itemNombre}>{entidad.nombre}</span></td>
+                  <td>
+                    <span className={styles.itemDescripcion}>
+                      {entidad.descripcion || 'Sin descripción'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`${styles.badge} ${entidad.estado ? styles.activo : styles.inactivo}`}>
+                      {entidad.estado ? 'Activa' : 'Eliminada'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionsCell}>
+                      {inactiva ? (
+                        <button
+                          className={styles.iconBtn}
+                          title="Recuperar entidad"
+                          onClick={() => onRecuperar(entidad)}
+                        >
+                          <i className="ti ti-rotate-clockwise" aria-hidden="true" />
                         </button>
-                        <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(entidad)}>
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          })
-        )}
-      </tbody>
-    </table>
+                      ) : (
+                        <>
+                          <button className={styles.iconBtn} title="Editar" onClick={() => onEditar(entidad)}>
+                            <i className="ti ti-pencil" aria-hidden="true" />
+                          </button>
+                          <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(entidad)}>
+                            <i className="ti ti-trash" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }
