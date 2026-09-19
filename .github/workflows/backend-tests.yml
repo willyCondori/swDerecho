@@ -108,6 +108,7 @@ jobs:
             modulo_usuarios.tests.test_utils_passwords \
             modulo_catalogo.tests.test_articulo_entidad_service \
             modulo_catalogo.tests.test_norma_eliminacion \
+            modulo_catalogo.tests.test_articulos_listado \
             modulo_ia.tests.test_ranking_service \
             modulo_casos.tests.test_seguimiento \
             modulo_casos.tests.test_papelera \

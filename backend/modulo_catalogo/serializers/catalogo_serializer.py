@@ -254,6 +254,7 @@ class ArticuloWriteSerializer(serializers.ModelSerializer):
 
 class ArticuloListSerializer(serializers.ModelSerializer):
     """Versión compacta para resultados del ranking."""
+    norma_nombre     = serializers.CharField(source="norma.nombre", read_only=True)
     norma_sigla      = serializers.CharField(source="norma.sigla", read_only=True)
     rama_nombre      = serializers.CharField(source="rama.nombre", read_only=True)
     jerarquia_nivel  = serializers.SerializerMethodField()
@@ -263,7 +264,7 @@ class ArticuloListSerializer(serializers.ModelSerializer):
         model  = Articulo
         fields = [
             "id", "numero_articulo", "titulo", "contenido",
-            "norma_sigla", "rama_nombre",
+            "norma_nombre", "norma_sigla", "rama_nombre",
             "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica",
         ]
 
