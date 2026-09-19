@@ -4,7 +4,7 @@
 import api from './axiosInstance'
 
 const casosApi = {
-  /** GET /api/casos/ — lista con filtros (rama_id, cliente_id, fecha_desde, fecha_hasta, tiene_pdf, search) */
+  /** GET /api/casos/ — lista con filtros (rama_id, cliente_id, fecha_desde, fecha_hasta, tiene_pdf, etapa, search) */
   listar(params = {}) {
     return api.get('/api/casos/', { params })
   },
@@ -50,6 +50,21 @@ const casosApi = {
 
   articulos(id) {
     return api.get(`/api/casos/${id}/articulos/`)
+  },
+
+  /** GET /api/casos/etapas/ — catálogo de etapas de seguimiento [{ value, label, orden }] */
+  etapas() {
+    return api.get('/api/casos/etapas/')
+  },
+
+  /** GET /api/casos/{id}/seguimiento/ — línea de tiempo del caso (más reciente primero) */
+  seguimiento(id) {
+    return api.get(`/api/casos/${id}/seguimiento/`)
+  },
+
+  /** POST /api/casos/{id}/cambiar_etapa/ — { etapa, nota? } [admin, abogado] */
+  cambiarEtapa(id, data) {
+    return api.post(`/api/casos/${id}/cambiar_etapa/`, data)
   },
 
   analizar(id) {

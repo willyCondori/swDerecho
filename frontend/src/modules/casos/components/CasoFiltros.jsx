@@ -1,10 +1,12 @@
 // modules/casos/components/CasoFiltros.jsx
 import { useEffect, useState } from 'react'
 import clientesApi from '../../../api/clientesApi'
+import useEtapasCaso from '../hooks/useEtapasCaso'
 import styles from '../pages/CasosPage.module.css'
 
 export default function CasoFiltros({ filtros, onChange, onLimpiar, visible }) {
   const [clientes, setClientes] = useState([])
+  const etapas = useEtapasCaso(visible)
 
   useEffect(() => {
     if (!visible) return
@@ -27,6 +29,16 @@ export default function CasoFiltros({ filtros, onChange, onLimpiar, visible }) {
             <option key={c.id} value={c.id}>
               {c.nombre_completo || `${c.nombres ?? ''} ${c.apellidos ?? ''}`.trim() || `Cliente #${c.id}`}
             </option>
+          ))}
+        </select>
+      </div>
+
+      <div className={styles.field}>
+        <label className={styles.label}>Etapa</label>
+        <select className={styles.select} value={filtros.etapa} onChange={handleField('etapa')}>
+          <option value="">Todas</option>
+          {etapas.map((et) => (
+            <option key={et.value} value={et.value}>{et.label}</option>
           ))}
         </select>
       </div>
