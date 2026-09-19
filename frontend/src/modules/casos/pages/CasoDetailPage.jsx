@@ -27,10 +27,11 @@ export default function CasoDetailPage() {
   const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
   const fileInputRef = useRef(null)
   const [analisisEncolado, setAnalisisEncolado] = useState(false)
+  const [errorEliminar, setErrorEliminar] = useState('')
 
   const {
     caso, articulos, loading, error,
-    analizando, subiendoPdf, analizar, subirPdf, reload,
+    analizando, subiendoPdf, eliminando, eliminar, analizar, subirPdf, reload,
     seguimientos, guardandoEtapa, cambiarEtapa,
   } = useCasoDetail(id)
   const etapas = useEtapasCaso(puedeEscribir)
@@ -56,6 +57,18 @@ export default function CasoDetailPage() {
     const ok = await analizar()
     if (ok) setAnalisisEncolado(false)
         await reload()  // recarga el caso para reflejar el estado de análisis encolado
+  }
+
+  const handleEliminar = async () => {
+    const confirmado = window.confirm(
+      `¿Enviar el caso ${caso.codigo} a la papelera? Dejará de aparecer en los listados, ` +
+      'pero podrás restaurarlo desde Casos → Papelera.'
+    )
+    if (!confirmado) return
+    setErrorEliminar('')
+    const res = await eliminar()
+    if (res.ok) navigate('/casos')
+    else setErrorEliminar(res.error)
   }
 
   const handleArchivoSeleccionado = async (e) => {
@@ -300,6 +313,24 @@ export default function CasoDetailPage() {
                   El análisis corre en segundo plano. Recargá la página en unos minutos para ver el resultado.
                 </p>
               )}
+            </div>
+          )}
+
+          {puedeEscribir && (
+            <div className={styles.card}>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                onClick={handleEliminar}
+                disabled={eliminando}
+              >
+                <i className="ti ti-trash" aria-hidden="true" />{' '}
+                {eliminando ? 'Enviando a la papelera...' : 'Eliminar caso'}
+              </button>
+              <p className={styles.hintText}>
+                Se envía a la papelera y se puede restaurar más adelante.
+              </p>
+              {errorEliminar && <div className={styles.errorBanner}>{errorEliminar}</div>}
             </div>
           )}
         </div>

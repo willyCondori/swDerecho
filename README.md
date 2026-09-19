@@ -214,7 +214,7 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `POST` | `/api/casos/crear_con_cliente/` | Crea cliente y caso en una sola transacción atómica. |
 | `GET` | `/api/casos/{id}/` | Detalle completo del caso (incluye cliente, hechos, petitorios, resultado). |
 | `PATCH` | `/api/casos/{id}/` | Edita título, descripción, estado o rama del caso. |
-| `DELETE` | `/api/casos/{id}/` | Soft-delete (solo administrador). |
+| `DELETE` | `/api/casos/{id}/` | Envía el caso a la papelera (soft-delete: guarda quién y cuándo, y deja una nota en el seguimiento). Administrador y abogado. |
 | `POST` | `/api/casos/{id}/subir_pdf/` | Adjunta o reemplaza el PDF del caso. |
 | `GET` | `/api/casos/{id}/hechos/` | Hechos del caso. |
 | `GET` | `/api/casos/{id}/petitorios/` | Petitorios del caso. |
@@ -225,6 +225,8 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `GET` | `/api/casos/etapas/` | Catálogo de etapas de seguimiento (`value`, `label`, `orden`). |
 | `GET` | `/api/casos/{id}/seguimiento/` | Línea de tiempo del caso (historial de etapas y notas), más reciente primero. |
 | `POST` | `/api/casos/{id}/cambiar_etapa/` | Cambia la etapa del caso y/o agrega una nota (`etapa`, `nota` opcional). Cada llamada crea una entrada en el historial y queda en auditoría. Administrador y abogado. |
+| `GET` | `/api/casos/papelera/` | Casos eliminados, los enviados más recientemente primero (`search` por código, título o descripción; paginado). Administrador y abogado. |
+| `POST` | `/api/casos/{id}/restaurar/` | Restaura un caso de la papelera y deja constancia en el seguimiento y en la auditoría. `409` si el cliente del caso fue eliminado. Administrador y abogado. |
 
 ### Clientes (`/api/clientes/`)
 

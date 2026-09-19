@@ -1,3 +1,4 @@
+from django.db.models import F
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -5,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from core.permissions.auditoria_mixin import AuditoriaMixin
-from core.permissions.roles_permission import EsOperativo
+from core.permissions.roles_permission import EsAbogado, EsOperativo
 from modulo_casos.models.caso import Caso
 from modulo_casos.models.etapas import EtapaCaso
 from modulo_casos.models.hecho import Hecho
@@ -14,6 +15,7 @@ from modulo_casos.serializers.caso_con_cliente_serializer import CasoConClienteS
 from modulo_casos.serializers.caso_serializer import (
     CasoCreateSerializer,
     CasoListSerializer,
+    CasoPapeleraSerializer,
     CasoReadSerializer,
     CasoUpdateSerializer,
     HechoSerializer,
@@ -24,6 +26,11 @@ from modulo_casos.serializers.seguimiento_serializer import (
     CambiarEtapaSerializer,
     SeguimientoCasoSerializer,
 )
+from modulo_casos.services.papelera_service import (
+    ClienteInactivoError,
+    enviar_a_papelera,
+    restaurar_desde_papelera,
+)
 from modulo_casos.services.seguimiento_service import registrar_seguimiento
 
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
@@ -33,7 +40,9 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     POST   /api/casos/crear_con_cliente/  — crea cliente + caso en una transacción atómica [admin, abogado]
     GET    /api/casos/{id}/               — detalle completo
     PATCH  /api/casos/{id}/               — editar título/descripción/estado [admin, abogado]
-    DELETE /api/casos/{id}/               — soft-delete [admin, abogado]
+    DELETE /api/casos/{id}/               — envía el caso a la papelera (soft-delete) [admin, abogado]
+    GET    /api/casos/papelera/           — casos eliminados, más recientes primero [admin, abogado]
+    POST   /api/casos/{id}/restaurar/     — restaura un caso de la papelera [admin, abogado]
     POST   /api/casos/{id}/subir_pdf/     — adjuntar PDF al caso [admin, abogado]
     GET    /api/casos/{id}/hechos/        — lista hechos del caso
     GET    /api/casos/{id}/petitorios/    — lista petitorios del caso
@@ -58,6 +67,18 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     auditoria_tabla = "casos"
 
     def get_queryset(self):
+        if self.action in ("papelera", "restaurar"):
+            # Papelera: solo casos eliminados. El resto de las acciones
+            # nunca ve casos con estado=False (404).
+            return (
+                Caso.objects
+                .filter(estado=False)
+                .select_related(
+                    "usuario", "cliente", "rama_detectada",
+                    "eliminado_por", "eliminado_por__perfil",
+                )
+            )
+
         qs = (
             Caso.objects
             .filter(estado=True)
@@ -106,6 +127,9 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         return CasoReadSerializer
 
     def get_permissions(self):
+        if self.action in ("papelera", "restaurar"):
+            # Administrador y Abogado; el Asistente no ve la papelera.
+            return [EsAbogado()]
         return [EsOperativo()]
 
     def create(self, request, *args, **kwargs):
@@ -185,8 +209,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        instance.estado = False
-        instance.save(update_fields=["estado"])
+        enviar_a_papelera(instance, request.user)
         self._auditar("DELETE", registro_id=instance.pk)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -205,6 +228,44 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         if page is not None:
             return self.get_paginated_response(serializer.data)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="papelera")
+    def papelera(self, request):
+        """
+        GET /api/casos/papelera/ — casos eliminados, los enviados más
+        recientemente primero (los eliminados antes de la papelera, sin
+        fecha, al final). Acepta ?search= (código, título, descripción).
+        """
+        qs = self.get_queryset().order_by(
+            F("eliminado_at").desc(nulls_last=True), "-created_at"
+        )
+        qs = self.filter_queryset(qs)
+        page = self.paginate_queryset(qs)
+        serializer = CasoPapeleraSerializer(
+            page if page is not None else qs, many=True,
+            context=self.get_serializer_context(),
+        )
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=["post"], url_path="restaurar")
+    def restaurar(self, request, pk=None):
+        """
+        POST /api/casos/{id}/restaurar/ — devuelve el caso a la lista de
+        casos activos. Responde 409 si su cliente fue eliminado.
+        """
+        caso = self.get_object()
+        try:
+            restaurar_desde_papelera(caso, request.user)
+        except ClienteInactivoError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
+
+        self._auditar("UPDATE", registro_id=caso.pk, metadata={"accion": "restaurar"})
+        return Response(
+            CasoReadSerializer(caso, context=self.get_serializer_context()).data,
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get"], url_path="etapas")
     def etapas(self, request):
