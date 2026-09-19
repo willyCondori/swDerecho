@@ -11,6 +11,7 @@ const initialFiltros = {
   fecha_desde: '',
   fecha_hasta: '',
   tiene_pdf: '',
+  etapa: '',
 }
 
 export default function useCasos() {
@@ -32,6 +33,7 @@ export default function useCasos() {
       if (filtros.fecha_desde) params.fecha_desde = filtros.fecha_desde
       if (filtros.fecha_hasta) params.fecha_hasta = filtros.fecha_hasta
       if (filtros.tiene_pdf !== '') params.tiene_pdf = filtros.tiene_pdf
+      if (filtros.etapa) params.etapa = filtros.etapa
 
       const { data } = await casosApi.listar(params)
       if (Array.isArray(data)) {
