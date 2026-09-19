@@ -1,6 +1,6 @@
 // modules/catalogo/components/articulos/ArticuloRow.jsx
 import { getRamaKey } from '../../utils/rama'
-import JerarquiaBar from './JerarquiaBar'
+import JerarquiaNivel from './JerarquiaNivel'
 import styles from '../../pages/articulos/VerArticulos.module.css'
 
 export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
@@ -60,7 +60,7 @@ export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
         </td>
 
         <td className={`${styles.td} ${styles.jerarquiaCell}`}>
-          <JerarquiaBar
+          <JerarquiaNivel
             nivel={jerarquiaNivel}
             nombre={jerarquiaNombre}
           />
