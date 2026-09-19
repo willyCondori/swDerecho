@@ -1,6 +1,9 @@
 // modules/catalogo/hooks/useGestionJerarquias.js
 import { useCallback, useEffect, useState } from 'react'
 import catalogoApi from '../../../api/catalogoApi'
+import usePagination from '../../../hooks/usePagination'
+
+const PAGE_SIZE = 10
 
 // 'activas' | 'eliminadas'
 export default function useGestionJerarquias() {
@@ -9,30 +12,44 @@ export default function useGestionJerarquias() {
   const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [estadoFiltro, setEstadoFiltroState] = useState('activas')
+  const { page, setPage, count, setCount, totalPages, pageSize, retrocederSiVacia } =
+    usePagination(PAGE_SIZE)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const { data } = await catalogoApi.listarJerarquiasCompleto({
+        page,
+        page_size: PAGE_SIZE,
         search: search || undefined,
         estado: estadoFiltro === 'activas',
         ordering: 'nivel',
       })
-      setJerarquias(Array.isArray(data) ? data : data.results ?? [])
+      if (Array.isArray(data)) {
+        setJerarquias(data)
+        setCount(data.length)
+      } else {
+        setJerarquias(data.results ?? [])
+        setCount(data.count ?? data.results?.length ?? 0)
+      }
     } catch (e) {
+      if (retrocederSiVacia(e)) return
       console.error('Error cargando jerarquías:', e, e?.response?.data)
       setError('No se pudieron cargar las jerarquías.')
     } finally {
       setLoading(false)
     }
-  }, [search, estadoFiltro])
+  }, [page, search, estadoFiltro, setCount, retrocederSiVacia])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const setEstadoFiltro = (value) => setEstadoFiltroState(value)
+  const setEstadoFiltro = (value) => {
+    setPage(1)
+    setEstadoFiltroState(value)
+  }
 
   // Intenta crear la jerarquía. Si el nivel elegido ya está ocupado por
   // otra jerarquía activa, el backend responde 409 con
@@ -65,6 +82,11 @@ export default function useGestionJerarquias() {
     jerarquias,
     loading,
     error,
+    page,
+    setPage,
+    count,
+    totalPages,
+    pageSize,
     search,
     setSearch,
     estadoFiltro,

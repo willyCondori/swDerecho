@@ -295,6 +295,34 @@
   gap: var(--sp-2);
 }
 
+.pageBtn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 var(--sp-2);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  color: var(--c-text-secondary);
+  font-size: var(--fs-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.pageBtn:hover:not(:disabled) {
+  background: var(--c-bg-hover);
+  color: var(--c-text-primary);
+}
+.pageBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.pageBtnActive,
+.pageBtnActive:hover:not(:disabled) {
+  border-color: var(--c-border-focus);
+  color: var(--c-text-primary);
+  cursor: default;
+}
+
 /* ── Badges ─────────────────────────────────────────────── */
 .badge {
   display: inline-flex;

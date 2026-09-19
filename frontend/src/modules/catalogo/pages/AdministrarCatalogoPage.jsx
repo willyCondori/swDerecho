@@ -9,6 +9,7 @@ import JerarquiaForm from '../components/administrar/JerarquiaForm'
 import JerarquiaTable from '../components/administrar/JerarquiaTable'
 import EntidadForm from '../components/administrar/EntidadForm'
 import EntidadTable from '../components/administrar/EntidadTable'
+import Pagination from '../../../components/ui/Pagination'
 import styles from './AdministrarCatalogoPage.module.css'
 
 const TABS = [
@@ -79,6 +80,7 @@ const ESTADO_TABS = [
 function RamasSection() {
   const {
     ramas, loading, error, reload,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearRama, actualizarRama, eliminarRama, activarRama,
   } = useGestionRamas()
@@ -192,6 +194,16 @@ function RamasSection() {
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="ramas"
+          />
+        )}
       </div>
     </>
   )
@@ -200,6 +212,7 @@ function RamasSection() {
 function JerarquiasSection() {
   const {
     jerarquias, loading, error, reload,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearJerarquia, actualizarJerarquia, eliminarJerarquia, activarJerarquia,
   } = useGestionJerarquias()
@@ -369,6 +382,16 @@ function JerarquiasSection() {
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="jerarquías"
+          />
+        )}
       </div>
     </>
   )
@@ -377,6 +400,8 @@ function JerarquiasSection() {
 function EntidadesSection() {
   const {
     entidades, loading, error, reload,
+    search, setSearch,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearEntidad, actualizarEntidad, eliminarEntidad, activarEntidad,
   } = useGestionEntidades()
@@ -459,6 +484,16 @@ function EntidadesSection() {
             </button>
           ))}
         </div>
+        <div className={styles.searchBox}>
+          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Buscar entidad por nombre o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -484,12 +519,23 @@ function EntidadesSection() {
           entidades={entidades}
           loading={loading}
           error={error}
+          busqueda={search}
           onRetry={reload}
           onEditar={abrirEditar}
           onEliminar={handleEliminar}
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="entidades"
+          />
+        )}
       </div>
     </>
   )
