@@ -224,6 +224,15 @@
 }
 
 /* ── Tabla ──────────────────────────────────────────────── */
+/* Envuelve a .table: cuando no cabe (celular) la tabla se desliza de lado
+   en lugar de quedar recortada por el overflow: hidden de la .card, que
+   dejaba sin poder ver las últimas columnas y las acciones. */
+.tableScroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.tableScroll > table { min-width: 600px; }
+
 .table {
   width: 100%;
   border-collapse: collapse;
