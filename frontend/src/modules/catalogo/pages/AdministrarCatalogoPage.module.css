@@ -11,6 +11,9 @@
 .tab { composes: tab from '../../../styles/shared.module.css'; }
 .tabActive { composes: tabActive from '../../../styles/shared.module.css'; }
 .card { composes: card from '../../../styles/shared.module.css'; }
+.searchBox { composes: searchBox from '../../../styles/shared.module.css'; }
+.searchInput { composes: searchInput from '../../../styles/shared.module.css'; }
+.searchIcon { composes: searchIcon from '../../../styles/shared.module.css'; }
 .table { composes: table from '../../../styles/shared.module.css'; }
 .badge { composes: badge from '../../../styles/shared.module.css'; }
 .activo { composes: badgeOk from '../../../styles/shared.module.css'; }
