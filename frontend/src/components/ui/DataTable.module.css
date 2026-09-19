@@ -1,0 +1,12 @@
+/* components/ui/DataTable.module.css */
+
+.table { composes: table from '../../styles/shared.module.css'; }
+.tableScroll { composes: tableScroll from '../../styles/shared.module.css'; }
+.skeleton { composes: skeleton from '../../styles/shared.module.css'; }
+.actionsCell { composes: actionsCell from '../../styles/shared.module.css'; }
+.emptyState { composes: emptyState from '../../styles/shared.module.css'; }
+.emptyIcon { composes: emptyIcon from '../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../styles/shared.module.css'; }
+
+.alignRight { text-align: right; }
