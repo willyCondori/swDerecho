@@ -311,7 +311,7 @@ class CasoPapeleraSerializer(CasoListSerializer):
             "id", "codigo", "titulo",
             "cliente_nombre", "rama_detectada",
             "etapa", "etapa_display",
-            "eliminado_at", "eliminado_por_nombre",
+            "eliminado_at", "eliminado_por_nombre", "eliminado_con_cliente",
             "created_at",
         ]
 
