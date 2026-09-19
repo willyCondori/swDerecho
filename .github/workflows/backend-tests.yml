@@ -111,4 +111,5 @@ jobs:
             modulo_casos.tests.test_seguimiento \
             modulo_casos.tests.test_papelera \
             modulo_catalogo.tests.test_cargas_activas \
+            modulo_catalogo.tests.test_extractor_articulos \
             -v 2

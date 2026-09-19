@@ -5,7 +5,7 @@ Servicio de carga masiva de artículos desde PDF.
 Flujo:
     PDF
       ↓
-    Extraer texto
+    Extraer texto (página por página; se quitan encabezados y pies repetidos)
       ↓
     Limpiar texto (URLs, headers InfoLeyes, timestamps)
       ↓
@@ -30,6 +30,10 @@ Características:
       Penal) no requiere tocar este archivo.
     - El título se CONSTRUYE (no se extrae tal cual) como "Art. {numero} - {paréntesis}".
       Si el artículo no trae paréntesis, el título queda como "Art. {numero}".
+    - Quita los encabezados y pies de página que se repiten en las páginas del
+      PDF (ej. "Caja de herramientas para la atención de la violencia en
+      servicios de salud 8"), ignorando el número de página; si no, quedan
+      pegados en medio del artículo que cruza el salto de página.
     - Quita títulos de capítulo/sección/título que quedan pegados al final del
       artículo por cómo el PDF concatena texto sin saltos de línea reales
       (ej. "...del anatocismo. DELITOS CONTRA EL DERECHO DE AUTOR" → se corta
@@ -45,6 +49,7 @@ Características:
     - Reporta progreso mediante Celery.
 """
 
+import math
 import re
 import logging
 from dataclasses import dataclass, field
@@ -121,6 +126,105 @@ class ResultadoCarga:
 # Extracción de texto del PDF
 # ---------------------------------------------------------------------------
 
+# Cuántas líneas del borde de cada página se consideran candidatas a ser
+# encabezado o pie de página, y en qué fracción de las páginas tiene que
+# repetirse una línea (ignorando los números) para tratarla como tal.
+LINEAS_BORDE_PAGINA = 3
+MIN_PAGINAS_REPETICION = 3
+FRACCION_PAGINAS_REPETICION = 0.3
+MAX_LARGO_LINEA_BORDE = 160
+
+_PATRON_LINEA_ARTICULO = re.compile(r"^\s*(?:art[íi]culo|art\.)\s*\d", re.IGNORECASE)
+
+
+def _clave_linea_borde(linea: str) -> str:
+    """
+    Clave para comparar líneas de encabezado/pie entre páginas: minúsculas,
+    espacios colapsados y cualquier número reemplazado por '#', para que
+    "…servicios de salud 8" y "…servicios de salud 9" sean la misma línea.
+    """
+    clave = re.sub(r"\d+", "#", linea.lower())
+    return re.sub(r"\s+", " ", clave).strip()
+
+
+def _indices_borde(lineas: list[str]) -> list[int]:
+    """Índices de las primeras y últimas líneas NO vacías de una página."""
+    no_vacias = [i for i, linea in enumerate(lineas) if linea.strip()]
+    if len(no_vacias) <= 2 * LINEAS_BORDE_PAGINA:
+        return no_vacias
+    return no_vacias[:LINEAS_BORDE_PAGINA] + no_vacias[-LINEAS_BORDE_PAGINA:]
+
+
+def _es_linea_borde_candidata(linea: str, clave: str) -> bool:
+    if len(linea.strip()) > MAX_LARGO_LINEA_BORDE:
+        return False
+    # Nunca tocar el inicio de un artículo, aunque se repita.
+    if _PATRON_LINEA_ARTICULO.match(linea):
+        return False
+    # Exige texto real: un número de página suelto lo maneja la limpieza por línea.
+    return len(re.sub(r"[^a-záéíóúñü]", "", clave)) >= 3
+
+
+def quitar_encabezados_y_pies(paginas: list[str]) -> list[str]:
+    """
+    Quita los encabezados y pies de página que se repiten en las páginas del
+    PDF (ej. "Caja de herramientas para la atención de la violencia en
+    servicios de salud 8"). Si no se quitan, terminan pegados en medio del
+    artículo que cruza el salto de página y contaminan su contenido y su
+    embedding.
+
+    Solo mira las primeras y últimas líneas de cada página y solo quita una
+    línea si, ignorando los números, aparece en el borde de al menos el 30 %
+    de las páginas (mínimo 3). Así una línea legítima que aparece una vez no
+    se toca.
+    """
+    if len(paginas) < MIN_PAGINAS_REPETICION:
+        return paginas
+
+    paginas_lineas = [pagina.split("\n") for pagina in paginas]
+
+    conteo: dict[str, int] = {}
+    for lineas in paginas_lineas:
+        claves_pagina = set()
+        for i in _indices_borde(lineas):
+            clave = _clave_linea_borde(lineas[i])
+            if _es_linea_borde_candidata(lineas[i], clave):
+                claves_pagina.add(clave)
+        for clave in claves_pagina:
+            conteo[clave] = conteo.get(clave, 0) + 1
+
+    minimo = max(MIN_PAGINAS_REPETICION, math.ceil(len(paginas) * FRACCION_PAGINAS_REPETICION))
+    repetidas = {clave for clave, veces in conteo.items() if veces >= minimo}
+    if not repetidas:
+        return paginas
+
+    limpias = []
+    quitadas = 0
+    for lineas in paginas_lineas:
+        a_quitar = {
+            i for i in _indices_borde(lineas)
+            if _clave_linea_borde(lineas[i]) in repetidas
+            and _es_linea_borde_candidata(lineas[i], _clave_linea_borde(lineas[i]))
+        }
+        quitadas += len(a_quitar)
+        limpias.append("\n".join(l for i, l in enumerate(lineas) if i not in a_quitar))
+
+    logger.info(
+        "Encabezados/pies de página repetidos quitados: %d línea(s), %d patrón(es) distintos",
+        quitadas, len(repetidas),
+    )
+    return limpias
+
+
+def _texto_desde_reader(reader) -> str:
+    paginas = []
+    for page in reader.pages:
+        texto = page.extract_text()
+        if texto:
+            paginas.append(texto)
+    return "\n".join(quitar_encabezados_y_pies(paginas))
+
+
 def extraer_texto_pdf(ruta: str) -> str:
     """Extrae texto de todas las páginas de un PDF (desde archivo en disco)."""
     try:
@@ -128,13 +232,7 @@ def extraer_texto_pdf(ruta: str) -> str:
     except ImportError:
         raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
 
-    reader = PdfReader(ruta)
-    partes = []
-    for page in reader.pages:
-        texto = page.extract_text()
-        if texto:
-            partes.append(texto)
-    return "\n".join(partes)
+    return _texto_desde_reader(PdfReader(ruta))
 
 
 def extraer_texto_pdf_bytes(contenido: bytes) -> str:
@@ -146,13 +244,7 @@ def extraer_texto_pdf_bytes(contenido: bytes) -> str:
     except ImportError:
         raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
 
-    reader = PdfReader(io.BytesIO(contenido))
-    partes = []
-    for page in reader.pages:
-        texto = page.extract_text()
-        if texto:
-            partes.append(texto)
-    return "\n".join(partes)
+    return _texto_desde_reader(PdfReader(io.BytesIO(contenido)))
 
 
 # ---------------------------------------------------------------------------
@@ -213,8 +305,33 @@ PATRONES_ARTICULO = [
 ]
 
 
-def _es_inicio_valido(texto: str, pos: int) -> bool:
+# Palabras en minúscula que, justo antes de "ARTÍCULO N", indican que es una
+# referencia dentro de una oración ("...según el ARTÍCULO 5.") y no el inicio
+# de un artículo.
+_CONECTORES_REFERENCIA = {
+    "el", "del", "al", "lo", "los", "las", "este", "ese", "dicho", "dicha",
+    "presente", "citado", "mencionado", "según", "conforme", "en", "por",
+    "con", "de", "a", "y", "e", "o", "u",
+}
 
+
+def _es_mayuscula(texto: str) -> bool:
+    letras = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", texto)
+    return bool(letras) and letras == letras.upper()
+
+
+def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
+    """
+    Filtra referencias en medio de una oración ("...conforme al Artículo 5.").
+
+    Un "Artículo N" precedido por una letra minúscula se considera referencia.
+    Excepción: si el patrón está escrito TODO EN MAYÚSCULAS ("ARTÍCULO 6."),
+    lo normal es que sea un encabezado; en texto corrido sin saltos de línea
+    puede venir justo después de un título sin punto ("Capítulo II Derechos de
+    las mujeres ARTÍCULO 6.") y descartarlo haría perder el artículo entero.
+    Solo se descarta si la palabra anterior es un conector de referencia
+    ("el", "del", "según"...).
+    """
     anterior = texto[:pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
@@ -231,8 +348,24 @@ def _es_inicio_valido(texto: str, pos: int) -> bool:
         return True
     ultimo = anterior_strip[-1]
     if ultimo.isalpha() and ultimo.islower():
-        return False
+        if not es_mayuscula:
+            return False
+        palabra = re.search(r"([^\W\d_]+)$", anterior_strip)
+        return not (palabra and palabra.group(1).lower() in _CONECTORES_REFERENCIA)
     return True
+
+
+def _es_referencia_en_oracion(texto: str, coincidencia) -> bool:
+    """
+    "Artículo 5 de la presente Ley..." al inicio de una oración no es un
+    encabezado: en los patrones que terminan en espacio (sin punto ni guion
+    tras el número), un encabezado real continúa con mayúscula o "(" y una
+    referencia continúa con minúscula ("de", "y", "del"...).
+    """
+    if not coincidencia.group(0)[-1].isspace():
+        return False
+    siguiente = texto[coincidencia.end():coincidencia.end() + 1]
+    return siguiente.isalpha() and siguiente.islower()
 
 
 # ---------------------------------------------------------------------------
@@ -398,41 +531,75 @@ def _limpiar_contenido_articulo(contenido: str) -> str:
 
 PATRON_COLA_ENCABEZADO = re.compile(
     r"\.\s+((?:(?:CAP[ÍI]TULO|T[ÍI]TULO|SECCI[ÓO]N|PARTE)\s+[IVXLCDM\d]+\s*)?"
-    r"[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,\-]{2,90})$"
+    r"[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s,\-]{2,300})$"
 )
+# Encabezados largos: p. ej. un TÍTULO y un CAPÍTULO seguidos, cada uno con
+# su nombre, pueden sumar más de 100 caracteres.
+MAX_PALABRAS_ENCABEZADO_MAYUSCULAS = 40
+
+# Encabezado con mayúsculas y minúsculas ("Capítulo II Derechos de las
+# mujeres"): empieza con la palabra de la división y su número (romano,
+# arábigo u ordinal), y NO lleva punto: una oración sí.
+_ORDINALES_DIVISION = (
+    r"ÚNICO|UNICO|PRIMER[OA]?|SEGUND[OA]|TERCER[OA]?|CUART[OA]|QUINT[OA]|SEXT[OA]|"
+    r"S[ÉE]PTIM[OA]|OCTAV[OA]|NOVEN[OA]|D[ÉE]CIM[OA]"
+)
+PATRON_COLA_ENCABEZADO_MIXTO = re.compile(
+    r"\.\s+((?:CAP[ÍI]TULO|T[ÍI]TULO|SECCI[ÓO]N|PARTE|LIBRO)\s+"
+    r"(?:(?-i:[IVXLCDM]+)|\d+|" + _ORDINALES_DIVISION + r")\b[^.]*)$",
+    re.IGNORECASE,
+)
+MAX_LARGO_ENCABEZADO_MIXTO = 200
+MAX_PALABRAS_ENCABEZADO_MIXTO = 30
+
+
+def _quitar_encabezado_colgante_una_vez(contenido: str) -> str:
+    match = PATRON_COLA_ENCABEZADO.search(contenido)
+    if match:
+        cola = match.group(1)
+        tiene_minuscula_o_digito = re.search(r"[a-záéíóúñ0-9]", cola)
+        if not tiene_minuscula_o_digito and len(cola.split()) <= MAX_PALABRAS_ENCABEZADO_MAYUSCULAS:
+            # el punto que quedó suelto antes del título se conserva,
+            # es el punto final legítimo del artículo.
+            return contenido[: match.start(1)].rstrip()
+
+    match = PATRON_COLA_ENCABEZADO_MIXTO.search(contenido)
+    if match:
+        cola = match.group(1)
+        if (
+            len(cola) <= MAX_LARGO_ENCABEZADO_MIXTO
+            and len(cola.split()) <= MAX_PALABRAS_ENCABEZADO_MIXTO
+        ):
+            return contenido[: match.start(1)].rstrip()
+
+    return contenido
 
 
 def _quitar_encabezado_colgante(contenido: str) -> str:
     """
-    Quita un título de capítulo/sección/título que haya quedado pegado al
+    Quita títulos de capítulo/sección/título que hayan quedado pegados al
     final del artículo por cómo el PDF concatena texto sin saltos de línea
     reales entre el cierre de un artículo y el encabezado del siguiente
     capítulo.
 
-    Ejemplo:
+    Ejemplos:
         "...formas del anatocismo. DELITOS CONTRA EL DERECHO DE AUTOR"
         → "...formas del anatocismo."
+        "...las mujeres. Capítulo II Derechos de las mujeres"
+        → "...las mujeres."
 
-    Solo corta si el tramo final, después del último punto, no tiene
-    minúsculas ni dígitos y es razonablemente corto (heurística de
-    "esto es un título, no una oración").
+    Solo corta si el tramo final, después del último punto, es un encabezado:
+    todo en mayúsculas y sin dígitos (aunque sean varios seguidos, como
+    "TÍTULO II ... CAPÍTULO I ..."), o que empieza con "Capítulo/Título/
+    Sección/Parte/Libro" + número y no tiene punto (una oración sí lo tiene).
+    Se repite mientras siga habiendo encabezados apilados al final.
     """
     contenido = contenido.rstrip()
-    match = PATRON_COLA_ENCABEZADO.search(contenido)
-
-    if not match:
-        return contenido
-
-    cola = match.group(1)
-
-    tiene_minuscula_o_digito = re.search(r"[a-záéíóúñ0-9]", cola)
-    palabras = cola.split()
-
-    if not tiene_minuscula_o_digito and len(palabras) <= 12:
-        contenido = contenido[: match.start(1)].rstrip()
-        # el punto que quedó suelto antes del título se conserva,
-        # es el punto final legítimo del artículo.
-
+    for _ in range(3):
+        siguiente = _quitar_encabezado_colgante_una_vez(contenido)
+        if siguiente == contenido:
+            break
+        contenido = siguiente
     return contenido
 
 
@@ -475,8 +642,13 @@ def dividir_por_articulos(texto: str) -> list[dict]:
     todos_matches = []
     for patron in PATRONES_ARTICULO:
         matches = list(re.finditer(patron, texto, re.MULTILINE))
-        # Filtra referencias en medio de una oración (ver _es_inicio_valido)
-        matches = [m for m in matches if _es_inicio_valido(texto, m.start())]
+        # Filtra referencias en medio de una oración (ver _es_inicio_valido
+        # y _es_referencia_en_oracion)
+        matches = [
+            m for m in matches
+            if _es_inicio_valido(texto, m.start(), _es_mayuscula(m.group(0)))
+            and not _es_referencia_en_oracion(texto, m)
+        ]
         todos_matches.extend(matches)
 
     todos_matches.sort(key=lambda m: m.start())
