@@ -71,85 +71,87 @@ export default function UsuarioTable({
   }
 
   return (
-    <table className={styles.table}>
-      <thead>
-        <tr>
-          <th>Usuario</th>
-          <th>Rol</th>
-          <th>Estado</th>
-          <th aria-label="Acciones" />
-        </tr>
-      </thead>
-      <tbody>
-        {loading ? (
-          <SkeletonRows />
-        ) : (
-          usuarios.map((usuario) => {
-            const inactivo = !usuario.estado
-            return (
-              <tr key={usuario.id} onClick={() => onVer(usuario.id)}>
-                <td>
-                  <div className={styles.userCell}>
-                    <span className={styles.avatar}>
-                      {getIniciales(usuario)}
-                    </span>
+    <div className={styles.tableScroll}>
+      <table className={styles.table}>
+        <thead>
+          <tr>
+            <th>Usuario</th>
+            <th>Rol</th>
+            <th>Estado</th>
+            <th aria-label="Acciones" />
+          </tr>
+        </thead>
+        <tbody>
+          {loading ? (
+            <SkeletonRows />
+          ) : (
+            usuarios.map((usuario) => {
+              const inactivo = !usuario.estado
+              return (
+                <tr key={usuario.id} onClick={() => onVer(usuario.id)}>
+                  <td>
+                    <div className={styles.userCell}>
+                      <span className={styles.avatar}>
+                        {getIniciales(usuario)}
+                      </span>
 
-                    <div>
-                      <div className={styles.userName}>
-                        {getNombreCompleto(usuario)}
-                      </div>
+                      <div>
+                        <div className={styles.userName}>
+                          {getNombreCompleto(usuario)}
+                        </div>
 
-                      <div className={styles.userEmail}>
-                        {usuario.perfil?.telefono || 'Sin teléfono'}
+                        <div className={styles.userEmail}>
+                          {usuario.perfil?.telefono || 'Sin teléfono'}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </td>
-                <td>
-                  <span className={`${styles.badge} ${styles.badgeRol}`}>
-                    {usuario.rol?.nombre || usuario.rol || 'Sin rol'}
-                  </span>
-                </td>
-                <td>
-                  <span className={`${styles.badge} ${usuario.estado ? styles.activo : styles.inactivo}`}>
-                    {usuario.estado ? 'Activo' : 'Eliminado'}
-                  </span>
-                </td>
-                <td>
-                  <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
-                    {inactivo ? (
-                      <button
-                        className={styles.iconBtn}
-                        title="Recuperar usuario"
-                        onClick={() => onRecuperar(usuario)}
-                      >
-                        <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-                      </button>
-                    ) : (
-                      <>
+                  </td>
+                  <td>
+                    <span className={`${styles.badge} ${styles.badgeRol}`}>
+                      {usuario.rol?.nombre || usuario.rol || 'Sin rol'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`${styles.badge} ${usuario.estado ? styles.activo : styles.inactivo}`}>
+                      {usuario.estado ? 'Activo' : 'Eliminado'}
+                    </span>
+                  </td>
+                  <td>
+                    <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
+                      {inactivo ? (
                         <button
                           className={styles.iconBtn}
-                          title="Editar"
-                          onClick={() => onEditar(usuario.id)}
+                          title="Recuperar usuario"
+                          onClick={() => onRecuperar(usuario)}
                         >
-                          <i className="ti ti-pencil" aria-hidden="true" />
+                          <i className="ti ti-rotate-clockwise" aria-hidden="true" />
                         </button>
-                        <button
-                          className={styles.iconBtn}
-                          title="Eliminar"
-                          onClick={() => onEliminar(usuario)}
-                        >
-                          <i className="ti ti-trash" aria-hidden="true" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            )
-          })
-        )}
-      </tbody>
-    </table>
+                      ) : (
+                        <>
+                          <button
+                            className={styles.iconBtn}
+                            title="Editar"
+                            onClick={() => onEditar(usuario.id)}
+                          >
+                            <i className="ti ti-pencil" aria-hidden="true" />
+                          </button>
+                          <button
+                            className={styles.iconBtn}
+                            title="Eliminar"
+                            onClick={() => onEliminar(usuario)}
+                          >
+                            <i className="ti ti-trash" aria-hidden="true" />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
+          )}
+        </tbody>
+      </table>
+    </div>
   )
 }
