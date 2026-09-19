@@ -128,7 +128,7 @@ class FiguraTransversalService:
         if not titulos_buscados:
             return []
 
-        qs = Articulo.objects.filter(estado=True).select_related("norma", "norma__jerarquia", "rama").prefetch_related("entidades")
+        qs = Articulo.objects.filter(estado=True, norma__estado=True).select_related("norma", "norma__jerarquia", "rama").prefetch_related("entidades")
         if rama_id:
             qs = qs.filter(rama_id=rama_id)
 

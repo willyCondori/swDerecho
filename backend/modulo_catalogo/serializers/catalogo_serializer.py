@@ -103,6 +103,9 @@ class NormaSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Norma
         fields = ["id", "nombre", "sigla", "jerarquia_id", "jerarquia", "estado"]
+        # El estado solo cambia con DELETE (eliminar) y POST /activar/
+        # (restaurar, que valida duplicados): no por PATCH.
+        read_only_fields = ["estado"]
 
     def validate_sigla(self, value):
         if value:
