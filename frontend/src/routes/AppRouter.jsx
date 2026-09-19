@@ -29,6 +29,7 @@ const EditarClientePage = lazy(() => import('../modules/clientes/pages/EditarCli
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
 const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
+const NormasPage = lazy(() => import('../modules/catalogo/pages/NormasPage'))
 
 
 function PageLoader() {
@@ -176,6 +177,12 @@ export default function AppRouter() {
                 (para los <select> de casos y de carga de artículos). */}
             <Route path="/catalogo/administrar" element={
                 <Suspense fallback={<PageLoader />}><AdministrarCatalogoPage /></Suspense>
+              } />
+
+            {/* Normas: eliminar (lógico) y recuperar — espeja EsAdmin en
+                NormaViewSet (destroy / activar). */}
+            <Route path="/catalogo/normas" element={
+                <Suspense fallback={<PageLoader />}><NormasPage /></Suspense>
               } />
           </Route>
         </Route>
