@@ -18,7 +18,6 @@
 .resultCount { composes: resultCount from '../../../styles/shared.module.css'; }
 .card { composes: card from '../../../styles/shared.module.css'; }
 .table { composes: table from '../../../styles/shared.module.css'; }
-.tableScroll { composes: tableScroll from '../../../styles/shared.module.css'; }
 .badge { composes: badge from '../../../styles/shared.module.css'; }
 .actionsCell { composes: actionsCell from '../../../styles/shared.module.css'; }
 .iconBtn { composes: iconBtn from '../../../styles/shared.module.css'; }
