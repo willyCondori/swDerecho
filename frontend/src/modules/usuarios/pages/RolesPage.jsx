@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import useGestionRoles from '../hooks/useGestionRoles'
 import RolTable from '../components/RolTable'
 import RolForm from '../components/RolForm'
+import Pagination from '../../../components/ui/Pagination'
 import styles from './RolesPage.module.css'
 
 const TABS = [
@@ -32,6 +33,10 @@ export default function RolesPage() {
     loading,
     error,
     count,
+    page,
+    setPage,
+    totalPages,
+    pageSize,
     search,
     setSearch,
     estadoFiltro,
@@ -200,6 +205,16 @@ export default function RolesPage() {
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="roles"
+          />
+        )}
       </div>
     </div>
   )
