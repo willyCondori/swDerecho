@@ -9,15 +9,30 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
+    listar_cargas_activas,
     obtener_progreso,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _nombre_usuario(usuario):
+    """Nombre y apellidos del perfil (descifrados); si no hay perfil, el nombre de usuario."""
+    perfil = getattr(usuario, "perfil", None)
+    if perfil is not None:
+        nombres = safe_decrypt(perfil.nombres, fallback=None)
+        apellidos = safe_decrypt(perfil.apellidos, fallback=None)
+        if nombres is not None and apellidos is not None:
+            completo = f"{nombres} {apellidos}".strip()
+            if completo:
+                return completo
+    return usuario.usuario
 
 
 class CargaArticulosView(APIView):
@@ -107,6 +122,13 @@ class CargaArticulosView(APIView):
                 rama_id=rama.id,
                 jerarquia_id=jerarquia.id if jerarquia else None,
                 sobrescribir=sobrescribir,
+                info={
+                    "nombre_documento": norma.nombre,
+                    "archivo": archivo.name,
+                    "rama": rama.nombre,
+                    "usuario_id": usuario.id,
+                    "usuario_nombre": _nombre_usuario(usuario),
+                },
             )
 
         except Exception as e:
@@ -220,3 +242,40 @@ class EstadoCargaPDFView(APIView):
             respuesta["paso"] = meta.get("paso", "procesando")
 
         return Response(respuesta, status=status.HTTP_200_OK)
+
+
+class CargasActivasPDFView(APIView):
+    """
+    GET /api/catalogo/cargar-articulos/activas/
+
+    Cargas de PDF que están corriendo en el servidor en este momento
+    (de cualquier usuario), la más reciente primero. Sirve para que la
+    pantalla de carga recupere el progreso cuando el usuario sale y
+    vuelve a entrar, ya que el task_id solo se conocía en esa pantalla.
+
+    Respuesta (lista, vacía si no hay nada en curso):
+        [
+          {
+            "task_id": "...", "estado": "STARTED",
+            "progreso": 45, "paso": "Procesando artículo 180/364...",
+            "nombre_documento": "Código de Procedimiento Penal",
+            "archivo": "cpp.pdf", "rama": "Penal",
+            "usuario_nombre": "Laura Quispe",
+            "iniciada_at": "2026-09-19T14:02:11.123456+00:00",
+            "es_mia": true
+          }
+        ]
+
+    Una carga que ya terminó (OK o con error) deja de aparecer aquí; su
+    resultado se sigue consultando con /estado/{task_id}/ durante 2 horas.
+    """
+    permission_classes = [EsOperativo]
+
+    def get(self, request):
+        activas = listar_cargas_activas()
+        data = []
+        for carga in activas:
+            usuario_id = carga.pop("usuario_id", None)
+            carga["es_mia"] = usuario_id == request.user.id
+            data.append(carga)
+        return Response(data, status=status.HTTP_200_OK)
