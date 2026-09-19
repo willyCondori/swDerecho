@@ -245,6 +245,14 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 
 Gestión de ramas del derecho, normas, artículos y carga masiva de artículos desde fuentes externas.
 
+Carga de PDFs de normas (se procesa en un hilo en segundo plano; el progreso vive en el cache de Django durante 2 horas):
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `POST` | `/api/catalogo/cargar-articulos/` | Sube el PDF e inicia la carga; responde `202` con el `task_id`. Administrador y abogado. |
+| `GET` | `/api/catalogo/cargar-articulos/estado/{task_id}/` | Estado, progreso y, al terminar, el resumen o el error de una carga. |
+| `GET` | `/api/catalogo/cargar-articulos/activas/` | Cargas que siguen corriendo ahora mismo (de cualquier usuario), con documento, progreso, quién la inició y `es_mia`. La pantalla de carga la usa para retomar el avance si el usuario sale y vuelve a entrar. |
+
 ### Usuarios (`/api/usuarios/`)
 
 Autenticación (login, refresh de token) y gestión de usuarios del sistema.
