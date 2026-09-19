@@ -10,6 +10,7 @@ from .views.catalogo_view import (
 )
 from .views.carga_articulos_view import (
     CargaArticulosView,
+    CargasActivasPDFView,
     EstadoCargaPDFView,
 )
 
@@ -29,6 +30,9 @@ urlpatterns = [
     # está usando el frontend, según el log) como
     # /cargar-articulos/estado/<task_id>/ (path param, más RESTful)
     path("cargar-articulos/estado/", EstadoCargaPDFView.as_view()),
+    # Cargas que siguen corriendo (para retomar la vista si el usuario
+    # sale de la pantalla de carga y vuelve a entrar).
+    path("cargar-articulos/activas/", CargasActivasPDFView.as_view(), name="cargar-articulos-activas"),
     path("cargar-articulos/estado/<str:task_id>/", EstadoCargaPDFView.as_view()),
     # El "tipo de norma (jerarquía)" del formulario de carga ya usa el
     # catálogo de jerarquías real (GET /api/catalogo/jerarquias/lista/,
