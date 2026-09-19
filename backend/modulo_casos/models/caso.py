@@ -2,6 +2,7 @@ from django.db import models
 from modulo_usuarios.models.usuario import Usuario
 from modulo_clientes.models.cliente import Cliente
 from modulo_catalogo.models.rama import RamaDerecho
+from modulo_casos.models.etapas import EtapaCaso
 
 
 class Caso(models.Model):
@@ -42,6 +43,18 @@ class Caso(models.Model):
                                "la exige (ver CasoCreateSerializer)."
                            ),
                        )
+    etapa            = models.CharField(
+                           max_length=40,
+                           choices=EtapaCaso.choices,
+                           default=EtapaCaso.REGISTRADO,
+                           help_text=(
+                               "Etapa actual del proceso legal. Solo se modifica a través "
+                               "de seguimiento_service.registrar_seguimiento, que deja el "
+                               "historial en SeguimientoCaso. No confundir con 'estado' "
+                               "(activo/inactivo)."
+                           ),
+                       )
+    etapa_actualizada_at = models.DateTimeField(null=True, blank=True)
     estado           = models.BooleanField(default=True)
     created_at       = models.DateTimeField(auto_now_add=True)
 
@@ -53,6 +66,7 @@ class Caso(models.Model):
             models.Index(fields=["cliente"],    name="idx_casos_cliente"),
             models.Index(fields=["rama_detectada"], name="idx_casos_rama"),
             models.Index(fields=["estado"],     name="idx_casos_estado"),
+            models.Index(fields=["etapa"],      name="idx_casos_etapa"),
             models.Index(fields=["codigo"],     name="idx_casos_codigo"),
             models.Index(fields=["-created_at"],name="idx_casos_created"),
         ]

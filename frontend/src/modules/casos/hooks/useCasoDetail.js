@@ -1,10 +1,13 @@
 // modules/casos/hooks/useCasoDetail.js
 import { useCallback, useEffect, useState } from 'react'
 import casosApi from '../../../api/casosApi'
+import { mensajeErrorApi } from '../utils/etapas'
 
 export default function useCasoDetail(id) {
   const [caso, setCaso] = useState(null)
   const [articulos, setArticulos] = useState([])
+  const [seguimientos, setSeguimientos] = useState([])
+  const [guardandoEtapa, setGuardandoEtapa] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [analizando, setAnalizando] = useState(false)
@@ -16,6 +19,14 @@ export default function useCasoDetail(id) {
     try {
       const { data } = await casosApi.obtener(id)
       setCaso(data)
+
+      // La línea de tiempo es secundaria: si falla no debe tumbar el detalle.
+      try {
+        const { data: historial } = await casosApi.seguimiento(id)
+        setSeguimientos(historial)
+      } catch {
+        setSeguimientos([])
+      }
 
       // Los artículos solo existen si ya hay resultado de análisis
       if (data.resultado) {
@@ -71,9 +82,37 @@ export default function useCasoDetail(id) {
     }
   }
 
+  // Registra un cambio de etapa (y/o una nota) y refresca el caso y su
+  // historial sin volver a mostrar el loader de página completa, para
+  // no perder la posición de scroll ni lo escrito en el formulario.
+  // Devuelve { ok: true } o { ok: false, error: '<mensaje>' }.
+  const cambiarEtapa = async (etapa, nota) => {
+    setGuardandoEtapa(true)
+    try {
+      const payload = { etapa }
+      if (nota) payload.nota = nota
+      await casosApi.cambiarEtapa(id, payload)
+      const [{ data: casoActualizado }, { data: historial }] = await Promise.all([
+        casosApi.obtener(id),
+        casosApi.seguimiento(id),
+      ])
+      setCaso(casoActualizado)
+      setSeguimientos(historial)
+      return { ok: true }
+    } catch (e) {
+      console.error('Error cambiando etapa:', e, e?.response?.data)
+      return { ok: false, error: mensajeErrorApi(e, 'No se pudo registrar el seguimiento.') }
+    } finally {
+      setGuardandoEtapa(false)
+    }
+  }
+
   return {
     caso,
     articulos,
+    seguimientos,
+    guardandoEtapa,
+    cambiarEtapa,
     loading,
     error,
     analizando,
