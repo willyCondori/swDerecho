@@ -20,6 +20,7 @@ export default function EntidadTable({
   entidades,
   loading,
   error,
+  busqueda,
   onRetry,
   onEditar,
   onEliminar,
@@ -32,6 +33,17 @@ export default function EntidadTable({
         <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
         <p className={styles.emptyText}>{error}</p>
         <button className={styles.btnSecondary} onClick={onRetry}>Reintentar</button>
+      </div>
+    )
+  }
+
+  if (!loading && entidades.length === 0 && busqueda?.trim()) {
+    return (
+      <div className={styles.emptyState}>
+        <i className={`ti ti-search ${styles.emptyIcon}`} aria-hidden="true" />
+        <p className={styles.emptyText}>
+          No se encontraron entidades para “{busqueda.trim()}”.
+        </p>
       </div>
     )
   }
