@@ -111,7 +111,7 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                 raise serializers.ValidationError({
                     "nombre_documento": (
                         f'La norma "{eliminada.nombre}" está eliminada. '
-                        "Restaurala desde Administrar catálogo antes de cargarle artículos."
+                        "Pídele a un administrador que la restaure desde Catálogo → Normas antes de cargarle artículos."
                     )
                 })
             norma = Norma.objects.create(

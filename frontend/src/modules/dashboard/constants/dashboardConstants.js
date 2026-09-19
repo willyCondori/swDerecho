@@ -24,4 +24,5 @@ export const TOP_ARTICULOS_MOCK = [
 export const QUICK_ACCESS_ITEMS = [
   { icon: 'ti-folder-plus', label: 'Nuevo caso',      path: '/casos/nuevo' },
   { icon: 'ti-user-plus',   label: 'Nuevo cliente',   path: '/clientes/nuevo' },
+  { icon: 'ti-books',       label: 'Administrar normas', path: '/catalogo/normas', adminOnly: true },
 ]
