@@ -15,6 +15,7 @@ from modulo_catalogo.models.entidad import EntidadJuridica
 from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
 from modulo_catalogo.models.rama import RamaDerecho
+from modulo_catalogo.busqueda import ArticuloSearchFilter
 from modulo_catalogo.ordenamiento import (
     ArticuloOrderingFilter,
     anotar_numero_orden,
@@ -550,7 +551,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
         )
         .order_by("norma", *orden_natural_articulo())
     )
-    filter_backends = [SearchFilter, ArticuloOrderingFilter]
+    # ArticuloSearchFilter: "art 2" / "artículo 2" busca el artículo número 2
+    # (y no cualquier texto que contenga un "2"); el resto se busca como texto.
+    filter_backends = [ArticuloSearchFilter, ArticuloOrderingFilter]
     search_fields   = ["numero_articulo", "titulo", "contenido"]
     ordering_fields = ["numero_articulo", "norma__jerarquia__nivel", "frecuencia_historica"]
     auditoria_tabla = "articulos"
