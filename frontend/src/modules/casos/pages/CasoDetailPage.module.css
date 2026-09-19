@@ -15,6 +15,7 @@
 .errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
 .btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
 .btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.btnDanger { composes: btnDanger from '../../../styles/shared.module.css'; }
 .btnLink { composes: btnLink from '../../../styles/shared.module.css'; }
 .emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
 

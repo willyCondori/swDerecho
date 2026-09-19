@@ -15,6 +15,7 @@ const CasosPage      = lazy(() => import('../modules/casos/pages/CasosPage'))
 const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage'))
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
 const EditarCasoPage = lazy(() => import('../modules/casos/pages/EditarCasoPage'))
+const PapeleraCasosPage = lazy(() => import('../modules/casos/pages/PapeleraCasosPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
 const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
@@ -120,6 +121,10 @@ export default function AppRouter() {
           <Route element={<AppLayout />}>
             <Route path="/casos/nuevo" element={
               <Suspense fallback={<PageLoader />}><NuevoCasoPage /></Suspense>
+            } />
+            {/* Papelera — espeja EsAbogado del backend (admin y abogado) */}
+            <Route path="/casos/papelera" element={
+              <Suspense fallback={<PageLoader />}><PapeleraCasosPage /></Suspense>
             } />
             <Route path="/casos/:id/editar" element={
               <Suspense fallback={<PageLoader />}><EditarCasoPage /></Suspense>

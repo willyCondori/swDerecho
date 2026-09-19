@@ -89,7 +89,8 @@ export default function useEditarCaso(id) {
         descripcion: form.descripcion.trim() || null,
         estado: form.estado,
       })
-      navigate(`/casos/${id}`)
+      // Un caso desmarcado como activo pasa a la papelera: su detalle ya no existe.
+      navigate(form.estado ? `/casos/${id}` : '/casos')
     } catch (e) {
       console.error('Error guardando caso:', e, e?.response?.data)
       const data = e?.response?.data
