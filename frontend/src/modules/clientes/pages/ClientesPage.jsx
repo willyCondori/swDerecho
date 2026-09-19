@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useClientes from '../hooks/useClientes'
 import useAuthStore from '../../auth/store/authStore'
 import DataTable from '../../../components/ui/DataTable'
+import { eliminarClienteConCasos } from '../utils/eliminarCliente'
 import styles from './ClientesPage.module.css'
 
 function getNombreCompleto(cliente) {
@@ -19,14 +20,11 @@ export default function ClientesPage() {
     page, setPage, totalPages, count, reload, eliminarCliente,
   } = useClientes()
 
-  const handleEliminar = async (cliente) => {
-    if (!window.confirm(`¿Eliminar a ${getNombreCompleto(cliente)}?`)) return
-    try {
-      await eliminarCliente(cliente.id)
-    } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar el cliente.')
-    }
-  }
+  const handleEliminar = (cliente) =>
+    eliminarClienteConCasos({
+      nombre: getNombreCompleto(cliente),
+      eliminar: (opciones) => eliminarCliente(cliente.id, opciones),
+    })
 
   const columns = [
     {
@@ -72,6 +70,12 @@ export default function ClientesPage() {
           <p className={styles.subtitle}>Datos de contacto de tus clientes.</p>
         </div>
         <div className={styles.headerActions}>
+          {puedeEscribir && (
+            <button className={styles.btnSecondary} onClick={() => navigate('/clientes/papelera')}>
+              <i className="ti ti-trash" aria-hidden="true" />
+              Papelera
+            </button>
+          )}
           {puedeEscribir && (
             <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
               <i className="ti ti-user-plus" aria-hidden="true" />
