@@ -5,22 +5,33 @@ import styles from './Seguimiento.module.css'
 
 const NOTA_MAX = 2000
 
+// "Caso registrado" es la etapa inicial automática (la deja el backend al
+// crear el caso). No es una opción para elegir a mano acá: el backend la
+// rechaza siempre (ver CambiarEtapaSerializer), así que ni se ofrece.
+const REGISTRADO = 'registrado'
+
 // Solo se monta para quienes pueden escribir (administrador y abogado).
 // `onSubmit(etapa, nota)` debe devolver { ok, error? }.
 export default function CambiarEtapaForm({ etapas, etapaActual, guardando, onSubmit }) {
-  const [etapa, setEtapa] = useState(etapaActual)
+  const opciones = etapas.filter((et) => et.value !== REGISTRADO)
+  // Si el caso recién se creó (sigue en "Caso registrado"), no hay una
+  // opción igual a la etapa actual para preseleccionar: arranca vacío y
+  // obliga a elegir la etapa a la que avanzó.
+  const [etapa, setEtapa] = useState(etapaActual === REGISTRADO ? '' : etapaActual)
   const [nota, setNota] = useState('')
   const [error, setError] = useState('')
 
-  // Si la etapa cambia por fuera (recarga del caso), el selector la sigue.
+  // Si la etapa cambia por fuera (recarga del caso), el selector la sigue
+  // (salvo que sea "registrado": ahí no hay opción que preseleccionar).
   useEffect(() => {
-    setEtapa(etapaActual)
+    setEtapa(etapaActual === REGISTRADO ? '' : etapaActual)
   }, [etapaActual])
 
   const mismaEtapa = etapa === etapaActual
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    if (!etapa) return
     const notaLimpia = nota.trim()
 
     if (mismaEtapa && !notaLimpia) {
@@ -46,9 +57,12 @@ export default function CambiarEtapaForm({ etapas, etapaActual, guardando, onSub
           className={styles.select}
           value={etapa}
           onChange={(e) => setEtapa(e.target.value)}
-          disabled={guardando || etapas.length === 0}
+          disabled={guardando || opciones.length === 0}
         >
-          {etapas.map((et) => (
+          {etapa === '' && (
+            <option value="" disabled>Elige una etapa...</option>
+          )}
+          {opciones.map((et) => (
             <option key={et.value} value={et.value}>{et.label}</option>
           ))}
         </select>
@@ -75,7 +89,7 @@ export default function CambiarEtapaForm({ etapas, etapaActual, guardando, onSub
       <button
         type="submit"
         className={`${styles.btnPrimary} ${styles.submit}`}
-        disabled={guardando || etapas.length === 0}
+        disabled={guardando || opciones.length === 0 || !etapa}
       >
         {guardando ? 'Guardando...' : mismaEtapa ? 'Agregar nota' : 'Cambiar etapa'}
       </button>
