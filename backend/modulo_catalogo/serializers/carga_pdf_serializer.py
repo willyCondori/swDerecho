@@ -13,6 +13,8 @@ documento que escribe el usuario, para poder sumar cualquier norma nueva
 from django.db.models import Q
 from rest_framework import serializers
 
+from core.utils.archivos import validar_pdf
+
 from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
 from modulo_catalogo.models.rama import RamaDerecho
@@ -71,6 +73,14 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
             )
         if value.size == 0:
             raise serializers.ValidationError("El archivo PDF está vacío.")
+
+        # La extensión y el tamaño no garantizan que el contenido sea un
+        # PDF real (un .exe renombrado a informe.pdf pasaría los chequeos
+        # de arriba); esto valida la firma del archivo y que se pueda abrir.
+        valido, motivo = validar_pdf(value)
+        if not valido:
+            raise serializers.ValidationError(motivo)
+
         return value
 
     def validate_nombre_documento(self, value):
