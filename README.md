@@ -252,6 +252,8 @@ Carga de PDFs de normas (se procesa en un hilo en segundo plano; el progreso viv
 | Método | Endpoint | Descripción |
 |--------|----------|-------------|
 | `POST` | `/api/catalogo/cargar-articulos/` | Sube el PDF e inicia la carga; responde `202` con el `task_id`. Administrador y abogado. |
+
+El archivo se valida por contenido, no solo por extensión y tamaño: debe empezar con la firma `%PDF-` y `pypdf` debe poder abrirlo con al menos una página (así se rechaza un archivo renombrado a `.pdf` o uno corrupto). Se aplica aquí y al adjuntar un PDF a un caso (`POST /api/casos/{id}/subir_pdf/`); ver `core/utils/archivos.py`.
 | `GET` | `/api/catalogo/cargar-articulos/estado/{task_id}/` | Estado, progreso y, al terminar, el resumen o el error de una carga. |
 | `GET` | `/api/catalogo/cargar-articulos/activas/` | Cargas que siguen corriendo ahora mismo (de cualquier usuario), con documento, progreso, quién la inició y `es_mia`. La pantalla de carga la usa para retomar el avance si el usuario sale y vuelve a entrar. |
 
