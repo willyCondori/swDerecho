@@ -76,7 +76,7 @@ export default function useCasoDetail(id) {
       return true
     } catch (e) {
       console.error('Error subiendo PDF:', e, e?.response?.data)
-      setError('No se pudo adjuntar el PDF.')
+      setError(mensajeErrorApi(e, 'No se pudo adjuntar el PDF.'))
       return false
     } finally {
       setSubiendoPdf(false)
