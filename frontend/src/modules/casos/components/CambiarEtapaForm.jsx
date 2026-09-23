@@ -75,7 +75,11 @@ export default function CambiarEtapaForm({ etapas, etapaActual, guardando, onSub
       <button
         type="submit"
         className={`${styles.btnPrimary} ${styles.submit}`}
+<<<<<<< HEAD
         disabled={guardando || etapas.length === 0}
+=======
+        disabled={guardando || opciones.length === 0 || !etapa}
+>>>>>>> 643e3e225dba5ab29e1278da6bd213a00a3abb20
       >
         {guardando ? 'Guardando...' : mismaEtapa ? 'Agregar nota' : 'Cambiar etapa'}
       </button>

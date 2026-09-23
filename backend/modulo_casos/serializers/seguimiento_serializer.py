@@ -47,6 +47,21 @@ class CambiarEtapaSerializer(serializers.Serializer):
     def validate(self, attrs):
         caso = self.context["caso"]
         nota = attrs.get("nota", "")
+
+        # "Caso registrado" es la etapa inicial automática (la deja
+        # registrar_seguimiento_inicial al crear el caso). No se puede
+        # volver a elegir a mano: ni para "reconfirmarla" con una nota, ni
+        # para retroceder el caso a ese punto — evita una segunda entrada
+        # de "Caso registrado" en el historial.
+        if attrs["etapa"] == EtapaCaso.REGISTRADO:
+            raise serializers.ValidationError({
+                "etapa": (
+                    "\"Caso registrado\" se asigna automáticamente al crear el "
+                    "caso y no se puede volver a elegir. Selecciona la etapa a "
+                    "la que avanzó el caso."
+                )
+            })
+
         if attrs["etapa"] == caso.etapa and not nota:
             raise serializers.ValidationError({
                 "etapa": (
