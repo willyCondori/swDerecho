@@ -173,7 +173,6 @@ class PostRegistraDatosDeLaCargaTests(CargasActivasBase):
             r = self.client.post(
                 "/api/catalogo/cargar-articulos/",
                 {
-                    "archivo": SimpleUploadedFile("cpp.pdf", b"%PDF-1.4 contenido", content_type="application/pdf"),
                     "archivo": SimpleUploadedFile("cpp.pdf", PDF_MINIMO_1_PAGINA, content_type="application/pdf"),
                     "nombre_documento": "Código de Procedimiento Penal",
                     "rama_id": self.rama.id,
