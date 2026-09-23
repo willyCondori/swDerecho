@@ -27,7 +27,7 @@ const NAV_ITEMS = [
   {
     section: 'Sistema',
     items: [
-//      { to: '/auditoria',    icon: 'ti-shield-check', label: 'Auditoría',    adminOnly: true },
+      { to: '/auditoria',    icon: 'ti-shield-check', label: 'Auditoría',    adminOnly: true },
       { to: '/usuarios',     icon: 'ti-users-group',  label: 'Usuarios',     adminOnly: true },
       { to: '/usuarios/roles', icon: 'ti-shield-lock', label: 'Roles',       adminOnly: true },
 //      { to: '/configuracion',icon: 'ti-settings',     label: 'Configuración' },
