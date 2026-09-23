@@ -52,6 +52,8 @@ class AuditoriaViewSet(ReadOnlyModelViewSet):
     def _aplicar_filtros(self, qs, filtros):
         if uid := filtros.get("usuario_id"):
             qs = qs.filter(usuario_id=uid)
+        if usuario := filtros.get("usuario"):
+            qs = qs.filter(usuario__usuario__icontains=usuario)
         if tabla := filtros.get("tabla"):
             qs = qs.filter(tabla__iexact=tabla)
         if accion := filtros.get("accion"):
