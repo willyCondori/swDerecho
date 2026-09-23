@@ -3,23 +3,10 @@ import { useRef, useState } from 'react'
 import useDocumentosCaso from '../hooks/useDocumentosCaso'
 import useAuthStore from '../../auth/store/authStore'
 import { formatFechaHora } from '../../casos/utils/etapas'
+import { formatTamano, iconoPorExtension } from '../utils/descargas'
 import styles from './DocumentosCasoList.module.css'
 
 const EXTENSIONES_ACEPTADAS = '.pdf,.doc,.docx,.txt'
-
-function formatTamano(bytes) {
-  if (!bytes && bytes !== 0) return ''
-  if (bytes < 1024) return `${bytes} B`
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-}
-
-function iconoPorExtension(tipoArchivo) {
-  const ext = (tipoArchivo || '').toLowerCase()
-  if (ext === 'pdf') return 'ti-file-type-pdf'
-  if (ext === 'doc' || ext === 'docx') return 'ti-file-type-doc'
-  return 'ti-file-text'
-}
 
 // Lista los documentos asociados a un caso (GET /api/documentos/por_caso/),
 // con subida, descarga y eliminación. Vive dentro de CasoDetailPage, junto

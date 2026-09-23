@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import documentosApi from '../../../api/documentosApi'
 import { mensajeErrorApi } from '../../casos/utils/etapas'
+import { descargarBlob } from '../utils/descargas'
 
 // Maneja el listado, subida, descarga y eliminación de los documentos
 // de un caso (GET/POST/DELETE /api/documentos/), independiente del
@@ -72,14 +73,7 @@ export default function useDocumentosCaso(casoId) {
     setError(null)
     try {
       const { data } = await documentosApi.descargar(documento.id)
-      const url = window.URL.createObjectURL(data)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = documento.nombre_original || 'documento'
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      window.URL.revokeObjectURL(url)
+      descargarBlob(data, documento.nombre_original)
     } catch (e) {
       console.error('Error descargando documento:', e, e?.response?.data)
       setError('No se pudo descargar el documento.')
