@@ -8,6 +8,7 @@ from .views.catalogo_view import (
     EntidadJuridicaViewSet,
     ArticuloViewSet,
 )
+from .views.documento_norma_view import DocumentoNormaViewSet
 from .views.carga_articulos_view import (
     CargaArticulosView,
     CargasActivasPDFView,
@@ -21,6 +22,7 @@ router.register(r"jerarquias", JerarquiaViewSet, basename="jerarquias")
 router.register(r"normas", NormaViewSet, basename="normas")
 router.register(r"entidades", EntidadJuridicaViewSet, basename="entidades")
 router.register(r"articulos", ArticuloViewSet, basename="articulos")
+router.register(r"documentos-norma", DocumentoNormaViewSet, basename="documentos-norma")
 
 urlpatterns = [
     path("", include(router.urls)),
