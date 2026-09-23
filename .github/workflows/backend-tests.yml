@@ -85,7 +85,8 @@ jobs:
             psycopg2-binary==2.9.12 \
             cryptography==49.0.0 \
             pgvector==0.4.2 \
-            numpy==2.5.2
+            numpy==2.5.2 \
+            pypdf==6.14.2
 
       - name: Crear carpeta de logs
         working-directory: backend
