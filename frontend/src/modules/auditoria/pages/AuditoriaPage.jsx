@@ -1,6 +1,7 @@
 // modules/auditoria/pages/AuditoriaPage.jsx
 import useAuditoria from '../hooks/useAuditoria'
 import DataTable from '../../../components/ui/DataTable'
+import Pagination from '../../../components/ui/Pagination'
 import styles from './AuditoriaPage.module.css'
 
 function claseAccion(accion) {
@@ -66,6 +67,7 @@ const COLUMNAS = [
 export default function AuditoriaPage() {
   const {
     registros, loading, error, count,
+    page, setPage, totalPages, pageSize,
     filtros, setFiltro, limpiarFiltros,
     acciones, reload,
   } = useAuditoria()
@@ -84,6 +86,17 @@ export default function AuditoriaPage() {
       {/* ── Filtros ─────────────────────────────── */}
       <div className={styles.cardPadded}>
         <div className={styles.filtros}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="filtroUsuario">Usuario</label>
+            <input
+              id="filtroUsuario"
+              className={styles.input}
+              placeholder="ej: jperez"
+              value={filtros.usuario}
+              onChange={(e) => setFiltro('usuario', e.target.value)}
+            />
+          </div>
+
           <div className={styles.field}>
             <label className={styles.label} htmlFor="filtroTabla">Tabla</label>
             <input
@@ -159,6 +172,16 @@ export default function AuditoriaPage() {
             text: 'No hay registros de auditoría con estos filtros.',
           }}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="registros"
+          />
+        )}
       </div>
     </div>
   )

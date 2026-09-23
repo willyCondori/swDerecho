@@ -37,6 +37,11 @@ class AuditoriaFiltroSerializer(serializers.Serializer):
     no son válidos, la vista debe responder 400 en vez de ignorar el filtro.
     """
     usuario_id  = serializers.IntegerField(required=False)
+    usuario     = serializers.CharField(
+                      max_length=150, required=False,
+                      help_text="Nombre de usuario (coincidencia parcial). Se usa junto a "
+                                "o en vez de usuario_id.",
+                  )
     tabla       = serializers.CharField(max_length=100, required=False)
     accion      = serializers.ChoiceField(
                       choices=[c[0] for c in Auditoria.ACCION_CHOICES],
