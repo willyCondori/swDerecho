@@ -2,10 +2,7 @@
 import { useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
-import useEtapasCaso from '../hooks/useEtapasCaso'
 import EtapaBadge from '../components/EtapaBadge'
-import SeguimientoTimeline from '../components/SeguimientoTimeline'
-import CambiarEtapaForm from '../components/CambiarEtapaForm'
 import { formatFechaHora } from '../utils/etapas'
 import seguimientoStyles from '../components/Seguimiento.module.css'
 import useAuthStore from '../../auth/store/authStore'
@@ -32,9 +29,7 @@ export default function CasoDetailPage() {
   const {
     caso, articulos, loading, error,
     analizando, subiendoPdf, eliminando, eliminar, analizar, subirPdf, reload,
-    seguimientos, guardandoEtapa, cambiarEtapa,
   } = useCasoDetail(id)
-  const etapas = useEtapasCaso(puedeEscribir)
 
   if (loading) {
     return <div className={styles.loaderWrap}>Cargando caso...</div>
@@ -146,13 +141,6 @@ export default function CasoDetailPage() {
             </div>
           </div>
 
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>
-              <i className="ti ti-timeline" aria-hidden="true" /> Seguimiento del caso
-            </h2>
-            <SeguimientoTimeline seguimientos={seguimientos} />
-          </div>
-
           {caso.hechos?.length > 0 && (
             <div className={styles.card}>
               <h2 className={styles.cardTitle}>
@@ -255,14 +243,14 @@ export default function CasoDetailPage() {
                 </p>
               )}
             </div>
-            {puedeEscribir && (
-              <CambiarEtapaForm
-                etapas={etapas}
-                etapaActual={caso.etapa}
-                guardando={guardandoEtapa}
-                onSubmit={cambiarEtapa}
-              />
-            )}
+            <button
+              type="button"
+              className={`${styles.btnSecondary} ${seguimientoStyles.verHistorialBtn}`}
+              onClick={() => navigate(`/casos/${id}/seguimiento`)}
+            >
+              <i className="ti ti-history" aria-hidden="true" />
+              {puedeEscribir ? 'Ver historial y actualizar etapa' : 'Ver historial completo'}
+            </button>
           </div>
 
           <div className={styles.card}>
