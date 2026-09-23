@@ -1,11 +1,12 @@
 // modules/casos/pages/CasoDetailPage.jsx
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
 import EtapaBadge from '../components/EtapaBadge'
 import { formatFechaHora } from '../utils/etapas'
 import seguimientoStyles from '../components/Seguimiento.module.css'
 import useAuthStore from '../../auth/store/authStore'
+import DocumentosCasoList from '../../documentos/components/DocumentosCasoList'
 import styles from './CasoDetailPage.module.css'
 
 function EstadoBadge({ tieneResultado, tieneDocumento }) {
@@ -22,13 +23,12 @@ export default function CasoDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
-  const fileInputRef = useRef(null)
   const [analisisEncolado, setAnalisisEncolado] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState('')
 
   const {
     caso, articulos, loading, error,
-    analizando, subiendoPdf, eliminando, eliminar, analizar, subirPdf, reload,
+    analizando, eliminando, eliminar, analizar, reload,
   } = useCasoDetail(id)
 
   if (loading) {
@@ -64,11 +64,6 @@ export default function CasoDetailPage() {
     const res = await eliminar()
     if (res.ok) navigate('/casos')
     else setErrorEliminar(res.error)
-  }
-
-  const handleArchivoSeleccionado = async (e) => {
-    const file = e.target.files?.[0]
-    if (file) await subirPdf(file)
   }
 
   return (
@@ -111,34 +106,7 @@ export default function CasoDetailPage() {
               <p className={styles.emptyText}>Este caso no tiene descripción de texto (se envió como PDF).</p>
             )}
 
-            <div className={styles.pdfRow}>
-              {caso.tiene_documento ? (
-                <span className={styles.pdfBadge}>
-                  <i className="ti ti-file-text" aria-hidden="true" /> PDF adjunto
-                </span>
-              ) : (
-                <span className={styles.emptyText}>Sin PDF adjunto.</span>
-              )}
-              {puedeEscribir && (
-                <>
-                  <button
-                    type="button"
-                    className={styles.btnLink}
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={subiendoPdf}
-                  >
-                    {subiendoPdf ? 'Subiendo...' : caso.tiene_documento ? 'Reemplazar PDF' : 'Adjuntar PDF'}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={handleArchivoSeleccionado}
-                  />
-                </>
-              )}
-            </div>
+            <DocumentosCasoList casoId={id} />
           </div>
 
           {caso.hechos?.length > 0 && (
