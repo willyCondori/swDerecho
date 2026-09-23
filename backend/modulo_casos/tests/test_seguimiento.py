@@ -139,12 +139,28 @@ class CambiarEtapaEndpointTests(SeguimientoBase):
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(self.caso.seguimientos.count(), 1)
 
-    def test_misma_etapa_con_nota_registra_actualizacion(self):
+    def test_registrado_con_nota_tambien_es_rechazada(self):
+        # "Caso registrado" no se puede volver a elegir aunque se le
+        # agregue una nota: es la etapa inicial automática y una segunda
+        # entrada no aportaría nada a la trazabilidad (ver
+        # CambiarEtapaSerializer.validate). Distinto de cualquier otra
+        # etapa, donde repetirla CON nota sí está permitido — ver
+        # test_misma_etapa_con_nota_registra_actualizacion más abajo.
         self.client.force_authenticate(self.abogado)
         r = self.cambiar("registrado", "Se recibió documentación adicional del cliente")
+        self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("etapa", r.data)
+        self.assertEqual(self.caso.seguimientos.count(), 1)
+
+    def test_misma_etapa_con_nota_registra_actualizacion(self):
+        self.client.force_authenticate(self.abogado)
+        self.cambiar("en_analisis")  # sale de "registrado" para probar el caso general
+
+        r = self.cambiar("en_analisis", "Se recibió documentación adicional del cliente")
+
         self.assertEqual(r.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(r.data["seguimiento"]["etapa_anterior"], "registrado")
-        self.assertEqual(self.caso.seguimientos.count(), 2)
+        self.assertEqual(r.data["seguimiento"]["etapa_anterior"], "en_analisis")
+        self.assertEqual(self.caso.seguimientos.count(), 3)
 
     def test_nota_demasiado_larga(self):
         self.client.force_authenticate(self.abogado)
