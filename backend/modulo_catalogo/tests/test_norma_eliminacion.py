@@ -9,14 +9,11 @@ Además verifica que los artículos de una norma eliminada dejan de verse
 en el catálogo, no entran al ranking del análisis, y que la carga de PDF
 no crea una norma duplicada cuando la que existe está eliminada.
 """
-<<<<<<< HEAD
-=======
 
 # PDF mínimo (una página en blanco) para pasar la validación real del
 # contenido, que ahora abre el archivo con pypdf.
 PDF_MINIMO_1_PAGINA = b"%PDF-1.3\n%\x93\x8c\x8b\x9e ReportLab Generated PDF document (opensource)\n1 0 obj\n<<\n/F1 2 0 R\n>>\nendobj\n2 0 obj\n<<\n/BaseFont /Helvetica /Encoding /WinAnsiEncoding /Name /F1 /Subtype /Type1 /Type /Font\n>>\nendobj\n3 0 obj\n<<\n/Contents 7 0 R /MediaBox [ 0 0 595.2756 841.8898 ] /Parent 6 0 R /Resources <<\n/Font 1 0 R /ProcSet [ /PDF /Text /ImageB /ImageC /ImageI ]\n>> /Rotate 0 /Trans <<\n\n>> \n  /Type /Page\n>>\nendobj\n4 0 obj\n<<\n/PageMode /UseNone /Pages 6 0 R /Type /Catalog\n>>\nendobj\n5 0 obj\n<<\n/Author (anonymous) /CreationDate (D:20260922030645+00'00') /Creator (anonymous) /Keywords () /ModDate (D:20260922030645+00'00') /Producer (ReportLab PDF Library - \\(opensource\\)) \n  /Subject (unspecified) /Title (untitled) /Trapped /False\n>>\nendobj\n6 0 obj\n<<\n/Count 1 /Kids [ 3 0 R ] /Type /Pages\n>>\nendobj\n7 0 obj\n<<\n/Filter [ /ASCII85Decode /FlateDecode ] /Length 114\n>>\nstream\nGapQh0E=F,0U\\H3T\\pNYT^QKk?tc>IP,;W#U1^23ihPEM_?CW4KISi::p;W-:^G0Ccu@*&0$R,8/'1j`8Q@/e.SWW0e5Q^q;@(YOku$@?!6%nQ)u~>endstream\nendobj\nxref\n0 8\n0000000000 65535 f \n0000000061 00000 n \n0000000092 00000 n \n0000000199 00000 n \n0000000402 00000 n \n0000000470 00000 n \n0000000731 00000 n \n0000000790 00000 n \ntrailer\n<<\n/ID \n[<e3c564374ff070f36f1213b0fb8d46a5><e3c564374ff070f36f1213b0fb8d46a5>]\n% ReportLab generated PDF document -- digest (opensource)\n\n/Info 5 0 R\n/Root 4 0 R\n/Size 8\n>>\nstartxref\n994\n%%EOF\n"
 
->>>>>>> 643e3e225dba5ab29e1278da6bd213a00a3abb20
 import numpy as np
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
@@ -232,11 +229,7 @@ class CargaPdfNormaEliminadaTests(TestCase):
         cls.rama = RamaDerecho.objects.create(nombre="Rama test carga")
 
     def _datos(self, **extra):
-<<<<<<< HEAD
-        pdf = SimpleUploadedFile("norma.pdf", b"%PDF-1.4 contenido", content_type="application/pdf")
-=======
         pdf = SimpleUploadedFile("norma.pdf", PDF_MINIMO_1_PAGINA, content_type="application/pdf")
->>>>>>> 643e3e225dba5ab29e1278da6bd213a00a3abb20
         return {"archivo": pdf, "rama_id": self.rama.pk, **extra}
 
     def test_rechaza_el_nombre_de_una_norma_eliminada(self):
