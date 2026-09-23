@@ -4,6 +4,7 @@ import os
 from django.conf import settings
 from rest_framework import serializers
 
+from core.utils.archivos import validar_pdf
 from modulo_documentos.models.documento import (
     DocumentoCaso,
     DocumentoGenerado,
@@ -86,6 +87,14 @@ class DocumentoCasoWriteSerializer(serializers.ModelSerializer):
         # Verificar que el archivo no esté vacío
         if value.size == 0:
             raise serializers.ValidationError("El archivo está vacío.")
+
+        # Solo se valida el contenido cuando la extensión es .pdf: para
+        # docx/doc/txt no hay un chequeo de contenido equivalente todavía.
+        if extension == "pdf":
+            valido, motivo = validar_pdf(value)
+            if not valido:
+                raise serializers.ValidationError(motivo)
+
         return value
 
     def create(self, validated_data):

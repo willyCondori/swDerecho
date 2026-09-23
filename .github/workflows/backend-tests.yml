@@ -116,4 +116,9 @@ jobs:
             modulo_clientes.tests.test_papelera_clientes \
             modulo_catalogo.tests.test_cargas_activas \
             modulo_catalogo.tests.test_extractor_articulos \
+<<<<<<< HEAD
+=======
+            core.tests.test_validar_pdf \
+            modulo_catalogo.tests.test_validacion_pdf_endpoints \
+>>>>>>> 643e3e225dba5ab29e1278da6bd213a00a3abb20
             -v 2
