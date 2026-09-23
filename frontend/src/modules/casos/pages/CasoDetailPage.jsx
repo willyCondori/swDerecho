@@ -106,7 +106,7 @@ export default function CasoDetailPage() {
               <p className={styles.emptyText}>Este caso no tiene descripción de texto (se envió como PDF).</p>
             )}
 
-            <DocumentosCasoList casoId={id} />
+{/*            <DocumentosCasoList casoId={id} /> */}
           </div>
 
           {caso.hechos?.length > 0 && (
