@@ -35,10 +35,10 @@ from modulo_documentos.serializers.documento_serializer import (
 
 class TipoDocViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/tipo-doc/       — lista.
-    POST   /api/tipo-doc/       — crear [admin]
-    PATCH  /api/tipo-doc/{id}/  — editar [admin]
-    DELETE /api/tipo-doc/{id}/  — eliminar [admin]
+    GET    /api/documentos/tipo-doc/       — lista.
+    POST   /api/documentos/tipo-doc/       — crear [admin]
+    PATCH  /api/documentos/tipo-doc/{id}/  — editar [admin]
+    DELETE /api/documentos/tipo-doc/{id}/  — eliminar [admin]
     """
     queryset        = TipoDoc.objects.all().order_by("tipo")
     serializer_class= TipoDocSerializer
@@ -56,12 +56,12 @@ class TipoDocViewSet(AuditoriaMixin, ModelViewSet):
 
 class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
     """
-    GET    /api/documentos/            — lista [abogado, admin]
-    POST   /api/documentos/            — subir documento
-    GET    /api/documentos/{id}/       — detalle
-    DELETE /api/documentos/{id}/       — eliminar físicamente [admin]
-    GET    /api/documentos/{id}/descargar/ — descarga del archivo
-    GET    /api/documentos/por_caso/   — filtrar por caso_id
+    GET    /api/documentos/documentos/            — lista [abogado, admin]
+    POST   /api/documentos/documentos/            — subir documento
+    GET    /api/documentos/documentos/{id}/       — detalle
+    DELETE /api/documentos/documentos/{id}/       — eliminar físicamente [admin]
+    GET    /api/documentos/documentos/{id}/descargar/ — descarga del archivo
+    GET    /api/documentos/documentos/por_caso/   — filtrar por caso_id
     """
     queryset        = DocumentoCaso.objects.select_related("caso", "tipo_documento").order_by("-created_at")
     filter_backends = [OrderingFilter]
@@ -103,7 +103,7 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
 
     @action(detail=True, methods=["get"], url_path="descargar")
     def descargar(self, request, pk=None):
-        """GET /api/documentos/{id}/descargar/ — descarga directa del archivo."""
+        """GET /api/documentos/documentos/{id}/descargar/ — descarga directa del archivo."""
         documento     = self.get_object()
         ruta_absoluta = os.path.join(settings.MEDIA_ROOT, documento.ruta_archivo)
 
@@ -128,7 +128,7 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
 
     @action(detail=False, methods=["get"], url_path="por_caso")
     def por_caso(self, request):
-        """GET /api/documentos/por_caso/?caso_id=X"""
+        """GET /api/documentos/documentos/por_caso/?caso_id=X"""
         caso_id = request.query_params.get("caso_id")
         if not caso_id:
             return Response(

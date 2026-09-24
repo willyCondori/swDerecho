@@ -1,8 +1,10 @@
 // modules/catalogo/components/administrar/NormasSection.jsx
 // Listado de normas con eliminación lógica y recuperación. Lo comparten la
 // pestaña "Normas" de Administrar catálogo y la página /catalogo/normas.
+import { useState } from 'react'
 import useGestionNormas from '../../hooks/useGestionNormas'
 import NormaTable from './NormaTable'
+import DocumentosNormaPanel from './DocumentosNormaPanel'
 import Pagination from '../../../../components/ui/Pagination'
 import styles from '../../pages/AdministrarCatalogoPage.module.css'
 
@@ -19,6 +21,8 @@ export default function NormasSection() {
     estadoFiltro, setEstadoFiltro,
     eliminarNorma, activarNorma,
   } = useGestionNormas()
+
+  const [normaDocumentos, setNormaDocumentos] = useState(null)
 
   const handleEliminar = async (norma) => {
     if (!window.confirm(`¿Eliminar la norma "${norma.nombre}"? No se borra nada: sus artículos dejarán de verse en el catálogo y de considerarse en el análisis de casos, y volverán a estar disponibles si la recuperas desde la pestaña "Eliminadas".`)) return
@@ -75,6 +79,7 @@ export default function NormasSection() {
           onRetry={reload}
           onEliminar={handleEliminar}
           onRecuperar={handleRecuperar}
+          onVerDocumentos={setNormaDocumentos}
         />
         {!loading && !error && (
           <Pagination
@@ -87,6 +92,13 @@ export default function NormasSection() {
           />
         )}
       </div>
+
+      {normaDocumentos && (
+        <DocumentosNormaPanel
+          norma={normaDocumentos}
+          onClose={() => setNormaDocumentos(null)}
+        />
+      )}
     </>
   )
 }
