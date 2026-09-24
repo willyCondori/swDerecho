@@ -98,11 +98,17 @@ class Command(BaseCommand):
         )
         if creado:
             self.stdout.write(self.style.SUCCESS(
-                f'Vinculado: "{documento.nombre_original}" → {norma.nombre} (id={documento.pk})'
+                f'Vinculado: "{documento.nombre_original}" → norma id={norma.pk} "{norma.nombre}" '
+                f'(nuevo DocumentoNorma id={documento.pk})'
             ))
         else:
             self.stdout.write(self.style.WARNING(
-                f'Ya existía un DocumentoNorma para "{ruta_relativa}" (id={documento.pk}); no se tocó.'
+                f'Ya existía un DocumentoNorma para "{ruta_relativa}", vinculado a '
+                f'norma id={documento.norma_id} "{documento.norma.nombre}" (DocumentoNorma id={documento.pk}); '
+                f'no se tocó. Para reasignarlo a otra norma, hacelo a mano:\n'
+                f'  python manage.py shell -c "from modulo_catalogo.models.documento_norma import '
+                f'DocumentoNorma; d = DocumentoNorma.objects.get(pk={documento.pk}); '
+                f'd.norma_id = <id correcto>; d.save()"'
             ))
 
     def _escanear(self, aplicar):
@@ -143,10 +149,11 @@ class Command(BaseCommand):
                             tamano=os.path.getsize(ruta_absoluta),
                         )
                         self.stdout.write(self.style.SUCCESS(
-                            f'Creado: "{nombre_archivo}" → {norma.nombre} (id={documento.pk})'
+                            f'Creado: "{nombre_archivo}" → norma id={norma.pk} "{norma.nombre}" '
+                            f'(nuevo DocumentoNorma id={documento.pk})'
                         ))
                     else:
-                        self.stdout.write(f'[simulación] "{ruta_relativa}" → {norma.nombre}')
+                        self.stdout.write(f'[simulación] "{ruta_relativa}" → norma id={norma.pk} "{norma.nombre}"')
                     creados += 1
                 else:
                     motivo = "sin ninguna norma con ese nombre/sigla" if not candidatas \
