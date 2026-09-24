@@ -115,6 +115,7 @@ jobs:
             modulo_auditoria.tests.test_auditoria_endpoints \
             modulo_documentos.tests.test_documentos_endpoints \
             modulo_catalogo.tests.test_vincular_documentos_norma \
+            modulo_catalogo.tests.test_documento_norma_endpoints \
             modulo_casos.tests.test_seguimiento \
             modulo_casos.tests.test_papelera \
             modulo_clientes.tests.test_papelera_clientes \
