@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
+from modulo_catalogo.models.documento_norma import DocumentoNorma
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
@@ -102,6 +103,21 @@ class CargaArticulosView(APIView):
                 for chunk in archivo.chunks():
                     destino.write(chunk)
 
+            # Ruta relativa a MEDIA_ROOT, igual que en modulo_documentos,
+            # para poder servir el archivo después (descargar/eliminar)
+            # sin depender de la ruta absoluta del servidor.
+            ruta_relativa = os.path.join(
+                "documentos_normativas", carpeta_norma, nombre_archivo
+            )
+            documento_norma = DocumentoNorma.objects.create(
+                norma=norma,
+                rama=rama,
+                nombre_original=archivo.name,
+                ruta_archivo=ruta_relativa,
+                tamano=archivo.size,
+                subido_por=usuario,
+            )
+
         except Exception as e:
             logger.exception("Error guardando PDF")
             return Response(
@@ -137,6 +153,7 @@ class CargaArticulosView(APIView):
                 os.remove(ruta_archivo)
             except Exception:
                 pass
+            documento_norma.delete()
 
             return Response(
                 {"detail": f"Error al iniciar el procesamiento del PDF: {e}"},
@@ -165,6 +182,7 @@ class CargaArticulosView(APIView):
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
                     "task_id": task_id,
+                    "documento_norma_id": documento_norma.id,
                 },
             )
         except Exception:
@@ -180,6 +198,7 @@ class CargaArticulosView(APIView):
             "norma_creada": norma_creada,
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
+            "documento_norma_id": documento_norma.id,
         }
 
         if existentes:
