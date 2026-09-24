@@ -55,12 +55,16 @@ class VincularDocumentosNormaTests(TestCase):
     def test_aplicar_crea_el_documento_norma(self):
         self._crear_pdf("npp", "npp_codigo_penal.pdf")
 
-        self._correr("--aplicar")
+        salida = self._correr("--aplicar")
 
         doc = DocumentoNorma.objects.get()
         self.assertEqual(doc.norma_id, self.cp.pk)
         self.assertEqual(doc.nombre_original, "npp_codigo_penal.pdf")
         self.assertEqual(doc.ruta_archivo, os.path.join("documentos_normativas", "npp", "npp_codigo_penal.pdf"))
+        # El mensaje tiene que decir explícitamente el ID de la NORMA
+        # (no solo el del DocumentoNorma recién creado), para que no se
+        # confundan al elegir a mano el --norma-id de otro archivo.
+        self.assertIn(f"norma id={self.cp.pk}", salida)
 
     def test_carpeta_que_coincide_con_el_nombre_completo(self):
         self._crear_pdf("norma_constitucional_de_prueba", "ncp.pdf")
