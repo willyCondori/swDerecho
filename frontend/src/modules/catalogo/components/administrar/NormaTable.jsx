@@ -11,6 +11,7 @@ export default function NormaTable({
   onRetry,
   onEliminar,
   onRecuperar,
+  onVerDocumentos,
 }) {
   const columns = [
     {
@@ -49,15 +50,20 @@ export default function NormaTable({
       actions: true,
       skeletonWidth: 40,
       render: (norma) => (
-        norma.estado ? (
-          <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(norma)}>
-            <i className="ti ti-trash" aria-hidden="true" />
+        <>
+          <button className={styles.iconBtn} title="Ver documentos" onClick={() => onVerDocumentos(norma)}>
+            <i className="ti ti-folder" aria-hidden="true" />
           </button>
-        ) : (
-          <button className={styles.iconBtn} title="Recuperar norma" onClick={() => onRecuperar(norma)}>
-            <i className="ti ti-rotate-clockwise" aria-hidden="true" />
-          </button>
-        )
+          {norma.estado ? (
+            <button className={styles.iconBtn} title="Eliminar" onClick={() => onEliminar(norma)}>
+              <i className="ti ti-trash" aria-hidden="true" />
+            </button>
+          ) : (
+            <button className={styles.iconBtn} title="Recuperar norma" onClick={() => onRecuperar(norma)}>
+              <i className="ti ti-rotate-clockwise" aria-hidden="true" />
+            </button>
+          )}
+        </>
       ),
     },
   ]
