@@ -91,14 +91,14 @@ class EntidadDetectadaSerializer(serializers.ModelSerializer):
 class EmbeddingArticuloSerializer(serializers.ModelSerializer):
     class Meta:
         model  = EmbeddingArticulo
-        fields = ["id", "articulo", "created_at"]
+        fields = ["id", "articulo", "modelo_version", "created_at"]
         read_only_fields = fields
 
 
 class EmbeddingChunkSerializer(serializers.ModelSerializer):
     class Meta:
         model  = EmbeddingChunk
-        fields = ["id", "chunk", "created_at"]
+        fields = ["id", "chunk", "modelo_version", "created_at"]
         read_only_fields = fields
 
 

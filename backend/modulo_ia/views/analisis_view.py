@@ -5,7 +5,6 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
 
-from core.permissions.auditoria_mixin import AuditoriaMixin, registrar_auditoria
 from core.permissions.roles_permission import EsAdmin, EsOperativo, EsUsuarioAutenticado
 from modulo_ia.models.chunk import ChunkCaso
 from modulo_ia.models.embedding import (
@@ -263,13 +262,10 @@ class AnalisisCasoView(APIView):
     Body: { "caso_id": X }
     Alternativa al endpoint /api/casos/{id}/analizar/ del módulo casos.
 
-    NOTA: se ejecuta de forma SÍNCRONA (idéntico a
-    CasoViewSet.analizar en modulo_casos/views/caso_view.py) mientras
-    Celery no esté configurado (config/celery.py está vacío). Antes
-    llamaba a `ejecutar_analisis_caso.delay(caso_id)`, lo que sin un
-    worker corriendo se queda colgado o falla en silencio. Cuando
-    Celery esté funcionando, revertir esto a `.delay()` y volver a
-    habilitar la ruta `tarea/<task_id>/` (ver EstadoTareaView más abajo).
+    Lanza el análisis en segundo plano (ver
+    modulo_ia.services.analisis_background) y devuelve al toque; ya no
+    corre síncrono dentro del request. El avance se consulta con
+    GET /api/casos/{id}/ (estado_analisis/analisis_paso).
     """
     permission_classes = [EsOperativo]
 
@@ -280,26 +276,24 @@ class AnalisisCasoView(APIView):
 
         caso_id = serializer.validated_data["caso_id"]
 
-        try:
-            from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
-            ejecutar_analisis_caso(caso_id)
+        from modulo_casos.models.caso import Caso
+        from modulo_ia.services.analisis_background import iniciar_analisis
 
-            registrar_auditoria(
-                usuario=request.user,
-                tabla="casos",
-                accion="ANALYZE",
-                registro_id=caso_id,
-                request=request,
-            )
-            return Response(
-                {
-                    "detail" : "Análisis completado correctamente.",
-                    "caso_id": caso_id,
-                },
-                status=status.HTTP_200_OK,
-            )
-        except Exception as e:
-            return Response(
-                {"detail": f"Error: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        try:
+            caso = Caso.objects.get(pk=caso_id, estado=True)
+        except Caso.DoesNotExist:
+            return Response({"detail": "Caso no encontrado."}, status=status.HTTP_404_NOT_FOUND)
+
+        ok, detalle = iniciar_analisis(caso, request.user)
+        if not ok:
+            return Response({"detail": detalle}, status=status.HTTP_409_CONFLICT)
+
+        caso.refresh_from_db(fields=["estado_analisis", "analisis_paso"])
+        return Response(
+            {
+                "detail"         : "Análisis iniciado.",
+                "caso_id"        : caso_id,
+                "estado_analisis": caso.estado_analisis,
+            },
+            status=status.HTTP_202_ACCEPTED,
+        )

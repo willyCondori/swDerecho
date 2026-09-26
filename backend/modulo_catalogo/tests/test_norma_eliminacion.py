@@ -31,6 +31,7 @@ from modulo_clientes.models.cliente import Cliente
 from modulo_ia.models.chunk import ChunkCaso
 from modulo_ia.models.embedding import EmbeddingArticulo, EmbeddingChunk
 from modulo_ia.services.ranking_service import RankingService
+from modulo_ia.services.model_loader import version_activa
 from modulo_usuarios.tests.factories import crear_rol, crear_usuario
 
 URL_NORMAS = "/api/catalogo/normas/"
@@ -294,8 +295,8 @@ class RankingIgnoraNormasEliminadasTests(TestCase):
             numero_articulo="B-1", titulo="Art. B-1", contenido="Robo de bien mueble.",
             norma=cls.norma_eliminada, rama=cls.rama,
         )
-        EmbeddingArticulo.objects.create(articulo=cls.art_activo, vector=cls.vector)
-        EmbeddingArticulo.objects.create(articulo=cls.art_eliminado, vector=cls.vector)
+        EmbeddingArticulo.objects.create(articulo=cls.art_activo, modelo_version=version_activa(), vector=cls.vector)
+        EmbeddingArticulo.objects.create(articulo=cls.art_eliminado, modelo_version=version_activa(), vector=cls.vector)
 
     def _caso(self):
         caso = Caso.objects.create(
@@ -303,7 +304,7 @@ class RankingIgnoraNormasEliminadasTests(TestCase):
             usuario=self.usuario, cliente=self.cliente, rama_detectada=self.rama,
         )
         chunk = ChunkCaso.objects.create(caso=caso, contenido="robo", orden=1, tipo="texto")
-        EmbeddingChunk.objects.create(chunk=chunk, vector=self.vector)
+        EmbeddingChunk.objects.create(chunk=chunk, modelo_version=version_activa(), vector=self.vector)
         return caso
 
     def test_el_articulo_de_una_norma_eliminada_no_entra_al_ranking(self):

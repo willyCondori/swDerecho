@@ -62,34 +62,11 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Configuración de embeddings
+# Configuración de embeddings — módulo único, compartido con embedding_service.py
+# y regenerar_embeddings_articulos.py (ver modulo_ia/services/model_loader.py).
 # ---------------------------------------------------------------------------
 
-DIMENSION_VECTOR = 768   # Ajustar si EmbeddingArticulo.vector usa otra dimensión
-
-
-# ---------------------------------------------------------------------------
-# Modelo SentenceTransformer (cache global, se carga una sola vez)
-# ---------------------------------------------------------------------------
-
-_modelo_cache = None
-
-
-def _obtener_modelo():
-    """Carga el modelo SentenceTransformer una sola vez por proceso."""
-    global _modelo_cache
-
-    if _modelo_cache is None:
-        from sentence_transformers import SentenceTransformer
-
-        logger.info(
-            "Cargando modelo de embeddings: %s",
-            settings.SENTENCE_TRANSFORMER_MODEL,
-        )
-
-        _modelo_cache = SentenceTransformer(settings.SENTENCE_TRANSFORMER_MODEL)
-
-    return _modelo_cache
+from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -822,6 +799,7 @@ def cargar_articulos_desde_bytes(
 
                 EmbeddingArticulo.objects.update_or_create(
                     articulo=articulo,
+                    modelo_version=version_activa(),
                     defaults={"vector": vector},
                 )
             except Exception as e:
