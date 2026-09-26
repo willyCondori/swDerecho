@@ -254,6 +254,17 @@ SENTENCE_TRANSFORMER_MODEL = config(
     default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
 )
 
+# Etiqueta corta con la que SENTENCE_TRANSFORMER_MODEL queda identificado en
+# EmbeddingArticulo.modelo_version / EmbeddingChunk.modelo_version. Ver
+# modulo_ia/services/model_loader.py para el porqué de separar esto del
+# modelo en sí. Por defecto se deriva del propio nombre del modelo (la
+# última parte, después de la última "/"), así que si no se define
+# explícitamente, sigue siendo estable entre reinicios.
+EMBEDDING_MODEL_VERSION = config(
+    'EMBEDDING_MODEL_VERSION',
+    default=SENTENCE_TRANSFORMER_MODEL.rsplit('/', 1)[-1]
+)
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

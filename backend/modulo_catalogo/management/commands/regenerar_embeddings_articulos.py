@@ -3,13 +3,15 @@ Comando: regenerar_embeddings_articulos
 
 Regenera el embedding (EmbeddingArticulo) de artículos que YA EXISTEN en la
 base de datos. No vuelve a parsear ningún PDF, no crea ni modifica Articulo,
-Norma ni Jerarquia — solo recalcula el vector semántico y lo guarda 1:1 con
-guaranteed pairing (un embedding por articulo_id, en el mismo loop en el que
-se genera, nunca por lote separado de texto/IDs).
+Norma ni Jerarquia — solo recalcula el vector semántico y lo guarda con
+guaranteed pairing (un embedding por articulo_id + modelo_version, en el
+mismo loop en el que se genera, nunca por lote separado de texto/IDs).
 
 Casos de uso:
-  - Cambiar el modelo de Sentence Transformers (SENTENCE_TRANSFORMER_MODEL)
-    y recalcular todos los vectores con el modelo nuevo.
+  - Generar los embeddings de un modelo NUEVO (por ejemplo, el afinado con
+    el dataset de TSJ) con --version, sin tocar los de la versión activa:
+    el catálogo queda sirviendo el ranking con el modelo de siempre hasta
+    que decidas cambiar settings.EMBEDDING_MODEL_VERSION.
   - Reparar un desalineamiento puntual de embeddings sin re-subir el PDF.
 
 Uso:
@@ -17,31 +19,20 @@ Uso:
     python manage.py regenerar_embeddings_articulos --norma-id 3
     python manage.py regenerar_embeddings_articulos --solo-faltantes
     python manage.py regenerar_embeddings_articulos --dry-run
+    python manage.py regenerar_embeddings_articulos --modelo-version sw-derecho-embeddings-v1
 """
 
 import logging
 
-from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from modulo_catalogo.models.articulo import Articulo
 from modulo_catalogo.services.carga_pdf_service import construir_texto_embedding
 from modulo_ia.models.embedding import EmbeddingArticulo
+from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa
 
 logger = logging.getLogger(__name__)
-
-DIMENSION_VECTOR = 768
-
-_modelo_cache = None
-
-
-def _obtener_modelo():
-    global _modelo_cache
-    if _modelo_cache is None:
-        from sentence_transformers import SentenceTransformer
-        _modelo_cache = SentenceTransformer(settings.SENTENCE_TRANSFORMER_MODEL)
-    return _modelo_cache
 
 
 class Command(BaseCommand):
@@ -67,9 +58,9 @@ class Command(BaseCommand):
             "--solo-faltantes",
             action="store_true",
             help=(
-                "Solo genera embeddings para artículos que todavía no "
-                "tienen EmbeddingArticulo (embedding__isnull=True). Por "
-                "defecto se regeneran TODOS los artículos del filtro."
+                "Solo genera embeddings para artículos que todavía no tienen "
+                "EmbeddingArticulo de la versión pedida (--version, o la activa "
+                "por defecto). Por defecto se regeneran TODOS los artículos del filtro."
             ),
         )
         parser.add_argument(
@@ -83,6 +74,14 @@ class Command(BaseCommand):
             action="store_true",
             help="No escribe nada en la base, solo informa qué haría.",
         )
+        parser.add_argument(
+            "--modelo-version",
+            default=None,
+            help="Etiqueta de modelo_version a generar (default: settings.EMBEDDING_MODEL_VERSION, "
+                 "la versión activa). Usar una etiqueta distinta a la activa — por ejemplo, la del "
+                 "modelo recién afinado — genera esos embeddings SIN tocar los de la versión activa, "
+                 "que sigue sirviendo el ranking hasta que se decida cambiar EMBEDDING_MODEL_VERSION.",
+        )
 
     def handle(self, *args, **options):
         norma_id = options["norma_id"]
@@ -93,6 +92,8 @@ class Command(BaseCommand):
 
         if batch_size < 1:
             raise CommandError("--batch-size debe ser >= 1.")
+
+        version = options["modelo_version"] or version_activa()
 
         qs = (
             Articulo.objects
@@ -105,7 +106,7 @@ class Command(BaseCommand):
         if rama_id:
             qs = qs.filter(rama_id=rama_id)
         if solo_faltantes:
-            qs = qs.filter(embedding__isnull=True)
+            qs = qs.exclude(embeddings__modelo_version=version)
 
         total = qs.count()
         if total == 0:
@@ -115,7 +116,7 @@ class Command(BaseCommand):
             return
 
         self.stdout.write(
-            f"Regenerando embeddings de {total} artículo(s)"
+            f'Regenerando embeddings de {total} artículo(s), versión "{version}"'
             f"{' (dry-run, no se escribe nada)' if dry_run else ''}..."
         )
 
@@ -160,6 +161,7 @@ class Command(BaseCommand):
 
                     EmbeddingArticulo.objects.update_or_create(
                         articulo=articulo,
+                        modelo_version=version,
                         defaults={"vector": vector},
                     )
                     procesados += 1
