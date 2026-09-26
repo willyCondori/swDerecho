@@ -13,6 +13,7 @@ from modulo_ia.models.embedding import EmbeddingArticulo, EmbeddingChunk, Entida
 from modulo_ia.models.chunk import ChunkCaso
 from modulo_casos.models.caso import Caso
 from modulo_ia.services.ranking_service import RankingService
+from modulo_ia.services.model_loader import version_activa
 
 
 def _vector_bloque(bloque: int, dim: int = 768, n_bloques: int = 3, seed: int = 0) -> list:
@@ -57,7 +58,7 @@ class RankingServiceEntidadesPorChunkTests(TestCase):
             contenido="El que se apoderare de bien mueble ajeno mediante fuerza.",
             norma=cls.norma, rama=cls.rama,
         )
-        EmbeddingArticulo.objects.create(articulo=cls.articulo_robo, vector=cls.v_a)
+        EmbeddingArticulo.objects.create(articulo=cls.articulo_robo, modelo_version=version_activa(), vector=cls.v_a)
         # A propósito vinculado con "Menor de edad" aunque su contenido real
         # es sobre robo: así se puede detectar si el score de entidades se
         # "presta" indebidamente de otro chunk del mismo caso.
@@ -69,7 +70,7 @@ class RankingServiceEntidadesPorChunkTests(TestCase):
             contenido="El que ejerciere violencia contra una menor de edad en el ámbito familiar.",
             norma=cls.norma, rama=cls.rama,
         )
-        EmbeddingArticulo.objects.create(articulo=cls.articulo_violencia, vector=cls.v_b)
+        EmbeddingArticulo.objects.create(articulo=cls.articulo_violencia, modelo_version=version_activa(), vector=cls.v_b)
         ArticuloEntidad.objects.create(articulo=cls.articulo_violencia, entidad=cls.ent_menor)
         ArticuloEntidad.objects.create(articulo=cls.articulo_violencia, entidad=cls.ent_victima)
 
@@ -81,7 +82,7 @@ class RankingServiceEntidadesPorChunkTests(TestCase):
         )
         for orden, (contenido, vector, entidades) in enumerate(chunks_def, start=1):
             chunk = ChunkCaso.objects.create(caso=caso, contenido=contenido, orden=orden, tipo="texto")
-            EmbeddingChunk.objects.create(chunk=chunk, vector=vector)
+            EmbeddingChunk.objects.create(chunk=chunk, modelo_version=version_activa(), vector=vector)
             for nombre in entidades:
                 EntidadDetectadaCaso.objects.create(chunk=chunk, valor_detectado=nombre, score=1.0)
         return caso

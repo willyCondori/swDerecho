@@ -7,6 +7,7 @@ from pgvector.django import CosineDistance
 
 from modulo_ia.models.embedding import EmbeddingArticulo, EmbeddingChunk
 from modulo_ia.models.embedding import EntidadDetectadaCaso
+from modulo_ia.services.model_loader import version_activa
 from modulo_catalogo.models.articulo import Articulo
 from modulo_ia.serializers.ia_serializer import ResultadoArticuloWriteSerializer
 from modulo_ia.services.clasificador_delito_service import ClasificadorDelitoService
@@ -75,15 +76,23 @@ class RankingService:
         scores = defaultdict(float)
         mejor_chunk_por_articulo = {}
 
+        version = version_activa()
+
         embeddings_chunk = (
             EmbeddingChunk.objects
-            .filter(chunk__caso=caso)
+            .filter(chunk__caso=caso, modelo_version=version)
             .select_related("chunk")
         )
         if not embeddings_chunk.exists():
-            raise ValueError("El caso no tiene chunks con embeddings para comparar.")
+            raise ValueError(
+                "El caso no tiene chunks con embeddings de la versión de modelo activa "
+                f'("{version}") para comparar. Si se cambió recientemente de modelo, '
+                "hay que reanalizar el caso."
+            )
 
-        candidatos_qs = EmbeddingArticulo.objects.filter(articulo__estado=True, articulo__norma__estado=True)
+        candidatos_qs = EmbeddingArticulo.objects.filter(
+            articulo__estado=True, articulo__norma__estado=True, modelo_version=version,
+        )
 
         if caso.rama_detectada_id:
             candidatos_qs = candidatos_qs.filter(articulo__rama_id=caso.rama_detectada_id)
