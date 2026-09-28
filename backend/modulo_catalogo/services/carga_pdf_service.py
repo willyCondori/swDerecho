@@ -291,6 +291,29 @@ _CONECTORES_REFERENCIA = {
     "con", "de", "a", "y", "e", "o", "u",
 }
 
+# ---------------------------------------------------------------------------
+# Corte de disposiciones finales/transitorias y bloque de promulgación
+# ---------------------------------------------------------------------------
+PATRON_FIN_DOCUMENTO = re.compile(
+    r"\n\s*DISPOSICI[ÓO]N(?:ES)?\s+(?:FINAL(?:ES)?|TRANSITORIA(?:S)?|ADICIONAL(?:ES)?)\b"
+    r"|Rem[íi]tase\s+al\s+(?:Poder|[ÓO]rgano)\s+Ejecutivo"
+    r"|Es\s+dada\s+en\s+la\s+Sala\s+de"
+    r"|Por\s+tanto,?\s+la\s+promulgo",
+    re.IGNORECASE,
+)
+
+
+def _cortar_bloque_final_documento(texto: str) -> str:
+    """
+    Corta el texto completo del PDF en el primer indicio de disposiciones
+    finales/transitorias, fórmula de promulgación o bloque de firmas, para
+    que esas secciones (que nunca se detectan como "Artículo N") no queden
+    pegadas al último artículo real detectado.
+    """
+    match = PATRON_FIN_DOCUMENTO.search(texto)
+    if not match:
+        return texto
+    return texto[: match.start()].rstrip()
 
 def _es_mayuscula(texto: str) -> bool:
     letras = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", texto)
@@ -615,6 +638,7 @@ def dividir_por_articulos(texto: str) -> list[dict]:
     usuario elija un "tipo de norma" predefinido.
     """
     texto = limpiar_texto(texto)
+    texto = _cortar_bloque_final_documento(texto)
 
     todos_matches = []
     for patron in PATRONES_ARTICULO:

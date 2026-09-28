@@ -17,7 +17,7 @@ TOP_N_ARTICULOS = 15
 CANDIDATOS_POR_CHUNK = 50
 CUANTIZADOR = Decimal("0.000001")
 
-UMBRAL_MINIMO_SCORE_TOTAL = 0.42
+UMBRAL_MINIMO_SCORE_TOTAL = 0.30
 PESO_SEMANTICO   = Decimal("0.60")
 PESO_DELITO      = Decimal("0.15")
 PESO_ENTIDADES   = Decimal("0.10")
@@ -278,7 +278,12 @@ class RankingService:
             candidatos.append(
                 cls._armar_candidato(articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia)
             )
-
+        import logging
+        _log = logging.getLogger(__name__)
+        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:10]
+        _log.warning("PRE-UMBRAL: total=%s | top scores=%s", len(candidatos), [round(c[0], 3) for c in _top])
+        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:15]
+        _log.warning("PRE-UMBRAL: %s", [(round(c[0], 3), c[1]) for c in _top])
         # Filtrar por umbral mínimo DESPUÉS de construir todos los candidatos,
         # para no forzar TOP_N_ARTICULOS completos cuando no hay suficientes
         # artículos realmente relevantes (evita relleno tipo "Fijación de la
