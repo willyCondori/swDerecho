@@ -7,8 +7,15 @@ const cargaArticulosApi = {
   cargar: (payload) => {
     const fd = new FormData()
     fd.append('archivo', payload.archivo)
-    fd.append('nombre_documento', payload.nombreDocumento)
-    if (payload.sigla) fd.append('sigla', payload.sigla)
+    // Modo "norma existente": se manda norma_id y el backend la usa
+    // directamente, sin buscar/crear por nombre. nombre_documento/sigla
+    // solo aplican al modo "norma nueva".
+    if (payload.normaId) {
+      fd.append('norma_id', payload.normaId)
+    } else {
+      fd.append('nombre_documento', payload.nombreDocumento)
+      if (payload.sigla) fd.append('sigla', payload.sigla)
+    }
     if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
     fd.append('rama_id', payload.ramaId)
     fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
