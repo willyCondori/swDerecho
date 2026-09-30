@@ -159,7 +159,7 @@ export default function CargaArticulosPage() {
             </div>
 
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
-{/* 
+
             <div className={styles.checkboxRow}>
               <input
                 id="sobrescribir"
@@ -172,11 +172,11 @@ export default function CargaArticulosPage() {
               <label htmlFor="sobrescribir" className={styles.checkboxLabel}>
                 <strong>Sobrescribir artículos existentes.</strong> Si esta norma y
                 rama ya tienen artículos cargados, serán eliminados antes de
-                insertar los nuevos. Si no marcas esta opción, los artículos
-                duplicados simplemente se omitirán.
+                insertar los nuevos (se sube la versión más nueva del PDF y
+                reemplaza el contenido anterior). Si no marcas esta opción, los
+                artículos duplicados simplemente se omitirán.
               </label>
             </div>
-*/}
 
             <div className={styles.submitRow}>
               <button type="button" className={styles.btnSecondary} onClick={handleReiniciar}>
