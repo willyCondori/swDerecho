@@ -4,6 +4,7 @@ import logging
 import os
 
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -34,6 +35,17 @@ def _nombre_usuario(usuario):
             if completo:
                 return completo
     return usuario.usuario
+
+
+def _marcar_documentos_reemplazados(documento_nuevo):
+    """
+    Tras una carga con sobrescribir=True que terminó bien, los PDF vigentes
+    anteriores de la misma norma pasan a "reemplazados" (vigente=False).
+    No se borra nada: quedan como historial descargable.
+    """
+    DocumentoNorma.objects.filter(
+        norma=documento_nuevo.norma, vigente=True,
+    ).exclude(pk=documento_nuevo.pk).update(vigente=False)
 
 
 class CargaArticulosView(APIView):
@@ -98,6 +110,13 @@ class CargaArticulosView(APIView):
 
             nombre_archivo = f"{carpeta_norma}_{archivo.name}"
             ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
+            # Si ya hay un PDF con ese nombre (p. ej. se vuelve a subir el
+            # mismo archivo), no lo pisamos: el DocumentoNorma anterior
+            # apunta a él y debe seguir siendo el PDF histórico.
+            if os.path.exists(ruta_archivo):
+                base, ext = os.path.splitext(nombre_archivo)
+                nombre_archivo = f"{base}_{timezone.now():%Y%m%d%H%M%S%f}{ext}"
+                ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
 
             with open(ruta_archivo, "wb+") as destino:
                 for chunk in archivo.chunks():
@@ -138,6 +157,10 @@ class CargaArticulosView(APIView):
                 rama_id=rama.id,
                 jerarquia_id=jerarquia.id if jerarquia else None,
                 sobrescribir=sobrescribir,
+                on_exito=(
+                    (lambda: _marcar_documentos_reemplazados(documento_norma))
+                    if sobrescribir else None
+                ),
                 info={
                     "nombre_documento": norma.nombre,
                     "archivo": archivo.name,
