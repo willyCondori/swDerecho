@@ -155,6 +155,38 @@
 }
 .fileRemove:hover { color: var(--c-red-400); background: rgba(163,45,45,0.12); }
 
+/* ── Norma nueva / norma existente ───────────────────────── */
+.modoToggle {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+
+.modoBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: 38px;
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  color: var(--c-text-secondary);
+  font-size: var(--fs-sm);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
+}
+.modoBtn:hover { background: var(--c-bg-hover); color: var(--c-text-primary); }
+
+.modoBtnActive,
+.modoBtnActive:hover {
+  background: var(--c-purple-800);
+  border-color: var(--c-purple-500);
+  color: var(--c-purple-100);
+}
+
 /* ── Formulario ──────────────────────────────────────────── */
 .formGrid {
   display: grid;
