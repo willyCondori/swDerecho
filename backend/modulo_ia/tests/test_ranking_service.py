@@ -139,3 +139,82 @@ class RankingServiceEntidadesPorChunkTests(TestCase):
         resultados = RankingService.calcular_ranking(caso)
         resultado = next(r for r in resultados if r.articulo_id == self.articulo_violencia.id)
         self.assertEqual(float(resultado.score_entidades), 1.0)
+
+
+class RankingServiceVersionadoEmbeddingsTests(TestCase):
+    """
+    Regresión para el versionado de embeddings (ver modulo_ia/models/embedding.py
+    y model_loader.py): un caso reanalizado después de cambiar de modelo
+    tiene, para el mismo chunk, una fila de EmbeddingChunk por cada
+    modelo_version con la que se analizó. Si un método no filtra por la
+    versión activa, puede comparar vectores de dos versiones/modelos
+    distintos entre sí — mismo tamaño (768), similitud sin sentido, sin
+    ningún error visible.
+    """
+
+    OTRA_VERSION = "version-vieja-test"
+
+    @classmethod
+    def setUpTestData(cls):
+        rol = Rol.objects.create(nombre="Abogado test versionado")
+        cls.usuario = Usuario.objects.create_user(usuario="versionado.test", password="Segura#123", rol=rol)
+        cls.cliente = Cliente.objects.create(nombres="Cliente", apellidos="Test")
+        cls.rama = RamaDerecho.objects.create(nombre="Rama test versionado")
+        jerarquia = Jerarquia.objects.create(nivel=51, nombre="Jerarquía test versionado")
+        cls.norma = Norma.objects.create(nombre="Norma test versionado", jerarquia=jerarquia)
+
+        cls.articulo = Articulo.objects.create(
+            numero_articulo="TEST-V", titulo="Art. TEST-V",
+            contenido="Contenido de prueba para versionado.",
+            norma=cls.norma, rama=cls.rama,
+        )
+
+        cls.caso = Caso.objects.create(
+            codigo="CASO-VERSIONADO", titulo="CASO-VERSIONADO", descripcion="",
+            usuario=cls.usuario, cliente=cls.cliente, rama_detectada=cls.rama,
+        )
+        cls.chunk = ChunkCaso.objects.create(
+            caso=cls.caso, contenido="texto del chunk", orden=1, tipo="texto"
+        )
+
+        cls.vector_activo = _vector_bloque(0, seed=10)
+        cls.vector_viejo = _vector_bloque(1, seed=20)
+
+        # Mismo chunk, dos versiones de modelo: la activa y una "vieja"
+        # que ya no debería usarse para comparar nada.
+        EmbeddingChunk.objects.create(
+            chunk=cls.chunk, modelo_version=version_activa(), vector=cls.vector_activo,
+        )
+        EmbeddingChunk.objects.create(
+            chunk=cls.chunk, modelo_version=cls.OTRA_VERSION, vector=cls.vector_viejo,
+        )
+
+        # Mismo artículo, dos versiones de EmbeddingArticulo.
+        EmbeddingArticulo.objects.create(
+            articulo=cls.articulo, modelo_version=version_activa(), vector=cls.vector_activo,
+        )
+        EmbeddingArticulo.objects.create(
+            articulo=cls.articulo, modelo_version=cls.OTRA_VERSION, vector=cls.vector_viejo,
+        )
+
+    def test_vectores_chunks_caso_solo_trae_la_version_activa(self):
+        vectores = RankingService._vectores_chunks_caso(self.caso)
+        # Sin el filtro por versión, esto traería 2 filas (una por
+        # modelo_version) para el mismo chunk.
+        self.assertEqual(len(vectores), 1)
+        chunk_id, vector = vectores[0]
+        self.assertEqual(chunk_id, self.chunk.id)
+        self.assertEqual(vector, self.vector_activo)
+
+    def test_score_semantico_articulo_especifico_usa_solo_la_version_activa(self):
+        vectores_chunks_caso = RankingService._vectores_chunks_caso(self.caso)
+        similitud, chunk_id = RankingService._score_semantico_articulo_especifico(
+            self.articulo.id, vectores_chunks_caso
+        )
+        # vector_articulo (versión activa) contra vector_chunk (versión
+        # activa): mismo vector → similitud coseno = 1.0. Si el método
+        # hubiera tomado el EmbeddingArticulo de OTRA_VERSION (vector
+        # ortogonal, por construcción de _vector_bloque), la similitud
+        # habría salido ~0.0 en vez de 1.0.
+        self.assertAlmostEqual(similitud, 1.0, places=5)
+        self.assertEqual(chunk_id, self.chunk.id)
