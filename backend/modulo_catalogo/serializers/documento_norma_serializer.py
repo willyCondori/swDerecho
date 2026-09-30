@@ -21,7 +21,7 @@ class DocumentoNormaSerializer(serializers.ModelSerializer):
         model  = DocumentoNorma
         fields = [
             "id", "norma", "norma_nombre", "rama", "rama_nombre",
-            "nombre_original", "tamano",
+            "nombre_original", "tamano", "vigente",
             "subido_por", "subido_por_nombre",
             "url_descarga", "created_at",
         ]

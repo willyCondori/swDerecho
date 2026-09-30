@@ -268,3 +268,41 @@ class CargaArticulosCreaDocumentoNormaTests(APITestCase):
             self.assertEqual(listado.status_code, status.HTTP_200_OK)
             self.assertEqual(len(listado.data), 1)
             self.assertEqual(listado.data[0]["nombre_original"], "codigo2.pdf")
+
+
+class DocumentoNormaVigenteTests(APITestCase):
+    """Marcado vigente/reemplazado cuando una carga sobrescribe la norma."""
+
+    def setUp(self):
+        self.norma = Norma.objects.create(nombre="Código Penal")
+        self.rama = RamaDerecho.objects.create(nombre="Penal")
+
+    def _doc(self, nombre):
+        return DocumentoNorma.objects.create(
+            norma=self.norma, rama=self.rama, nombre_original=nombre,
+            ruta_archivo=f"documentos_normativas/cp/{nombre}", tamano=1,
+        )
+
+    def test_documento_nuevo_nace_vigente(self):
+        self.assertTrue(self._doc("a.pdf").vigente)
+
+    def test_marcar_reemplazados_deja_vigente_solo_el_nuevo(self):
+        from modulo_catalogo.views.carga_articulos_view import _marcar_documentos_reemplazados
+        viejo = self._doc("v1.pdf")
+        nuevo = self._doc("v2.pdf")
+        _marcar_documentos_reemplazados(nuevo)
+        viejo.refresh_from_db(); nuevo.refresh_from_db()
+        self.assertFalse(viejo.vigente)
+        self.assertTrue(nuevo.vigente)
+        self.assertTrue(DocumentoNorma.objects.filter(pk=viejo.pk).exists())
+
+    def test_marcar_reemplazados_no_toca_otras_normas(self):
+        from modulo_catalogo.views.carga_articulos_view import _marcar_documentos_reemplazados
+        otra = Norma.objects.create(nombre="Otra norma")
+        ajeno = DocumentoNorma.objects.create(
+            norma=otra, rama=self.rama, nombre_original="x.pdf",
+            ruta_archivo="documentos_normativas/x/x.pdf", tamano=1,
+        )
+        _marcar_documentos_reemplazados(self._doc("v2.pdf"))
+        ajeno.refresh_from_db()
+        self.assertTrue(ajeno.vigente)

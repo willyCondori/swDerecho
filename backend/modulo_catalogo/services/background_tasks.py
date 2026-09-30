@@ -132,6 +132,7 @@ def lanzar_carga_en_background(
     jerarquia_id: int = None,
     sobrescribir: bool = False,
     info: dict = None,
+    on_exito=None,
 ) -> str:
     """
     Arranca el procesamiento del PDF en un hilo aparte y devuelve
@@ -140,6 +141,10 @@ def lanzar_carga_en_background(
     `info` (opcional) son datos descriptivos de la carga (nombre del
     documento, archivo, usuario...) que se devuelven en
     listar_cargas_activas() mientras la carga esté en curso.
+
+    `on_exito` (opcional) es un callable sin argumentos que se ejecuta solo
+    si la carga terminó bien; un error dentro de él se registra pero no
+    convierte la carga en FAILURE.
     """
     from modulo_catalogo.services.carga_pdf_service import cargar_articulos_desde_bytes
 
@@ -168,6 +173,11 @@ def lanzar_carga_en_background(
                 {"state": "SUCCESS", "meta": {"resumen": resultado.resumen()}},
                 timeout=CACHE_TTL_SEGUNDOS,
             )
+            if on_exito is not None:
+                try:
+                    on_exito()
+                except Exception:
+                    logger.exception("on_exito falló (task_id=%s)", task_id)
         except Exception as e:
             logger.exception("Error en carga de PDF en background (task_id=%s)", task_id)
             cache.set(
