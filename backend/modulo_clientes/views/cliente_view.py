@@ -7,7 +7,6 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import AuditoriaMixin, registrar_auditoria
 from core.permissions.roles_permission import EsAbogado, EsOperativo
 from modulo_clientes.models.cliente import Cliente
@@ -17,6 +16,7 @@ from modulo_clientes.serializers.cliente_serializer import (
     ClienteReadSerializer,
     ClienteWriteSerializer,
 )
+from modulo_clientes.services.busqueda_service import filtrar_por_busqueda
 from modulo_clientes.services.papelera_service import (
     ClienteConCasosActivosError,
     enviar_cliente_a_papelera,
@@ -130,8 +130,12 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
         query = request.query_params.get("search", "").strip().lower()
         filas = qs
         if len(query) >= MIN_CARACTERES_BUSQUEDA:
-            # Nombres cifrados: se filtra en Python (la papelera es chica).
-            filas = [c for c in qs if self._coincide_busqueda(c, query)]
+            # Nombres cifrados: se busca en el índice de prefijos (HMAC), no
+            # descifrando. Subconsulta por pk para no mezclar el JOIN de los
+            # tokens con el COUNT de casos de arriba.
+            filas = qs.filter(
+                pk__in=filtrar_por_busqueda(Cliente.objects.all(), query).values("pk")
+            )
 
         page = self.paginate_queryset(filas)
         serializer = ClientePapeleraSerializer(
@@ -181,18 +185,13 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     def buscar(self, request):
         """
         GET /api/clientes/buscar/?q=texto
-        Búsqueda por nombre descifrado (itera y compara en memoria).
+        Búsqueda por nombre y apellido sobre un índice de prefijos (HMAC)
+        que se mantiene al guardar cada cliente: no descifra la tabla.
 
-        No hay riesgo de inyección SQL: `query` nunca se concatena a
-        SQL, solo se compara como texto plano en Python contra los
-        valores ya descifrados.
-
-        Nota de rendimiento: al estar los nombres cifrados no se
-        puede filtrar en la base de datos, así que esto descifra
-        TODOS los clientes activos en cada búsqueda. Con volumen
-        alto de registros, considerar un índice de hash/búsqueda
-        invertida (ej. HMAC determinístico del nombre normalizado)
-        para no hacer O(n) descifrados por request.
+        Cada palabra de `q` (2+ letras) debe ser el comienzo de alguna
+        palabra del nombre o apellido, sin distinguir mayúsculas ni tildes
+        ("mam" encuentra a "Mamani"; "juan perez" también). Ver
+        modulo_clientes.services.busqueda_service.
         """
         query = request.query_params.get("q", "").strip().lower()
         if len(query) < MIN_CARACTERES_BUSQUEDA:
@@ -201,11 +200,7 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resultados = [
-            cliente
-            for cliente in self.get_queryset()
-            if self._coincide_busqueda(cliente, query)
-        ]
+        resultados = filtrar_por_busqueda(self.get_queryset(), query)
 
         serializer = ClienteReadSerializer(
             resultados, many=True, context={"request": request}
@@ -229,11 +224,6 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 request=self.request,
                 metadata=metadata,
             )
-
-    def _coincide_busqueda(self, cliente, query):
-        nombres   = safe_decrypt(cliente.nombres, fallback="").lower()
-        apellidos = safe_decrypt(cliente.apellidos, fallback="").lower()
-        return query in nombres or query in apellidos
 
     def _respuesta_paginada(self, qs, serializer_class, request):
         page = self.paginate_queryset(qs)
