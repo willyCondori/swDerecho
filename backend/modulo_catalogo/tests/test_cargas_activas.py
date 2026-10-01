@@ -13,12 +13,14 @@ import shutil
 import tempfile
 import threading
 import time
+from datetime import timedelta
 from unittest.mock import patch
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import override_settings
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -142,8 +144,13 @@ class IndiceDeCargasActivasTests(CargasActivasBase):
         self.assertFalse(self.activas(self.admin).data[0]["es_mia"])
 
     def test_la_mas_reciente_va_primero(self):
-        primera = self.lanzar(CargaFalsa(), nombre_documento="Primera")
-        segunda = self.lanzar(CargaFalsa(), nombre_documento="Segunda")
+        # No depender de la resolución del reloj (ambas cargas pueden
+        # recibir la misma fecha en Windows).
+        inicio = timezone.now()
+        with patch("modulo_catalogo.services.background_tasks.timezone.now", return_value=inicio):
+            primera = self.lanzar(CargaFalsa(), nombre_documento="Primera")
+        with patch("modulo_catalogo.services.background_tasks.timezone.now", return_value=inicio + timedelta(seconds=1)):
+            segunda = self.lanzar(CargaFalsa(), nombre_documento="Segunda")
         ids = [c["task_id"] for c in self.activas().data]
         self.assertEqual(ids, [segunda, primera])
 

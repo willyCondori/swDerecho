@@ -9,6 +9,7 @@ Complementa a test_validacion_pdf_endpoints.py, que solo cubre el modo
 """
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from django.test import override_settings
 from rest_framework import status
@@ -38,6 +39,13 @@ class CargaArticulosNormaExistenteTests(APITestCase):
         )
 
     def setUp(self):
+        # Esta prueba verifica el endpoint, no el procesamiento en otro hilo.
+        carga = patch(
+            "modulo_catalogo.views.carga_articulos_view.lanzar_carga_en_background",
+            return_value="tarea-prueba",
+        )
+        carga.start()
+        self.addCleanup(carga.stop)
         self.media = tempfile.mkdtemp()
         self.addCleanup(shutil.rmtree, self.media, ignore_errors=True)
         self.client.force_authenticate(self.abogado)

@@ -33,6 +33,7 @@ import threading
 import uuid
 
 from django.core.cache import cache
+from django.db import close_old_connections, connections
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -160,6 +161,7 @@ def lanzar_carga_en_background(
 
     def _run():
         try:
+            close_old_connections()
             resultado = cargar_articulos_desde_bytes(
                 contenido_pdf=contenido_pdf,
                 norma_id=norma_id,
@@ -186,7 +188,12 @@ def lanzar_carga_en_background(
                 timeout=CACHE_TTL_SEGUNDOS,
             )
         finally:
-            _quitar_del_indice(task_id)
+            try:
+                _quitar_del_indice(task_id)
+            finally:
+                # Las conexiones de Django pertenecen al hilo. Al salir no
+                # hay un request_finished que las cierre automáticamente.
+                connections.close_all()
 
     hilo = threading.Thread(target=_run, daemon=True)
     hilo.start()

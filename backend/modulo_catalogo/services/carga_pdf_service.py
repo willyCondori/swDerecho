@@ -258,6 +258,9 @@ def limpiar_texto(texto: str) -> str:
 # ---------------------------------------------------------------------------
 
 PATRONES_ARTICULO = [
+    # Ordinal opcional en encabezados con cualquier combinación de mayúsculas.
+    # El grupo 1 sigue siendo el número; los filtros de referencias se conservan.
+    r"(?i:art[íi]culo\.?|art\.)\s*(\d+)\s*[º°]",
     r"ARTÍCULO\s+(\d+)\.",
     r"ARTÍCULO\s+(\d+)-",
     r"ARTÍCULO\.\s+(\d+)\s*º",
@@ -320,6 +323,7 @@ def _extraer_sufijo_articulo(texto: str, pos_despues_numero: int) -> str:
 # ---------------------------------------------------------------------------
 PATRON_FIN_DOCUMENTO = re.compile(
     r"\n\s*DISPOSICI[ÓO]N(?:ES)?\s+(?:FINAL(?:ES)?|TRANSITORIA(?:S)?|ADICIONAL(?:ES)?)\b"
+    r"|\bPARTE\s+FINAL\s+DISPOSICIONES\s+(?:TRANSITORIAS|FINALES)\b"
     r"|Rem[íi]tase\s+al\s+(?:Poder|[ÓO]rgano)\s+Ejecutivo"
     r"|Es\s+dada\s+en\s+la\s+Sala\s+de"
     r"|Por\s+tanto,?\s+la\s+promulgo",
@@ -377,6 +381,17 @@ def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
         palabra = re.search(r"([^\W\d_]+)$", anterior_strip)
         return not (palabra and palabra.group(1).lower() in _CONECTORES_REFERENCIA)
     return True
+
+def _es_encabezado_titulado(texto: str, coincidencia) -> bool:
+    """Reconoce encabezados pegados a texto sin punto ni salto de línea."""
+    resto = texto[coincidencia.end():]
+    if not re.match(r"[\s.º°\-\xad]*\([^()\n]+\)", resto):
+        return False
+    anterior = texto[:coincidencia.start()].rstrip()
+    palabra = re.search(r"([^\W\d_]+)$", anterior)
+    # «según el Artículo 5º (Título)» sigue siendo una referencia.
+    return not (palabra and palabra.group(1).lower() in _CONECTORES_REFERENCIA)
+
 
 def _es_referencia_en_oracion(texto: str, coincidencia) -> bool:
     if not coincidencia.group(0)[-1].isspace():
@@ -475,7 +490,7 @@ def extraer_titulo_articulo(numero, contenido: str) -> str:
 # ---------------------------------------------------------------------------
 
 PATRON_PREFIJO_ARTICULO = re.compile(
-    r"^\s*(?:Art(?:[íi]culo)?\.?\s*\d+\s*[°º]?\s*\.?-?\s*)"
+    r"^\s*(?:Art(?:[íi]culo)?\.?\s*\d+\s*[°º]?\s*\.?(?:-|\xad)?\s*)"
     r"(?:\([^()]*\)\s*\.?\s*)?",
     re.IGNORECASE,
 )
@@ -657,10 +672,11 @@ def dividir_por_articulos(texto: str) -> list[dict]:
 
     todos_matches = []
     for patron in PATRONES_ARTICULO:
-        matches = list(re.finditer(patron, texto, re.MULTILINE))
+        matches = list(re.finditer(patron, texto, re.MULTILINE | re.IGNORECASE))
         matches = [
             m for m in matches
-            if _es_inicio_valido(texto, m.start(), _es_mayuscula(m.group(0)))
+            if (_es_inicio_valido(texto, m.start(), _es_mayuscula(m.group(0)))
+                or _es_encabezado_titulado(texto, m))
             and not _es_referencia_en_oracion(texto, m)
         ]
         todos_matches.extend(matches)

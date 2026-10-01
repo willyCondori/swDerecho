@@ -230,3 +230,40 @@ class DivisionPorArticulosTests(SimpleTestCase):
         arts = dividir_por_articulos(texto)
         self.assertEqual([a["numero"] for a in arts], ["5", "6"])
         self.assertEqual(arts[0]["titulo"], "Art. 5 - PREVENCIÓN")
+
+
+class FormatosCPPTests(SimpleTestCase):
+    def test_ordinal_con_distintas_mayusculas_y_espacios_pdf(self):
+        for palabra in ("Artículo", "ARTÍCULO", "artículo", "Articulo", "Art."):
+            for ordinal in ("º", "°"):
+                with self.subTest(palabra=palabra, ordinal=ordinal):
+                    texto = (
+                        f"{palabra}\xa021{ordinal}.\xad (Obligatoriedad). Texto completo del primer artículo. "
+                        f"{palabra}\xa022{ordinal}.\xad (Efectos). Texto completo del segundo artículo."
+                    )
+                    self.assertEqual(numeros(texto), ["21", "22"])
+                    self.assertNotIn("Efectos", articulo(texto, "21")["texto"])
+
+    def test_encabezado_titulado_sin_punto_anterior(self):
+        texto = (
+            "Artículo 179º.\xad (Registro). Los participantes deberán hacerlo "
+            "Artículo 180º.\xad (Allanamiento de domicilio). Se requiere resolución judicial."
+        )
+        self.assertEqual(numeros(texto), ["179", "180"])
+
+    def test_referencia_con_ordinal_y_titulo_no_divide(self):
+        texto = (
+            "Artículo 21º. (Obligatoriedad). Se aplica según el Artículo 22º (Efectos). "
+            "La obligación continúa vigente. Artículo 23º. (Suspensión). Texto completo de suspensión."
+        )
+        self.assertEqual(numeros(texto), ["21", "23"])
+        self.assertIn("La obligación continúa", articulo(texto, "21")["texto"])
+
+    def test_parte_final_en_texto_corrido_no_contamina_ultimo_articulo(self):
+        texto = (
+            "Artículo 442º. (Reserva). La información tiene carácter reservado. "
+            "PARTE FINAL DISPOSICIONES TRANSITORIAS Primera. Texto de las disposiciones. "
+            "Artículo 106. Modificación de otro código que no pertenece a la secuencia."
+        )
+        self.assertEqual(numeros(texto), ["442"])
+        self.assertTrue(articulo(texto, "442")["texto"].endswith("reservado."))

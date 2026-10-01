@@ -36,7 +36,7 @@ jobs:
     # reales de cada entorno viven en el .env de cada máquina/servidor,
     # nunca en el repo.
     env:
-      SECRET_KEY: ci-only-secret-key
+      SECRET_KEY: ci-only-secret-key-for-tests-at-least-32-bytes
       ENCRYPTION_KEY: 7a6acbf4700f4a10181a96eb2580ced1198dda3b84cd2a13ea25d3d142aac7ab
       DEBUG: "True"
       ALLOWED_HOSTS: localhost,127.0.0.1
@@ -124,6 +124,8 @@ jobs:
             modulo_clientes.tests.test_papelera_clientes \
             modulo_clientes.tests.test_busqueda_clientes \
             modulo_catalogo.tests.test_cargas_activas \
+            modulo_catalogo.tests.test_background_conexiones \
+            modulo_catalogo.tests.test_nombres_pdf_norma \
             modulo_catalogo.tests.test_extractor_articulos \
             core.tests.test_validar_pdf \
             modulo_catalogo.tests.test_validacion_pdf_endpoints \

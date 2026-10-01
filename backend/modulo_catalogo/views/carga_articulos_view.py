@@ -5,6 +5,7 @@ import os
 
 from django.conf import settings
 from django.utils import timezone
+from django.utils.text import slugify
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -22,6 +23,16 @@ from modulo_catalogo.services.background_tasks import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _nombre_pdf_norma(nombre):
+    """Nombre registrado de la norma, apto para Windows y con longitud acotada."""
+    base = slugify(nombre)[:60].rstrip("-") or "norma"
+    # Windows reserva estos nombres incluso cuando tienen extensión.
+    if base in {"con", "prn", "aux", "nul", *(f"com{i}" for i in range(1, 10)),
+                *(f"lpt{i}" for i in range(1, 10))}:
+        base = f"norma-{base}"
+    return f"{base}.pdf"
 
 
 def _nombre_usuario(usuario):
@@ -98,7 +109,9 @@ class CargaArticulosView(APIView):
         # GUARDAR PDF
         # ─────────────────────────────
         try:
-            carpeta_norma = (norma.sigla or norma.nombre).lower().replace(" ", "_")
+            # Nombres seguros y cortos, independientes del archivo seleccionado.
+            # El ID evita colisiones entre normas con nombres/siglas similares.
+            carpeta_norma = f"{slugify(norma.sigla or norma.nombre)[:32] or 'norma'}-{norma.pk}"
 
             ruta_carpeta = os.path.join(
                 settings.MEDIA_ROOT,
@@ -108,7 +121,7 @@ class CargaArticulosView(APIView):
 
             os.makedirs(ruta_carpeta, exist_ok=True)
 
-            nombre_archivo = f"{carpeta_norma}_{archivo.name}"
+            nombre_archivo = _nombre_pdf_norma(norma.nombre)
             ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
             # Si ya hay un PDF con ese nombre (p. ej. se vuelve a subir el
             # mismo archivo), no lo pisamos: el DocumentoNorma anterior
