@@ -8,6 +8,7 @@ import FormSelectField from '../../components/articulos/FormSelectField'
 import FormTextField from '../../components/articulos/FormTextField'
 import FuenteInfo from '../../components/articulos/FuenteInfo'
 import ProgressPanel from '../../components/articulos/ProgressPanel'
+import CargasEnCursoAviso from '../../components/articulos/CargasEnCursoAviso'
 import ResultSummary from '../../components/articulos/ResultSummary'
 import ErrorPanel from '../../components/articulos/ErrorPanel'
 import WarningsList from '../../components/articulos/WarningsList'
@@ -18,14 +19,19 @@ import styles from './CargaArticulosPage.module.css'
 // texto. Ya no hay un <select> fijo de "Civil / Penal / Laboral / CPE": el
 // nombre que escribas (ej. "Código de Procedimiento Penal") crea o
 // reutiliza la Norma automáticamente en el backend.
-const FORM_INICIAL = { nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '', sobrescribir: false }
+const FORM_INICIAL = {
+  modo: 'nueva', // 'nueva' | 'existente'
+  normaId: '',
+  nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '', sobrescribir: false,
+}
 
 export default function CargaArticulosPage() {
   const {
-    jerarquias, ramas, loadingOpts,
+    jerarquias, ramas, normas, loadingOpts,
     cargar, reset,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
+    cargaRetomada, otrasCargas,
   } = useCargaArticulos()
 
   const {
@@ -36,13 +42,27 @@ export default function CargaArticulosPage() {
   const [form, setForm] = useState(FORM_INICIAL)
   const [fieldErrors, setFieldErrors] = useState({})
 
-  const jerarquiaSeleccionada = jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
+  const modoExistente = form.modo === 'existente'
+  const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
+  const jerarquiaSeleccionada = modoExistente
+    ? normaSeleccionada?.jerarquia
+    : jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
   const mostrandoFormulario = !procesando && !resumen && !error
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
+  }
+
+  const handleModoChange = (modo) => {
+    if (modo === form.modo) return
+    // Al elegir una norma existente, lo más común es que sea justamente
+    // para subir su PDF más nuevo y reemplazar sus artículos: se marca
+    // "sobrescribir" por defecto, pero el usuario lo puede destildar si
+    // solo quiere sumar artículos nuevos sin tocar los que ya tiene.
+    setForm((prev) => ({ ...prev, modo, sobrescribir: modo === 'existente' }))
+    setFieldErrors({})
   }
 
   const handleSubmit = async (e) => {
@@ -54,9 +74,10 @@ export default function CargaArticulosPage() {
     }
     await cargar({
       archivo,
-      nombreDocumento: form.nombreDocumento.trim(),
-      sigla: form.sigla.trim(),
-      jerarquiaId: form.jerarquiaId,
+      normaId: modoExistente ? form.normaId : null,
+      nombreDocumento: modoExistente ? '' : form.nombreDocumento.trim(),
+      sigla: modoExistente ? '' : form.sigla.trim(),
+      jerarquiaId: modoExistente ? '' : form.jerarquiaId,
       ramaId: form.ramaId,
       sobrescribir: form.sobrescribir,
     })
@@ -83,6 +104,8 @@ export default function CargaArticulosPage() {
         </p>
       </header>
 
+      {!resumen && <CargasEnCursoAviso cargas={otrasCargas} />}
+
       {mostrandoFormulario && (
         <form onSubmit={handleSubmit} noValidate>
           <div className={styles.card}>
@@ -104,43 +127,85 @@ export default function CargaArticulosPage() {
               onRemover={remover}
             />
 
+            <div className={styles.modoToggle} role="tablist" aria-label="Norma nueva o existente">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={!modoExistente}
+                className={`${styles.modoBtn} ${!modoExistente ? styles.modoBtnActive : ''}`}
+                onClick={() => handleModoChange('nueva')}
+              >
+                <i className="ti ti-file-plus" aria-hidden="true" />
+                Norma nueva
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={modoExistente}
+                className={`${styles.modoBtn} ${modoExistente ? styles.modoBtnActive : ''}`}
+                onClick={() => handleModoChange('existente')}
+              >
+                <i className="ti ti-replace" aria-hidden="true" />
+                Norma existente
+              </button>
+            </div>
+
             <div className={styles.formGrid}>
-              <FormTextField
-                id="nombreDocumento"
-                label="Nombre del documento"
-                placeholder="Ej. Código de Procedimiento Penal"
-                value={form.nombreDocumento}
-                onChange={handleInputChange}
-                disabled={loadingOpts}
-                error={fieldErrors.nombreDocumento}
-                helpText="Si ya existe una norma con este nombre, se reutiliza; si no, se crea."
-                fullWidth
-              />
+              {modoExistente ? (
+                <FormSelectField
+                  id="normaId"
+                  label="Norma"
+                  placeholder={loadingOpts ? 'Cargando normas...' : 'Selecciona la norma...'}
+                  value={form.normaId}
+                  onChange={handleInputChange}
+                  options={normas.map((n) => ({
+                    value: n.id,
+                    label: n.sigla ? `${n.nombre} (${n.sigla})` : n.nombre,
+                  }))}
+                  disabled={loadingOpts}
+                  error={fieldErrors.normaId}
+                  fullWidth
+                />
+              ) : (
+                <>
+                  <FormTextField
+                    id="nombreDocumento"
+                    label="Nombre del documento"
+                    placeholder="Ej. Código de Procedimiento Penal"
+                    value={form.nombreDocumento}
+                    onChange={handleInputChange}
+                    disabled={loadingOpts}
+                    error={fieldErrors.nombreDocumento}
+                    helpText="Si ya existe una norma con este nombre, se reutiliza; si no, se crea."
+                    fullWidth
+                  />
 
-              <FormTextField
-                id="sigla"
-                label="Sigla (opcional)"
-                placeholder="Ej. CPP"
-                value={form.sigla}
-                onChange={handleInputChange}
-                disabled={loadingOpts}
-                error={fieldErrors.sigla}
-                helpText="Si ya existe una norma con esta sigla, se reutiliza en lugar de crear una nueva."
-              />
+                  <FormTextField
+                    id="sigla"
+                    label="Sigla (opcional)"
+                    placeholder="Ej. CPP"
+                    value={form.sigla}
+                    onChange={handleInputChange}
+                    disabled={loadingOpts}
+                    error={fieldErrors.sigla}
+                    helpText="Si ya existe una norma con esta sigla, se reutiliza en lugar de crear una nueva."
+                  />
 
-              <FormSelectField
-                id="jerarquiaId"
-                label="Tipo de norma (jerarquía)"
-                placeholder="Selecciona una jerarquía..."
-                value={form.jerarquiaId}
-                onChange={handleInputChange}
-                options={jerarquias.map((j) => ({
-                  value: j.id,
-                  label: `${j.nombre} (nivel ${j.nivel})`,
-                }))}
-                disabled={loadingOpts}
-                error={fieldErrors.jerarquiaId}
-              />
+                  <FormSelectField
+                    id="jerarquiaId"
+                    label="Tipo de norma (jerarquía)"
+                    placeholder="Selecciona una jerarquía..."
+                    value={form.jerarquiaId}
+                    onChange={handleInputChange}
+                    options={jerarquias.map((j) => ({
+                      value: j.id,
+                      label: `${j.nombre} (nivel ${j.nivel})`,
+                    }))}
+                    disabled={loadingOpts}
+                    error={fieldErrors.jerarquiaId}
+                  />
+                </>
+              )}
 
               <FormSelectField
                 id="ramaId"
@@ -151,11 +216,12 @@ export default function CargaArticulosPage() {
                 options={ramas.map((r) => ({ value: r.id, label: r.nombre }))}
                 disabled={loadingOpts}
                 error={fieldErrors.ramaId}
+                fullWidth={modoExistente}
               />
             </div>
 
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
-{/* 
+
             <div className={styles.checkboxRow}>
               <input
                 id="sobrescribir"
@@ -168,11 +234,11 @@ export default function CargaArticulosPage() {
               <label htmlFor="sobrescribir" className={styles.checkboxLabel}>
                 <strong>Sobrescribir artículos existentes.</strong> Si esta norma y
                 rama ya tienen artículos cargados, serán eliminados antes de
-                insertar los nuevos. Si no marcas esta opción, los artículos
-                duplicados simplemente se omitirán.
+                insertar los nuevos (se sube la versión más nueva del PDF y
+                reemplaza el contenido anterior). Si no marcas esta opción, los
+                artículos duplicados simplemente se omitirán.
               </label>
             </div>
-*/}
 
             <div className={styles.submitRow}>
               <button type="button" className={styles.btnSecondary} onClick={handleReiniciar}>
@@ -196,7 +262,14 @@ export default function CargaArticulosPage() {
         </form>
       )}
 
-      {procesando && <ProgressPanel paso={paso} progreso={progreso} />}
+      {procesando && (
+        <ProgressPanel
+          paso={paso}
+          progreso={progreso}
+          documento={cargaRetomada?.nombre_documento || (modoExistente ? normaSeleccionada?.nombre : form.nombreDocumento.trim())}
+          retomada={Boolean(cargaRetomada)}
+        />
+      )}
 
       {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} />}
 

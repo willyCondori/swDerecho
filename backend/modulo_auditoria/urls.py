@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views.auditoria_view import AuditoriaViewSet
 
 router = DefaultRouter()
-router.register(r"auditoria", AuditoriaViewSet, basename="auditoria")
+router.register(r"", AuditoriaViewSet, basename="auditoria")
 
 urlpatterns = [
     path("", include(router.urls)),

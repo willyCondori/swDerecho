@@ -1,0 +1,79 @@
+/* modules/casos/pages/PapeleraCasosPage.module.css */
+
+.root { composes: root from '../../../styles/shared.module.css'; }
+.header { composes: header from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.toolbar { composes: toolbar from '../../../styles/shared.module.css'; }
+.searchBox { composes: searchBox from '../../../styles/shared.module.css'; }
+.searchInput { composes: searchInput from '../../../styles/shared.module.css'; }
+.searchIcon { composes: searchIcon from '../../../styles/shared.module.css'; }
+.resultCount { composes: resultCount from '../../../styles/shared.module.css'; }
+.emptyState { composes: emptyState from '../../../styles/shared.module.css'; }
+.emptyIcon { composes: emptyIcon from '../../../styles/shared.module.css'; }
+.emptyText { composes: emptyText from '../../../styles/shared.module.css'; }
+.pagination { composes: pagination from '../../../styles/shared.module.css'; }
+.pageInfo { composes: pageInfo from '../../../styles/shared.module.css'; }
+.pageControls { composes: pageControls from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+
+.lista {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.fila {
+  background: var(--c-bg-elevated);
+  border: 1px solid var(--c-border);
+  border-left: 3px solid var(--c-border-strong);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+  flex: 1 1 280px;
+}
+
+.codigo {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+.tituloCaso {
+  margin: 0;
+  font-size: var(--fs-md);
+  color: var(--c-text-primary);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) var(--sp-4);
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.eliminado {
+  font-size: var(--fs-sm);
+  color: var(--c-text-secondary, var(--c-text-muted));
+}

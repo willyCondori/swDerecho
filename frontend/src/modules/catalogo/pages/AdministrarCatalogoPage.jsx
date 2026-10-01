@@ -9,11 +9,14 @@ import JerarquiaForm from '../components/administrar/JerarquiaForm'
 import JerarquiaTable from '../components/administrar/JerarquiaTable'
 import EntidadForm from '../components/administrar/EntidadForm'
 import EntidadTable from '../components/administrar/EntidadTable'
+import NormasSection from '../components/administrar/NormasSection'
+import Pagination from '../../../components/ui/Pagination'
 import styles from './AdministrarCatalogoPage.module.css'
 
 const TABS = [
   { value: 'ramas', label: 'Ramas de derecho', icon: 'ti-gavel' },
   { value: 'jerarquias', label: 'Jerarquías (tipos de norma)', icon: 'ti-stack-2' },
+  { value: 'normas', label: 'Normas', icon: 'ti-books' },
   { value: 'entidades', label: 'Entidades jurídicas', icon: 'ti-users' },
 ]
 
@@ -42,8 +45,8 @@ export default function AdministrarCatalogoPage() {
         <div>
           <h1 className={styles.title}>Catálogo jurídico</h1>
           <p className={styles.subtitle}>
-            Administra las ramas de derecho, los tipos de norma (jerarquía) y
-            las entidades jurídicas del catálogo. Cualquiera que crees acá
+            Administra las ramas de derecho, los tipos de norma (jerarquía),
+            las normas y las entidades jurídicas del catálogo. Cualquiera que crees acá
             aparece de inmediato en el formulario de "Cargar artículos
             jurídicos" y en el análisis de nuevos casos.
           </p>
@@ -66,6 +69,7 @@ export default function AdministrarCatalogoPage() {
 
       {tab === 'ramas' && <RamasSection />}
       {tab === 'jerarquias' && <JerarquiasSection />}
+      {tab === 'normas' && <NormasSection />}
       {tab === 'entidades' && <EntidadesSection />}
     </div>
   )
@@ -79,6 +83,7 @@ const ESTADO_TABS = [
 function RamasSection() {
   const {
     ramas, loading, error, reload,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearRama, actualizarRama, eliminarRama, activarRama,
   } = useGestionRamas()
@@ -192,6 +197,16 @@ function RamasSection() {
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="ramas"
+          />
+        )}
       </div>
     </>
   )
@@ -200,6 +215,7 @@ function RamasSection() {
 function JerarquiasSection() {
   const {
     jerarquias, loading, error, reload,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearJerarquia, actualizarJerarquia, eliminarJerarquia, activarJerarquia,
   } = useGestionJerarquias()
@@ -369,6 +385,16 @@ function JerarquiasSection() {
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="jerarquías"
+          />
+        )}
       </div>
     </>
   )
@@ -377,6 +403,8 @@ function JerarquiasSection() {
 function EntidadesSection() {
   const {
     entidades, loading, error, reload,
+    search, setSearch,
+    page, setPage, count, totalPages, pageSize,
     estadoFiltro, setEstadoFiltro,
     crearEntidad, actualizarEntidad, eliminarEntidad, activarEntidad,
   } = useGestionEntidades()
@@ -459,6 +487,16 @@ function EntidadesSection() {
             </button>
           ))}
         </div>
+        <div className={styles.searchBox}>
+          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
+          <input
+            type="text"
+            className={styles.searchInput}
+            placeholder="Buscar entidad por nombre o descripción..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -484,12 +522,23 @@ function EntidadesSection() {
           entidades={entidades}
           loading={loading}
           error={error}
+          busqueda={search}
           onRetry={reload}
           onEditar={abrirEditar}
           onEliminar={handleEliminar}
           onRecuperar={handleRecuperar}
           onCrearPrimero={abrirCrear}
         />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="entidades"
+          />
+        )}
       </div>
     </>
   )

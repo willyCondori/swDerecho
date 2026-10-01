@@ -14,7 +14,9 @@ import { lazy, Suspense } from 'react'
 const CasosPage      = lazy(() => import('../modules/casos/pages/CasosPage'))
 const NuevoCasoPage  = lazy(() => import('../modules/casos/pages/NuevoCasoPage'))
 const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'))
+const SeguimientoCasoPage = lazy(() => import('../modules/casos/pages/SeguimientoCasoPage'))
 const EditarCasoPage = lazy(() => import('../modules/casos/pages/EditarCasoPage'))
+const PapeleraCasosPage = lazy(() => import('../modules/casos/pages/PapeleraCasosPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
 const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
@@ -26,8 +28,10 @@ const ClientesPage = lazy(() => import('../modules/clientes/pages/ClientesPage')
 const CrearClientePage  = lazy(() => import('../modules/clientes/pages/CrearClientePage'))
 const EditarClientePage = lazy(() => import('../modules/clientes/pages/EditarClientePage'))
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
+const PapeleraClientesPage = lazy(() => import('../modules/clientes/pages/PapeleraClientesPage'))
 const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
+const NormasPage = lazy(() => import('../modules/catalogo/pages/NormasPage'))
 
 
 function PageLoader() {
@@ -87,6 +91,9 @@ export default function AppRouter() {
           <Route path="/casos" element={
             <Suspense fallback={<PageLoader />}><CasosPage /></Suspense>
           } />
+          <Route path="/casos/:id/seguimiento" element={
+            <Suspense fallback={<PageLoader />}><SeguimientoCasoPage /></Suspense>
+          } />
           <Route path="/casos/:id" element={
             <Suspense fallback={<PageLoader />}><CasoDetailPage /></Suspense>
           } />
@@ -121,8 +128,16 @@ export default function AppRouter() {
             <Route path="/casos/nuevo" element={
               <Suspense fallback={<PageLoader />}><NuevoCasoPage /></Suspense>
             } />
+            {/* Papelera — espeja EsAbogado del backend (admin y abogado) */}
+            <Route path="/casos/papelera" element={
+              <Suspense fallback={<PageLoader />}><PapeleraCasosPage /></Suspense>
+            } />
             <Route path="/casos/:id/editar" element={
               <Suspense fallback={<PageLoader />}><EditarCasoPage /></Suspense>
+            } />
+            {/* Papelera — espeja EsAbogado del backend (admin y abogado) */}
+            <Route path="/clientes/papelera" element={
+              <Suspense fallback={<PageLoader />}><PapeleraClientesPage /></Suspense>
             } />
             <Route path="/clientes/nuevo" element={
               <Suspense fallback={<PageLoader />}><CrearClientePage /></Suspense>
@@ -171,6 +186,12 @@ export default function AppRouter() {
                 (para los <select> de casos y de carga de artículos). */}
             <Route path="/catalogo/administrar" element={
                 <Suspense fallback={<PageLoader />}><AdministrarCatalogoPage /></Suspense>
+              } />
+
+            {/* Normas: eliminar (lógico) y recuperar — espeja EsAdmin en
+                NormaViewSet (destroy / activar). */}
+            <Route path="/catalogo/normas" element={
+                <Suspense fallback={<PageLoader />}><NormasPage /></Suspense>
               } />
           </Route>
         </Route>

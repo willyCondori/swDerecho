@@ -85,7 +85,8 @@ jobs:
             psycopg2-binary==2.9.12 \
             cryptography==49.0.0 \
             pgvector==0.4.2 \
-            numpy==2.5.2
+            numpy==2.5.2 \
+            pypdf==6.14.2
 
       - name: Crear carpeta de logs
         working-directory: backend
@@ -107,5 +108,22 @@ jobs:
             modulo_usuarios.tests.test_encryption \
             modulo_usuarios.tests.test_utils_passwords \
             modulo_catalogo.tests.test_articulo_entidad_service \
+            modulo_catalogo.tests.test_norma_eliminacion \
+            modulo_catalogo.tests.test_articulos_listado \
+            modulo_catalogo.tests.test_articulos_orden \
             modulo_ia.tests.test_ranking_service \
+            modulo_auditoria.tests.test_auditoria_endpoints \
+            modulo_documentos.tests.test_documentos_endpoints \
+            modulo_catalogo.tests.test_vincular_documentos_norma \
+            modulo_catalogo.tests.test_regenerar_embeddings_version \
+            modulo_casos.tests.test_analisis_async \
+            modulo_catalogo.tests.test_regenerar_embeddings_version \
+            modulo_catalogo.tests.test_documento_norma_endpoints \
+            modulo_casos.tests.test_seguimiento \
+            modulo_casos.tests.test_papelera \
+            modulo_clientes.tests.test_papelera_clientes \
+            modulo_catalogo.tests.test_cargas_activas \
+            modulo_catalogo.tests.test_extractor_articulos \
+            core.tests.test_validar_pdf \
+            modulo_catalogo.tests.test_validacion_pdf_endpoints \
             -v 2

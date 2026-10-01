@@ -1,14 +1,18 @@
 // modules/casos/hooks/useCasoDetail.js
 import { useCallback, useEffect, useState } from 'react'
 import casosApi from '../../../api/casosApi'
+import { mensajeErrorApi } from '../utils/etapas'
 
 export default function useCasoDetail(id) {
   const [caso, setCaso] = useState(null)
   const [articulos, setArticulos] = useState([])
+  const [seguimientos, setSeguimientos] = useState([])
+  const [guardandoEtapa, setGuardandoEtapa] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [analizando, setAnalizando] = useState(false)
   const [subiendoPdf, setSubiendoPdf] = useState(false)
+  const [eliminando, setEliminando] = useState(false)
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -16,6 +20,14 @@ export default function useCasoDetail(id) {
     try {
       const { data } = await casosApi.obtener(id)
       setCaso(data)
+
+      // La línea de tiempo es secundaria: si falla no debe tumbar el detalle.
+      try {
+        const { data: historial } = await casosApi.seguimiento(id)
+        setSeguimientos(historial)
+      } catch {
+        setSeguimientos([])
+      }
 
       // Los artículos solo existen si ya hay resultado de análisis
       if (data.resultado) {
@@ -42,16 +54,43 @@ export default function useCasoDetail(id) {
     setAnalizando(true)
     setError(null)
     try {
-      await casosApi.analizar(id)
+      const { data } = await casosApi.analizar(id)
+      // El backend ya corre el análisis en segundo plano y devuelve el
+      // estado nuevo al toque — se refleja acá sin esperar al polling
+      // de abajo, para que el botón cambie de inmediato.
+      setCaso((prev) => (prev ? { ...prev, estado_analisis: data.estado_analisis } : prev))
       return true
     } catch (e) {
-      console.error('Error al encolar análisis:', e, e?.response?.data)
-      setError('No se pudo iniciar el análisis del caso.')
+      console.error('Error al iniciar el análisis:', e, e?.response?.data)
+      setError(mensajeErrorApi(e, 'No se pudo iniciar el análisis del caso.'))
       return false
     } finally {
       setAnalizando(false)
     }
   }
+
+  // Mientras el análisis corre en segundo plano, se consulta el estado
+  // cada pocos segundos — sin pasar por cargar() (que dispara el loader
+  // de página completa) y sin re-pedir el historial de seguimiento en
+  // cada vuelta, que no cambia por esto.
+  useEffect(() => {
+    if (caso?.estado_analisis !== 'procesando') return
+
+    const intervalo = setInterval(async () => {
+      try {
+        const { data } = await casosApi.obtener(id)
+        setCaso(data)
+        if (data.estado_analisis === 'completado') {
+          const { data: arts } = await casosApi.articulos(id)
+          setArticulos(arts)
+        }
+      } catch (e) {
+        console.error('Error consultando el estado del análisis:', e)
+      }
+    }, 4000)
+
+    return () => clearInterval(intervalo)
+  }, [id, caso?.estado_analisis])
 
   const subirPdf = async (archivo) => {
     setSubiendoPdf(true)
@@ -64,20 +103,64 @@ export default function useCasoDetail(id) {
       return true
     } catch (e) {
       console.error('Error subiendo PDF:', e, e?.response?.data)
-      setError('No se pudo adjuntar el PDF.')
+      setError(mensajeErrorApi(e, 'No se pudo adjuntar el PDF.'))
       return false
     } finally {
       setSubiendoPdf(false)
     }
   }
 
+  // Registra un cambio de etapa (y/o una nota) y refresca el caso y su
+  // historial sin volver a mostrar el loader de página completa, para
+  // no perder la posición de scroll ni lo escrito en el formulario.
+  // Devuelve { ok: true } o { ok: false, error: '<mensaje>' }.
+  const cambiarEtapa = async (etapa, nota) => {
+    setGuardandoEtapa(true)
+    try {
+      const payload = { etapa }
+      if (nota) payload.nota = nota
+      await casosApi.cambiarEtapa(id, payload)
+      const [{ data: casoActualizado }, { data: historial }] = await Promise.all([
+        casosApi.obtener(id),
+        casosApi.seguimiento(id),
+      ])
+      setCaso(casoActualizado)
+      setSeguimientos(historial)
+      return { ok: true }
+    } catch (e) {
+      console.error('Error cambiando etapa:', e, e?.response?.data)
+      return { ok: false, error: mensajeErrorApi(e, 'No se pudo registrar el seguimiento.') }
+    } finally {
+      setGuardandoEtapa(false)
+    }
+  }
+
+  // Envía el caso a la papelera. Devuelve { ok: true } o { ok: false, error }.
+  const eliminar = async () => {
+    setEliminando(true)
+    try {
+      await casosApi.eliminar(id)
+      return { ok: true }
+    } catch (e) {
+      console.error('Error eliminando caso:', e, e?.response?.data)
+      return { ok: false, error: mensajeErrorApi(e, 'No se pudo eliminar el caso.') }
+    } finally {
+      setEliminando(false)
+    }
+  }
+
   return {
     caso,
     articulos,
+    seguimientos,
+    guardandoEtapa,
+    cambiarEtapa,
     loading,
     error,
     analizando,
     subiendoPdf,
+    eliminando,
+    eliminar,
     analizar,
     subirPdf,
     reload: cargar,

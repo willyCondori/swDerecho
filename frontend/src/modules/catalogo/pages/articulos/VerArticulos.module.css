@@ -33,8 +33,10 @@
 .headerRight {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--sp-3);
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 /* ── Botones ─────────────────────────────────────────────── */
@@ -217,6 +219,10 @@
   font-family: var(--font-sans);
   transition: border-color var(--transition-fast);
   min-width: 150px;
+  /* Un <select> mide lo que mide su opción más larga (los nombres de norma
+     son largos): se limita para que nunca se salga de la barra. */
+  max-width: min(100%, 280px);
+  text-overflow: ellipsis;
 }
 .filterSelect:focus  { border-color: var(--c-border-focus); }
 .filterSelect option { background: var(--c-bg-elevated); }
@@ -376,10 +382,13 @@
 .normaName {
   font-size: var(--fs-xs);
   color: var(--c-text-secondary);
-  white-space: nowrap;
+  max-width: 220px;
+  /* El nombre completo, en hasta 2 líneas; si es más largo se corta con
+     "…" y el nombre entero queda en el tooltip (title). */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
 }
 .normaSigla {
   font-size: 10px;
@@ -389,28 +398,9 @@
 
 /* Jerarquía */
 .jerarquiaCell { white-space: nowrap; }
-.jerarquiaBar  {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.jerarquiaTrack {
-  width: 52px;
-  height: 4px;
-  background: var(--c-bg-active);
-  border-radius: var(--radius-full);
-  overflow: hidden;
-}
-.jerarquiaFill {
-  height: 100%;
-  border-radius: var(--radius-full);
-  background: var(--c-purple-500);
-}
 .jerarquiaNum {
   font-size: var(--fs-xs);
   color: var(--c-text-muted);
-  width: 28px;
-  text-align: right;
   font-family: var(--font-mono);
 }
 
@@ -555,8 +545,12 @@
   .statsRow { display: none; }
 }
 @media (max-width: 768px) {
-  .filtersBar { flex-direction: column; align-items: stretch; }
-  .searchWrapper { min-width: unset; }
+  /* En columna NO debe envolver: con flex-wrap el ancho de la columna lo
+     decide el contenido (el <select> más largo) y no la barra. */
+  .filtersBar { flex-direction: column; flex-wrap: nowrap; align-items: stretch; }
+  .searchWrapper { min-width: 0; }
+  .filterSelect { width: 100%; max-width: 100%; min-width: 0; }
+  .filtersDivider { display: none; }
   .header { flex-direction: column; }
   .headerRight { width: 100%; }
 }

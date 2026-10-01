@@ -1,5 +1,6 @@
 // components/layout/AppLayout.jsx
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../modules/auth/store/authStore'
 import styles from './AppLayout.module.css'
 
@@ -20,12 +21,13 @@ const NAV_ITEMS = [
 //      { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
       { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Cargar Documentos' },
       { to: '/catalogo/administrar', icon: 'ti-adjustments', label: 'Ramas y jerarquías', adminOnly: true },
+      { to: '/catalogo/normas', icon: 'ti-books', label: 'Normas', adminOnly: true },
     ],
   },
   {
     section: 'Sistema',
     items: [
-//      { to: '/auditoria',    icon: 'ti-shield-check', label: 'Auditoría',    adminOnly: true },
+      { to: '/auditoria',    icon: 'ti-shield-check', label: 'Auditoría',    adminOnly: true },
       { to: '/usuarios',     icon: 'ti-users-group',  label: 'Usuarios',     adminOnly: true },
       { to: '/usuarios/roles', icon: 'ti-shield-lock', label: 'Roles',       adminOnly: true },
 //      { to: '/configuracion',icon: 'ti-settings',     label: 'Configuración' },
@@ -45,6 +47,29 @@ export default function AppLayout() {
   const navigate   = useNavigate()
   const { user, logout, isAdmin } = useAuthStore()
   const admin = isAdmin()
+  const { pathname } = useLocation()
+
+  // En pantallas chicas el menú lateral es un panel que se abre con el botón
+  // de la barra superior.
+  const [menuAbierto, setMenuAbierto] = useState(false)
+
+  // Al cambiar de página se cierra el menú.
+  useEffect(() => {
+    setMenuAbierto(false)
+  }, [pathname])
+
+  // Con el menú abierto: Escape lo cierra y el fondo no se desplaza.
+  useEffect(() => {
+    if (!menuAbierto) return undefined
+    const alTeclear = (e) => { if (e.key === 'Escape') setMenuAbierto(false) }
+    document.addEventListener('keydown', alTeclear)
+    const overflowPrevio = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.removeEventListener('keydown', alTeclear)
+      document.body.style.overflow = overflowPrevio
+    }
+  }, [menuAbierto])
 
   const handleLogout = async () => {
     await logout()
@@ -54,10 +79,30 @@ export default function AppLayout() {
   return (
     <div className={styles.root}>
       {/* ── Sidebar ─────────────────────────────────────── */}
-      <aside className={styles.sidebar} aria-label="Navegación principal">
+      {menuAbierto && (
+        <div
+          className={styles.overlay}
+          onClick={() => setMenuAbierto(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <aside
+        id="sidebar-principal"
+        className={`${styles.sidebar} ${menuAbierto ? styles.sidebarOpen : ''}`}
+        aria-label="Navegación principal"
+      >
         <div className={styles.sidebarLogo}>
           <div className={styles.sidebarLogoIcon}>⚖</div>
           <span className={styles.sidebarLogoText}>Litigiun</span>
+          <button
+            type="button"
+            className={styles.sidebarCloseBtn}
+            onClick={() => setMenuAbierto(false)}
+            aria-label="Cerrar menú"
+          >
+            <i className="ti ti-x" aria-hidden="true" />
+          </button>
         </div>
 
         <nav className={styles.sidebarNav}>
@@ -118,6 +163,16 @@ export default function AppLayout() {
       {/* ── Topbar ──────────────────────────────────────── */}
       <header className={styles.topbar}>
         <div className={styles.topbarLeft}>
+          <button
+            type="button"
+            className={`${styles.topbarBtn} ${styles.menuBtn}`}
+            onClick={() => setMenuAbierto(true)}
+            aria-label="Abrir menú"
+            aria-expanded={menuAbierto}
+            aria-controls="sidebar-principal"
+          >
+            <i className="ti ti-menu-2" aria-hidden="true" />
+          </button>
           <nav className={styles.breadcrumb} aria-label="Ruta de navegación">
             <span>Litiguin</span>
             <span className={styles.breadcrumbSep}>/</span>

@@ -7,6 +7,7 @@ from pgvector.django import CosineDistance
 
 from modulo_ia.models.embedding import EmbeddingArticulo, EmbeddingChunk
 from modulo_ia.models.embedding import EntidadDetectadaCaso
+from modulo_ia.services.model_loader import version_activa
 from modulo_catalogo.models.articulo import Articulo
 from modulo_ia.serializers.ia_serializer import ResultadoArticuloWriteSerializer
 from modulo_ia.services.clasificador_delito_service import ClasificadorDelitoService
@@ -16,7 +17,7 @@ TOP_N_ARTICULOS = 15
 CANDIDATOS_POR_CHUNK = 50
 CUANTIZADOR = Decimal("0.000001")
 
-UMBRAL_MINIMO_SCORE_TOTAL = 0.42
+UMBRAL_MINIMO_SCORE_TOTAL = 0.30
 PESO_SEMANTICO   = Decimal("0.60")
 PESO_DELITO      = Decimal("0.15")
 PESO_ENTIDADES   = Decimal("0.10")
@@ -75,15 +76,23 @@ class RankingService:
         scores = defaultdict(float)
         mejor_chunk_por_articulo = {}
 
+        version = version_activa()
+
         embeddings_chunk = (
             EmbeddingChunk.objects
-            .filter(chunk__caso=caso)
+            .filter(chunk__caso=caso, modelo_version=version)
             .select_related("chunk")
         )
         if not embeddings_chunk.exists():
-            raise ValueError("El caso no tiene chunks con embeddings para comparar.")
+            raise ValueError(
+                "El caso no tiene chunks con embeddings de la versión de modelo activa "
+                f'("{version}") para comparar. Si se cambió recientemente de modelo, '
+                "hay que reanalizar el caso."
+            )
 
-        candidatos_qs = EmbeddingArticulo.objects.filter(articulo__estado=True)
+        candidatos_qs = EmbeddingArticulo.objects.filter(
+            articulo__estado=True, articulo__norma__estado=True, modelo_version=version,
+        )
 
         if caso.rama_detectada_id:
             candidatos_qs = candidatos_qs.filter(articulo__rama_id=caso.rama_detectada_id)
@@ -105,9 +114,20 @@ class RankingService:
 
     @staticmethod
     def _vectores_chunks_caso(caso) -> list:
+        # Filtrado por modelo_version=version_activa(): sin esto, un caso
+        # reanalizado después de cambiar de modelo (ver model_loader.py)
+        # trae UNA fila de EmbeddingChunk por versión para el mismo chunk,
+        # así que este método devolvía vectores de varias versiones
+        # mezclados. Como todas las versiones son vectores de 768
+        # dimensiones, el producto punto contra un EmbeddingArticulo de
+        # otra versión (ver _score_semantico_articulo_especifico) no
+        # rompe por dimensión — simplemente da una similitud sin sentido,
+        # de forma silenciosa, porque compara dos espacios semánticos
+        # distintos.
+        version = version_activa()
         return list(
             EmbeddingChunk.objects
-            .filter(chunk__caso=caso)
+            .filter(chunk__caso=caso, modelo_version=version)
             .select_related("chunk")
             .values_list("chunk_id", "vector")
         )
@@ -125,7 +145,13 @@ class RankingService:
         aplicar el mismo score_entidades "por chunk" que el flujo
         normal (ver _score_semantico_por_articulo).
         """
-        emb_articulo = EmbeddingArticulo.objects.filter(articulo_id=articulo_id).first()
+        # Igual que en _vectores_chunks_caso: sin filtrar por versión
+        # activa, .first() puede devolver el EmbeddingArticulo de
+        # CUALQUIER versión (orden no garantizado), potencialmente
+        # distinta a la de vectores_chunks_caso.
+        emb_articulo = EmbeddingArticulo.objects.filter(
+            articulo_id=articulo_id, modelo_version=version_activa()
+        ).first()
         if emb_articulo is None or not vectores_chunks_caso:
             return 0.0, None
         vector_articulo = np.array(emb_articulo.vector)
@@ -236,9 +262,14 @@ class RankingService:
         scores_semanticos, mejor_chunk_por_articulo = cls._score_semantico_por_articulo(caso)
         entidades_por_chunk = cls._entidades_por_chunk(caso)
 
+        # modelo_version=version_activa() también acá: sin el filtro, un
+        # caso reanalizado con más de una versión de modelo devuelve el
+        # texto de cada chunk una vez POR VERSIÓN (join contra
+        # EmbeddingChunk, no contra ChunkCaso), duplicando texto y
+        # sesgando el conteo de palabras clave de ClasificadorDelitoService.
         texto_caso_completo = " ".join(
             EmbeddingChunk.objects
-            .filter(chunk__caso=caso)
+            .filter(chunk__caso=caso, modelo_version=version_activa())
             .values_list("chunk__contenido", flat=True)
         )
         nombre_rama = caso.rama_detectada.nombre if caso.rama_detectada_id else None
@@ -269,7 +300,12 @@ class RankingService:
             candidatos.append(
                 cls._armar_candidato(articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia)
             )
-
+        import logging
+        _log = logging.getLogger(__name__)
+        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:10]
+        _log.warning("PRE-UMBRAL: total=%s | top scores=%s", len(candidatos), [round(c[0], 3) for c in _top])
+        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:15]
+        _log.warning("PRE-UMBRAL: %s", [(round(c[0], 3), c[1]) for c in _top])
         # Filtrar por umbral mínimo DESPUÉS de construir todos los candidatos,
         # para no forzar TOP_N_ARTICULOS completos cuando no hay suficientes
         # artículos realmente relevantes (evita relleno tipo "Fijación de la

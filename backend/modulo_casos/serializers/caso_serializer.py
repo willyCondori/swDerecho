@@ -1,11 +1,15 @@
 import uuid
 
+from django.db import transaction
 from rest_framework import serializers
 
 from modulo_casos.models.caso import Caso
 from modulo_casos.models.hecho import Hecho, HechoCaso
 from modulo_casos.models.petitorio import Petitorio, PetitorioCaso
 from modulo_casos.models.resultado_caso import ResultadoCaso
+from modulo_casos.serializers.seguimiento_serializer import nombre_visible_usuario
+from modulo_casos.services.papelera_service import enviar_a_papelera
+from modulo_casos.services.seguimiento_service import registrar_seguimiento_inicial
 from modulo_catalogo.models.rama import RamaDerecho
 from modulo_clientes.models.cliente import Cliente
 from modulo_clientes.serializers.cliente_serializer import ClienteListSerializer
@@ -143,6 +147,7 @@ class CasoReadSerializer(serializers.ModelSerializer):
     resultado       = ResultadoCasoSerializer(read_only=True)
     tiene_documento = serializers.SerializerMethodField()
     tiene_generado  = serializers.SerializerMethodField()
+    etapa_display   = serializers.CharField(source="get_etapa_display", read_only=True)
 
     class Meta:
         model  = Caso
@@ -151,7 +156,10 @@ class CasoReadSerializer(serializers.ModelSerializer):
             "usuario", "cliente", "rama_detectada",
             "hechos", "petitorios", "resultado",
             "tiene_documento", "tiene_generado",
+            "etapa", "etapa_display", "etapa_actualizada_at",
             "estado", "created_at",
+            "estado_analisis", "analisis_paso", "analisis_error",
+            "analisis_iniciado_en", "analisis_completado_en",
         ]
 
     def get_hechos(self, obj):
@@ -219,7 +227,12 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
             )
         validated_data["codigo"] = self._generar_codigo()
         validated_data["usuario"] = request.user
-        return super().create(validated_data)
+        # El caso y su primera entrada de seguimiento se crean juntos o
+        # no se crea ninguno.
+        with transaction.atomic():
+            caso = super().create(validated_data)
+            registrar_seguimiento_inicial(caso, request.user)
+        return caso
 
     @staticmethod
     def _generar_codigo() -> str:
@@ -235,10 +248,25 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
 
 
 class CasoUpdateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializer):
-    """Actualización parcial: solo título, descripción y estado."""
+    """
+    Actualización parcial: solo título, descripción y estado.
+
+    Poner estado=False equivale a eliminar el caso: pasa por la papelera
+    (queda quién y cuándo, y se puede restaurar). Reactivar un caso
+    eliminado no se hace por aquí sino con POST /casos/{id}/restaurar/.
+    """
     class Meta:
         model  = Caso
         fields = ["titulo", "descripcion", "estado"]
+
+    def update(self, instance, validated_data):
+        desactivar = validated_data.pop("estado", True) is False and instance.estado
+        with transaction.atomic():
+            instance = super().update(instance, validated_data)
+            if desactivar:
+                request = self.context["request"]
+                enviar_a_papelera(instance, request.user)
+        return instance
 
 
 class CasoListSerializer(serializers.ModelSerializer):
@@ -248,6 +276,7 @@ class CasoListSerializer(serializers.ModelSerializer):
     rama_detectada  = serializers.StringRelatedField()
     tiene_documento = serializers.SerializerMethodField()
     tiene_resultado = serializers.SerializerMethodField()
+    etapa_display   = serializers.CharField(source="get_etapa_display", read_only=True)
 
     class Meta:
         model  = Caso
@@ -255,6 +284,7 @@ class CasoListSerializer(serializers.ModelSerializer):
             "id", "codigo", "titulo",
             "usuario_nombre", "cliente_nombre", "rama_detectada",
             "tiene_documento", "tiene_resultado",
+            "etapa", "etapa_display", "etapa_actualizada_at",
             "estado", "created_at",
         ]
 
@@ -271,3 +301,21 @@ class CasoListSerializer(serializers.ModelSerializer):
 
     def get_tiene_resultado(self, obj):
         return hasattr(obj, "resultado")
+
+
+class CasoPapeleraSerializer(CasoListSerializer):
+    """Caso eliminado, para el listado de la papelera."""
+    eliminado_por_nombre = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = Caso
+        fields = [
+            "id", "codigo", "titulo",
+            "cliente_nombre", "rama_detectada",
+            "etapa", "etapa_display",
+            "eliminado_at", "eliminado_por_nombre", "eliminado_con_cliente",
+            "created_at",
+        ]
+
+    def get_eliminado_por_nombre(self, obj):
+        return nombre_visible_usuario(obj.eliminado_por)

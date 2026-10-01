@@ -4,20 +4,48 @@ import logging
 import os
 
 from django.conf import settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
+from modulo_catalogo.models.documento_norma import DocumentoNorma
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
+    listar_cargas_activas,
     obtener_progreso,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _nombre_usuario(usuario):
+    """Nombre y apellidos del perfil (descifrados); si no hay perfil, el nombre de usuario."""
+    perfil = getattr(usuario, "perfil", None)
+    if perfil is not None:
+        nombres = safe_decrypt(perfil.nombres, fallback=None)
+        apellidos = safe_decrypt(perfil.apellidos, fallback=None)
+        if nombres is not None and apellidos is not None:
+            completo = f"{nombres} {apellidos}".strip()
+            if completo:
+                return completo
+    return usuario.usuario
+
+
+def _marcar_documentos_reemplazados(documento_nuevo):
+    """
+    Tras una carga con sobrescribir=True que terminó bien, los PDF vigentes
+    anteriores de la misma norma pasan a "reemplazados" (vigente=False).
+    No se borra nada: quedan como historial descargable.
+    """
+    DocumentoNorma.objects.filter(
+        norma=documento_nuevo.norma, vigente=True,
+    ).exclude(pk=documento_nuevo.pk).update(vigente=False)
 
 
 class CargaArticulosView(APIView):
@@ -82,10 +110,32 @@ class CargaArticulosView(APIView):
 
             nombre_archivo = f"{carpeta_norma}_{archivo.name}"
             ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
+            # Si ya hay un PDF con ese nombre (p. ej. se vuelve a subir el
+            # mismo archivo), no lo pisamos: el DocumentoNorma anterior
+            # apunta a él y debe seguir siendo el PDF histórico.
+            if os.path.exists(ruta_archivo):
+                base, ext = os.path.splitext(nombre_archivo)
+                nombre_archivo = f"{base}_{timezone.now():%Y%m%d%H%M%S%f}{ext}"
+                ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
 
             with open(ruta_archivo, "wb+") as destino:
                 for chunk in archivo.chunks():
                     destino.write(chunk)
+
+            # Ruta relativa a MEDIA_ROOT, igual que en modulo_documentos,
+            # para poder servir el archivo después (descargar/eliminar)
+            # sin depender de la ruta absoluta del servidor.
+            ruta_relativa = os.path.join(
+                "documentos_normativas", carpeta_norma, nombre_archivo
+            )
+            documento_norma = DocumentoNorma.objects.create(
+                norma=norma,
+                rama=rama,
+                nombre_original=archivo.name,
+                ruta_archivo=ruta_relativa,
+                tamano=archivo.size,
+                subido_por=usuario,
+            )
 
         except Exception as e:
             logger.exception("Error guardando PDF")
@@ -107,6 +157,17 @@ class CargaArticulosView(APIView):
                 rama_id=rama.id,
                 jerarquia_id=jerarquia.id if jerarquia else None,
                 sobrescribir=sobrescribir,
+                on_exito=(
+                    (lambda: _marcar_documentos_reemplazados(documento_norma))
+                    if sobrescribir else None
+                ),
+                info={
+                    "nombre_documento": norma.nombre,
+                    "archivo": archivo.name,
+                    "rama": rama.nombre,
+                    "usuario_id": usuario.id,
+                    "usuario_nombre": _nombre_usuario(usuario),
+                },
             )
 
         except Exception as e:
@@ -115,6 +176,7 @@ class CargaArticulosView(APIView):
                 os.remove(ruta_archivo)
             except Exception:
                 pass
+            documento_norma.delete()
 
             return Response(
                 {"detail": f"Error al iniciar el procesamiento del PDF: {e}"},
@@ -143,6 +205,7 @@ class CargaArticulosView(APIView):
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
                     "task_id": task_id,
+                    "documento_norma_id": documento_norma.id,
                 },
             )
         except Exception:
@@ -158,6 +221,7 @@ class CargaArticulosView(APIView):
             "norma_creada": norma_creada,
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
+            "documento_norma_id": documento_norma.id,
         }
 
         if existentes:
@@ -220,3 +284,40 @@ class EstadoCargaPDFView(APIView):
             respuesta["paso"] = meta.get("paso", "procesando")
 
         return Response(respuesta, status=status.HTTP_200_OK)
+
+
+class CargasActivasPDFView(APIView):
+    """
+    GET /api/catalogo/cargar-articulos/activas/
+
+    Cargas de PDF que están corriendo en el servidor en este momento
+    (de cualquier usuario), la más reciente primero. Sirve para que la
+    pantalla de carga recupere el progreso cuando el usuario sale y
+    vuelve a entrar, ya que el task_id solo se conocía en esa pantalla.
+
+    Respuesta (lista, vacía si no hay nada en curso):
+        [
+          {
+            "task_id": "...", "estado": "STARTED",
+            "progreso": 45, "paso": "Procesando artículo 180/364...",
+            "nombre_documento": "Código de Procedimiento Penal",
+            "archivo": "cpp.pdf", "rama": "Penal",
+            "usuario_nombre": "Laura Quispe",
+            "iniciada_at": "2026-09-19T14:02:11.123456+00:00",
+            "es_mia": true
+          }
+        ]
+
+    Una carga que ya terminó (OK o con error) deja de aparecer aquí; su
+    resultado se sigue consultando con /estado/{task_id}/ durante 2 horas.
+    """
+    permission_classes = [EsOperativo]
+
+    def get(self, request):
+        activas = listar_cargas_activas()
+        data = []
+        for carga in activas:
+            usuario_id = carga.pop("usuario_id", None)
+            carga["es_mia"] = usuario_id == request.user.id
+            data.append(carga)
+        return Response(data, status=status.HTTP_200_OK)

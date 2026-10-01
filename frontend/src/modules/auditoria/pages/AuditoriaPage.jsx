@@ -1,5 +1,7 @@
 // modules/auditoria/pages/AuditoriaPage.jsx
 import useAuditoria from '../hooks/useAuditoria'
+import DataTable from '../../../components/ui/DataTable'
+import Pagination from '../../../components/ui/Pagination'
 import styles from './AuditoriaPage.module.css'
 
 function claseAccion(accion) {
@@ -22,25 +24,50 @@ function formatFecha(iso) {
   })
 }
 
-function SkeletonRows({ rows = 6 }) {
-  return (
-    <>
-      {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i}>
-          <td><div className={styles.skeleton} style={{ width: 120 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 100 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 80 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 60 }} /></td>
-          <td><div className={styles.skeleton} style={{ width: 130 }} /></td>
-        </tr>
-      ))}
-    </>
-  )
-}
+const COLUMNAS = [
+  {
+    key: 'usuario',
+    header: 'Usuario',
+    skeletonWidth: 120,
+    className: styles.usuarioCell,
+    render: (r) => r.usuario?.usuario || '—',
+  },
+  {
+    key: 'tabla',
+    header: 'Tabla',
+    skeletonWidth: 100,
+    className: styles.tablaCell,
+    render: (r) => r.tabla,
+  },
+  {
+    key: 'accion',
+    header: 'Acción',
+    skeletonWidth: 80,
+    render: (r) => (
+      <span className={`${styles.badge} ${claseAccion(r.accion)}`}>
+        {r.accion_label || r.accion}
+      </span>
+    ),
+  },
+  {
+    key: 'registro',
+    header: 'Registro',
+    skeletonWidth: 60,
+    render: (r) => r.registro_id ?? '—',
+  },
+  {
+    key: 'fecha',
+    header: 'Fecha',
+    skeletonWidth: 130,
+    className: styles.fechaCell,
+    render: (r) => formatFecha(r.created_at),
+  },
+]
 
 export default function AuditoriaPage() {
   const {
     registros, loading, error, count,
+    page, setPage, totalPages, pageSize,
     filtros, setFiltro, limpiarFiltros,
     acciones, reload,
   } = useAuditoria()
@@ -59,6 +86,17 @@ export default function AuditoriaPage() {
       {/* ── Filtros ─────────────────────────────── */}
       <div className={styles.cardPadded}>
         <div className={styles.filtros}>
+          <div className={styles.field}>
+            <label className={styles.label} htmlFor="filtroUsuario">Usuario</label>
+            <input
+              id="filtroUsuario"
+              className={styles.input}
+              placeholder="ej: jperez"
+              value={filtros.usuario}
+              onChange={(e) => setFiltro('usuario', e.target.value)}
+            />
+          </div>
+
           <div className={styles.field}>
             <label className={styles.label} htmlFor="filtroTabla">Tabla</label>
             <input
@@ -122,52 +160,27 @@ export default function AuditoriaPage() {
 
       {/* ── Tabla ──────────────────────────────── */}
       <div className={styles.card}>
-        {!loading && error && (
-          <div className={styles.emptyState}>
-            <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>{error}</p>
-            <button className={styles.btnSecondary} onClick={reload}>Reintentar</button>
-          </div>
-        )}
-
-        {!loading && !error && registros.length === 0 && (
-          <div className={styles.emptyState}>
-            <i className={`ti ti-shield-check ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>No hay registros de auditoría con estos filtros.</p>
-          </div>
-        )}
-
-        {(loading || (!error && registros.length > 0)) && (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Usuario</th>
-                <th>Tabla</th>
-                <th>Acción</th>
-                <th>Registro</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <SkeletonRows />
-              ) : (
-                registros.map((r) => (
-                  <tr key={r.id}>
-                    <td className={styles.usuarioCell}>{r.usuario?.usuario || '—'}</td>
-                    <td className={styles.tablaCell}>{r.tabla}</td>
-                    <td>
-                      <span className={`${styles.badge} ${claseAccion(r.accion)}`}>
-                        {r.accion_label || r.accion}
-                      </span>
-                    </td>
-                    <td>{r.registro_id ?? '—'}</td>
-                    <td className={styles.fechaCell}>{formatFecha(r.created_at)}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+        <DataTable
+          columns={COLUMNAS}
+          rows={registros}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          skeletonRows={6}
+          empty={{
+            icon: 'ti-shield-check',
+            text: 'No hay registros de auditoría con estos filtros.',
+          }}
+        />
+        {!loading && !error && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            count={count}
+            pageSize={pageSize}
+            onPageChange={setPage}
+            itemLabel="registros"
+          />
         )}
       </div>
     </div>

@@ -1,0 +1,40 @@
+/* modules/clientes/pages/PapeleraClientesPage.module.css */
+
+.root { composes: root from '../../../styles/shared.module.css'; }
+.header { composes: header from '../../../styles/shared.module.css'; }
+.title { composes: title from '../../../styles/shared.module.css'; }
+.subtitle { composes: subtitle from '../../../styles/shared.module.css'; }
+.headerActions { composes: headerActions from '../../../styles/shared.module.css'; }
+.btnPrimary { composes: btnPrimary from '../../../styles/shared.module.css'; }
+.btnSecondary { composes: btnSecondary from '../../../styles/shared.module.css'; }
+.toolbar { composes: toolbar from '../../../styles/shared.module.css'; }
+.searchBox { composes: searchBox from '../../../styles/shared.module.css'; }
+.searchInput { composes: searchInput from '../../../styles/shared.module.css'; }
+.searchIcon { composes: searchIcon from '../../../styles/shared.module.css'; }
+.resultCount { composes: resultCount from '../../../styles/shared.module.css'; }
+.card { composes: card from '../../../styles/shared.module.css'; }
+.badge { composes: badge from '../../../styles/shared.module.css'; }
+.pagination { composes: pagination from '../../../styles/shared.module.css'; }
+.pageInfo { composes: pageInfo from '../../../styles/shared.module.css'; }
+.pageControls { composes: pageControls from '../../../styles/shared.module.css'; }
+.errorBanner { composes: errorBanner from '../../../styles/shared.module.css'; }
+
+.clienteNombre {
+  font-weight: var(--fw-medium);
+  color: var(--c-text-primary);
+}
+
+.meta {
+  font-size: var(--fs-sm);
+  color: var(--c-text-muted);
+}
+
+.conCasos {
+  background: var(--c-bg-hover);
+  color: var(--c-text-primary);
+}
+
+.sinCasos {
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}

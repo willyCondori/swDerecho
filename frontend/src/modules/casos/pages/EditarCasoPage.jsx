@@ -99,9 +99,9 @@ export default function EditarCasoPage() {
               onChange={onChange}
             />
             <label htmlFor="estado" className={styles.checkboxLabel}>
-              <strong>Caso activo.</strong> Si lo desmarcás, el caso pasa a inactivo y
-              deja de aparecer en los listados normales (podés reactivarlo después
-              volviendo a marcar esta opción).
+              <strong>Caso activo.</strong> Si lo desmarcás, el caso se envía a la
+              papelera y deja de aparecer en los listados normales. Podés
+              restaurarlo desde Casos → Papelera.
             </label>
           </div>
 

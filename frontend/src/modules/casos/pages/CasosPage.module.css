@@ -95,6 +95,11 @@
   color: var(--c-text-secondary);
 }
 
+.casoEtapa {
+  display: flex;
+  align-items: center;
+}
+
 .casoFooter {
   display: flex;
   align-items: center;

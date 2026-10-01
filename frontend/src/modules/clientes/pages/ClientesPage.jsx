@@ -2,23 +2,14 @@
 import { useNavigate } from 'react-router-dom'
 import useClientes from '../hooks/useClientes'
 import useAuthStore from '../../auth/store/authStore'
+import DataTable from '../../../components/ui/DataTable'
+import { eliminarClienteConCasos } from '../utils/eliminarCliente'
 import styles from './ClientesPage.module.css'
 
 function getNombreCompleto(cliente) {
   const nombres = cliente.nombres ?? ''
   const apellidos = cliente.apellidos ?? ''
   return `${nombres} ${apellidos}`.trim() || `Cliente #${cliente.id}`
-}
-
-function SkeletonRows() {
-  return Array.from({ length: 5 }).map((_, i) => (
-    <tr key={i}>
-      <td><div className={styles.skeleton} style={{ width: 180 }} /></td>
-      <td><div className={styles.skeleton} style={{ width: 140 }} /></td>
-      <td><div className={styles.skeleton} style={{ width: 100 }} /></td>
-      <td><div className={styles.skeleton} style={{ width: 60, marginLeft: 'auto' }} /></td>
-    </tr>
-  ))
 }
 
 export default function ClientesPage() {
@@ -29,14 +20,47 @@ export default function ClientesPage() {
     page, setPage, totalPages, count, reload, eliminarCliente,
   } = useClientes()
 
-  const handleEliminar = async (cliente) => {
-    if (!window.confirm(`¿Eliminar a ${getNombreCompleto(cliente)}?`)) return
-    try {
-      await eliminarCliente(cliente.id)
-    } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar el cliente.')
-    }
-  }
+  const handleEliminar = (cliente) =>
+    eliminarClienteConCasos({
+      nombre: getNombreCompleto(cliente),
+      eliminar: (opciones) => eliminarCliente(cliente.id, opciones),
+    })
+
+  const columns = [
+    {
+      key: 'nombre',
+      header: 'Cliente',
+      skeletonWidth: 180,
+      className: styles.clienteNombre,
+      render: (cliente) => getNombreCompleto(cliente),
+    },
+    {
+      key: 'telefono',
+      header: 'Teléfono',
+      skeletonWidth: 140,
+      className: styles.clienteMeta,
+      render: (cliente) => cliente.telefono || '—',
+    },
+    ...(puedeEscribir ? [{
+      key: 'acciones',
+      ariaLabel: 'Acciones',
+      actions: true,
+      render: (cliente) => (
+        <>
+          <button
+            className={styles.iconBtn}
+            title="Editar"
+            onClick={() => navigate(`/clientes/${cliente.id}/editar`)}
+          >
+            <i className="ti ti-pencil" aria-hidden="true" />
+          </button>
+          <button className={styles.iconBtn} title="Eliminar" onClick={() => handleEliminar(cliente)}>
+            <i className="ti ti-trash" aria-hidden="true" />
+          </button>
+        </>
+      ),
+    }] : []),
+  ]
 
   return (
     <div className={styles.root}>
@@ -46,6 +70,12 @@ export default function ClientesPage() {
           <p className={styles.subtitle}>Datos de contacto de tus clientes.</p>
         </div>
         <div className={styles.headerActions}>
+          {puedeEscribir && (
+            <button className={styles.btnSecondary} onClick={() => navigate('/clientes/papelera')}>
+              <i className="ti ti-trash" aria-hidden="true" />
+              Papelera
+            </button>
+          )}
           {puedeEscribir && (
             <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
               <i className="ti ti-user-plus" aria-hidden="true" />
@@ -74,63 +104,23 @@ export default function ClientesPage() {
       </div>
 
       <div className={styles.card}>
-        {!loading && error ? (
-          <div className={styles.emptyState}>
-            <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>{error}</p>
-            <button className={styles.btnSecondary} onClick={reload}>Reintentar</button>
-          </div>
-        ) : !loading && clientes.length === 0 ? (
-          <div className={styles.emptyState}>
-            <i className={`ti ti-users ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>
-              {buscando ? 'Sin resultados para tu búsqueda.' : 'No hay clientes registrados aún.'}
-            </p>
-            {!buscando && puedeEscribir && (
+        <DataTable
+          columns={columns}
+          rows={clientes}
+          loading={loading}
+          error={error}
+          onRetry={reload}
+          onRowClick={(cliente) => navigate(`/clientes/${cliente.id}`)}
+          empty={{
+            icon: 'ti-users',
+            text: buscando ? 'Sin resultados para tu búsqueda.' : 'No hay clientes registrados aún.',
+            action: !buscando && puedeEscribir && (
               <button className={styles.btnPrimary} onClick={() => navigate('/clientes/nuevo')}>
                 <i className="ti ti-plus" aria-hidden="true" /> Crear primer cliente
               </button>
-            )}
-          </div>
-        ) : (
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>Cliente</th>
-                <th>Teléfono</th>
-                {puedeEscribir && <th aria-label="Acciones" />}
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <SkeletonRows />
-              ) : (
-                clientes.map((cliente) => (
-                  <tr key={cliente.id} onClick={() => navigate(`/clientes/${cliente.id}`)}>
-                    <td className={styles.clienteNombre}>{getNombreCompleto(cliente)}</td>
-                    <td className={styles.clienteMeta}>{cliente.telefono || '—'}</td>
-                    {puedeEscribir && (
-                      <td>
-                        <div className={styles.actionsCell} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            className={styles.iconBtn}
-                            title="Editar"
-                            onClick={() => navigate(`/clientes/${cliente.id}/editar`)}
-                          >
-                            <i className="ti ti-pencil" aria-hidden="true" />
-                          </button>
-                          <button className={styles.iconBtn} title="Eliminar" onClick={() => handleEliminar(cliente)}>
-                            <i className="ti ti-trash" aria-hidden="true" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        )}
+            ),
+          }}
+        />
 
         {!loading && !error && !buscando && clientes.length > 0 && totalPages > 1 && (
           <div className={styles.pagination}>

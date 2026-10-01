@@ -1,8 +1,12 @@
 // modules/casos/pages/CasoDetailPage.jsx
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
+import EtapaBadge from '../components/EtapaBadge'
+import { formatFechaHora } from '../utils/etapas'
+import seguimientoStyles from '../components/Seguimiento.module.css'
 import useAuthStore from '../../auth/store/authStore'
+import DocumentosCasoList from '../../documentos/components/DocumentosCasoList'
 import styles from './CasoDetailPage.module.css'
 
 function EstadoBadge({ tieneResultado, tieneDocumento }) {
@@ -15,16 +19,30 @@ function EstadoBadge({ tieneResultado, tieneDocumento }) {
   return <span className={`${styles.badge} ${styles.badgeMuted}`}>Sin analizar</span>
 }
 
+// Texto y estado del botón "Analizar", a partir del estado real que
+// persiste el backend (caso.estado_analisis) — no de una bandera local,
+// que se pierde al recargar la página y podía quedar desincronizada del
+// estado real (ver el historial de este archivo antes de este cambio).
+function estadoBotonAnalisis(caso, analizando) {
+  if (analizando) return { texto: 'Iniciando análisis...', deshabilitado: true }
+  if (caso.estado_analisis === 'procesando') {
+    return { texto: 'Analizando...', deshabilitado: true }
+  }
+  return {
+    texto: caso.resultado ? 'Volver a analizar' : 'Analizar caso con IA',
+    deshabilitado: false,
+  }
+}
+
 export default function CasoDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
-  const fileInputRef = useRef(null)
-  const [analisisEncolado, setAnalisisEncolado] = useState(false)
+  const [errorEliminar, setErrorEliminar] = useState('')
 
   const {
     caso, articulos, loading, error,
-    analizando, subiendoPdf, analizar, subirPdf, reload,
+    analizando, eliminando, eliminar, analizar,
   } = useCasoDetail(id)
 
   if (loading) {
@@ -45,14 +63,24 @@ export default function CasoDetailPage() {
   if (!caso) return null
 
   const handleAnalizar = async () => {
-    const ok = await analizar()
-    if (ok) setAnalisisEncolado(false)
-        await reload()  // recarga el caso para reflejar el estado de análisis encolado
+    await analizar()
+    // No hace falta reload(): analizar() ya actualiza caso.estado_analisis
+    // al toque, y el polling de useCasoDetail toma el relevo mientras
+    // "procesando" hasta que termine.
   }
 
-  const handleArchivoSeleccionado = async (e) => {
-    const file = e.target.files?.[0]
-    if (file) await subirPdf(file)
+  const estadoBoton = estadoBotonAnalisis(caso, analizando)
+
+  const handleEliminar = async () => {
+    const confirmado = window.confirm(
+      `¿Enviar el caso ${caso.codigo} a la papelera? Dejará de aparecer en los listados, ` +
+      'pero podrás restaurarlo desde Casos → Papelera.'
+    )
+    if (!confirmado) return
+    setErrorEliminar('')
+    const res = await eliminar()
+    if (res.ok) navigate('/casos')
+    else setErrorEliminar(res.error)
   }
 
   return (
@@ -95,34 +123,11 @@ export default function CasoDetailPage() {
               <p className={styles.emptyText}>Este caso no tiene descripción de texto (se envió como PDF).</p>
             )}
 
-            <div className={styles.pdfRow}>
-              {caso.tiene_documento ? (
-                <span className={styles.pdfBadge}>
-                  <i className="ti ti-file-text" aria-hidden="true" /> PDF adjunto
-                </span>
-              ) : (
-                <span className={styles.emptyText}>Sin PDF adjunto.</span>
-              )}
-              {puedeEscribir && (
-                <>
-                  <button
-                    type="button"
-                    className={styles.btnLink}
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={subiendoPdf}
-                  >
-                    {subiendoPdf ? 'Subiendo...' : caso.tiene_documento ? 'Reemplazar PDF' : 'Adjuntar PDF'}
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/pdf"
-                    style={{ display: 'none' }}
-                    onChange={handleArchivoSeleccionado}
-                  />
-                </>
-              )}
-            </div>
+{/*            <DocumentosCasoList casoId={id} /> */}
+          </div>
+
+          <div className={styles.card}>
+            <DocumentosCasoList casoId={id} />
           </div>
 
           {caso.hechos?.length > 0 && (
@@ -217,6 +222,28 @@ export default function CasoDetailPage() {
         <div className={styles.sideCol}>
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>
+              <i className="ti ti-route" aria-hidden="true" /> Etapa actual
+            </h2>
+            <div className={seguimientoStyles.etapaActual}>
+              <EtapaBadge etapa={caso.etapa} label={caso.etapa_display} />
+              {caso.etapa_actualizada_at && (
+                <p className={seguimientoStyles.etapaFecha}>
+                  Actualizada el {formatFechaHora(caso.etapa_actualizada_at)}
+                </p>
+              )}
+            </div>
+            <button
+              type="button"
+              className={`${styles.btnSecondary} ${seguimientoStyles.verHistorialBtn}`}
+              onClick={() => navigate(`/casos/${id}/seguimiento`)}
+            >
+              <i className="ti ti-history" aria-hidden="true" />
+              {puedeEscribir ? 'Ver historial y actualizar etapa' : 'Ver historial completo'}
+            </button>
+          </div>
+
+          <div className={styles.card}>
+            <h2 className={styles.cardTitle}>
               <i className="ti ti-user" aria-hidden="true" /> Cliente
             </h2>
             <p className={styles.sideText}>
@@ -248,21 +275,40 @@ export default function CasoDetailPage() {
                 type="button"
                 className={styles.btnPrimary}
                 onClick={handleAnalizar}
-                disabled={analizando || analisisEncolado}
+                disabled={estadoBoton.deshabilitado}
               >
-                {analizando
-                  ? 'Encolando análisis...'
-                  : analisisEncolado
-                    ? 'Análisis en proceso...'
-                    : caso.resultado
-                      ? 'Volver a analizar'
-                      : 'Analizar caso con IA'}
+                {estadoBoton.texto}
               </button>
-              {analisisEncolado && (
+              {caso.estado_analisis === 'procesando' && (
                 <p className={styles.hintText}>
-                  El análisis corre en segundo plano. Recargá la página en unos minutos para ver el resultado.
+                  El análisis corre en segundo plano
+                  {caso.analisis_paso ? ` (paso: ${caso.analisis_paso})` : ''}. Esta página se
+                  actualiza sola cuando termina.
                 </p>
               )}
+              {caso.estado_analisis === 'error' && (
+                <p className={styles.errorBanner}>
+                  El último análisis falló{caso.analisis_error ? `: ${caso.analisis_error}` : '.'}
+                </p>
+              )}
+            </div>
+          )}
+
+          {puedeEscribir && (
+            <div className={styles.card}>
+              <button
+                type="button"
+                className={styles.btnDanger}
+                onClick={handleEliminar}
+                disabled={eliminando}
+              >
+                <i className="ti ti-trash" aria-hidden="true" />{' '}
+                {eliminando ? 'Enviando a la papelera...' : 'Eliminar caso'}
+              </button>
+              <p className={styles.hintText}>
+                Se envía a la papelera y se puede restaurar más adelante.
+              </p>
+              {errorEliminar && <div className={styles.errorBanner}>{errorEliminar}</div>}
             </div>
           )}
         </div>

@@ -52,8 +52,9 @@ export default function useClientes() {
     setSearchState(value)
   }
 
-  const eliminarCliente = async (id) => {
-    await clientesApi.eliminar(id)
+  // Envía el cliente a la papelera; con { eliminarCasos: true } también sus casos activos.
+  const eliminarCliente = async (id, opciones) => {
+    await clientesApi.eliminar(id, opciones)
     await load()
   }
 

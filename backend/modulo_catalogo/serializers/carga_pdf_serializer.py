@@ -10,7 +10,10 @@ documento que escribe el usuario, para poder sumar cualquier norma nueva
 (CPP, Código de Comercio, un Decreto Supremo, etc.) sin tocar el backend.
 """
 
+from django.db.models import Q
 from rest_framework import serializers
+
+from core.utils.archivos import validar_pdf
 
 from modulo_catalogo.models.jerarquia import jerarquia as Jerarquia
 from modulo_catalogo.models.norma import Norma
@@ -23,7 +26,15 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
     """
     Campos esperados (multipart/form-data):
         archivo         — archivo PDF
-        nombre_documento — nombre en texto del documento (ej. "Código de
+        norma_id         — opcional, ID de una Norma existente y activa. Si
+                            se manda, ES la norma destino (no se busca ni se
+                            crea por nombre): sirve para el modo "norma
+                            existente" del formulario, donde el usuario
+                            elige de una lista en vez de escribir el nombre
+                            a mano. En ese caso nombre_documento/sigla no
+                            son obligatorios y se ignoran para buscar/crear.
+        nombre_documento — obligatorio si NO se manda norma_id. Nombre en
+                            texto del documento (ej. "Código de
                             Procedimiento Penal"). Si ya existe una Norma
                             con ese nombre (o esa sigla), se reutiliza; si
                             no, se crea una nueva.
@@ -40,7 +51,15 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
     """
 
     archivo          = serializers.FileField(write_only=True)
-    nombre_documento = serializers.CharField(max_length=200, allow_blank=False, trim_whitespace=True)
+    norma_id         = serializers.PrimaryKeyRelatedField(
+                           queryset=Norma.objects.filter(estado=True),
+                           source="norma",
+                           required=False,
+                           allow_null=True,
+                       )
+    nombre_documento = serializers.CharField(
+                           max_length=200, required=False, allow_blank=True, trim_whitespace=True,
+                       )
     sigla            = serializers.CharField(max_length=50, required=False, allow_blank=True)
     jerarquia_id     = serializers.PrimaryKeyRelatedField(
                            queryset=Jerarquia.objects.filter(estado=True),
@@ -70,11 +89,22 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
             )
         if value.size == 0:
             raise serializers.ValidationError("El archivo PDF está vacío.")
+
+        # La extensión y el tamaño no garantizan que el contenido sea un
+        # PDF real (un .exe renombrado a informe.pdf pasaría los chequeos
+        # de arriba); esto valida la firma del archivo y que se pueda abrir.
+        valido, motivo = validar_pdf(value)
+        if not valido:
+            raise serializers.ValidationError(motivo)
+
         return value
 
     def validate_nombre_documento(self, value):
-        value = value.strip()
-        if len(value) < 3:
+        value = (value or "").strip()
+        # Vacío es válido a este nivel: cuando se manda norma_id (modo
+        # "norma existente") este campo no hace falta. Que sea obligatorio
+        # cuando NO se manda norma_id se exige en validate().
+        if value and len(value) < 3:
             raise serializers.ValidationError(
                 "El nombre del documento debe tener al menos 3 caracteres."
             )
@@ -82,29 +112,57 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         rama = attrs.get("rama")
-        nombre_documento = attrs.get("nombre_documento")
+        norma_existente = attrs.get("norma")  # viene de norma_id, si se mandó
+        nombre_documento = (attrs.get("nombre_documento") or "").strip()
         sigla = attrs.get("sigla") or None
 
-        # Busca una Norma existente por sigla (si se dio) o por nombre
-        # exacto (case-insensitive); si no existe, la crea. Así el mismo
-        # formulario sirve tanto para "seguir cargando" una norma que ya
-        # existe (ej. seguir subiendo artículos del Código Penal) como
-        # para dar de alta una norma nueva (ej. CPP) sin pasar antes por
-        # la pantalla de administración de normas.
-        norma = None
-        if sigla:
-            norma = Norma.objects.filter(sigla__iexact=sigla, estado=True).first()
-        if norma is None:
-            norma = Norma.objects.filter(
-                nombre__iexact=nombre_documento, estado=True
-            ).first()
-        if norma is None:
-            norma = Norma.objects.create(
-                nombre=nombre_documento,
-                sigla=sigla,
-                estado=True,
-            )
-            self.context["norma_creada"] = True
+        if norma_existente is not None:
+            # Modo "norma existente": el usuario la eligió de una lista, no
+            # hay que buscar ni crear nada por nombre/sigla.
+            norma = norma_existente
+        else:
+            if not nombre_documento:
+                raise serializers.ValidationError({
+                    "nombre_documento": (
+                        "Escribe el nombre del documento, o selecciona una "
+                        "norma existente de la lista."
+                    )
+                })
+
+            # Busca una Norma existente por sigla (si se dio) o por nombre
+            # exacto (case-insensitive); si no existe, la crea. Así el mismo
+            # formulario sirve tanto para "seguir cargando" una norma que ya
+            # existe (ej. seguir subiendo artículos del Código Penal) como
+            # para dar de alta una norma nueva (ej. CPP) sin pasar antes por
+            # la pantalla de administración de normas.
+            norma = None
+            if sigla:
+                norma = Norma.objects.filter(sigla__iexact=sigla, estado=True).first()
+            if norma is None:
+                norma = Norma.objects.filter(
+                    nombre__iexact=nombre_documento, estado=True
+                ).first()
+            if norma is None:
+                # Si esa norma existe pero está eliminada, no se crea otra
+                # igual: hay que restaurarla primero (así no se duplican
+                # normas ni se pierden los artículos que ya tenía).
+                filtro = Q(nombre__iexact=nombre_documento)
+                if sigla:
+                    filtro |= Q(sigla__iexact=sigla)
+                eliminada = Norma.objects.filter(estado=False).filter(filtro).first()
+                if eliminada:
+                    raise serializers.ValidationError({
+                        "nombre_documento": (
+                            f'La norma "{eliminada.nombre}" está eliminada. '
+                            "Pídele a un administrador que la restaure desde Catálogo → Normas antes de cargarle artículos."
+                        )
+                    })
+                norma = Norma.objects.create(
+                    nombre=nombre_documento,
+                    sigla=sigla,
+                    estado=True,
+                )
+                self.context["norma_creada"] = True
 
         attrs["norma"] = norma
 

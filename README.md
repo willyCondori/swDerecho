@@ -209,12 +209,12 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/casos/` | Lista de casos, con filtros (`rama_id`, `cliente_id`, `fecha_desde`, `fecha_hasta`, `tiene_pdf`, `search`). Un abogado solo ve sus propios casos; un administrador ve todos. |
+| `GET` | `/api/casos/` | Lista de casos, con filtros (`rama_id`, `cliente_id`, `fecha_desde`, `fecha_hasta`, `tiene_pdf`, `etapa`, `search`). Un abogado solo ve sus propios casos; un administrador ve todos. |
 | `POST` | `/api/casos/` | Crea un caso para un cliente ya existente. Acepta texto y/o PDF. |
 | `POST` | `/api/casos/crear_con_cliente/` | Crea cliente y caso en una sola transacción atómica. |
 | `GET` | `/api/casos/{id}/` | Detalle completo del caso (incluye cliente, hechos, petitorios, resultado). |
 | `PATCH` | `/api/casos/{id}/` | Edita título, descripción, estado o rama del caso. |
-| `DELETE` | `/api/casos/{id}/` | Soft-delete (solo administrador). |
+| `DELETE` | `/api/casos/{id}/` | Envía el caso a la papelera (soft-delete: guarda quién y cuándo, y deja una nota en el seguimiento). Administrador y abogado. |
 | `POST` | `/api/casos/{id}/subir_pdf/` | Adjunta o reemplaza el PDF del caso. |
 | `GET` | `/api/casos/{id}/hechos/` | Hechos del caso. |
 | `GET` | `/api/casos/{id}/petitorios/` | Petitorios del caso. |
@@ -222,6 +222,11 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `GET` | `/api/casos/{id}/articulos/` | Ranking de artículos aplicables, con desglose de scores. |
 | `POST` | `/api/casos/{id}/analizar/` | Dispara el pipeline de análisis completo. |
 | `GET` | `/api/casos/mis_casos/` | Casos del usuario autenticado. |
+| `GET` | `/api/casos/etapas/` | Catálogo de etapas de seguimiento (`value`, `label`, `orden`). |
+| `GET` | `/api/casos/{id}/seguimiento/` | Línea de tiempo del caso (historial de etapas y notas), más reciente primero. |
+| `POST` | `/api/casos/{id}/cambiar_etapa/` | Cambia la etapa del caso y/o agrega una nota (`etapa`, `nota` opcional). Cada llamada crea una entrada en el historial y queda en auditoría. Administrador y abogado. |
+| `GET` | `/api/casos/papelera/` | Casos eliminados, los enviados más recientemente primero (`search` por código, título o descripción; paginado). Administrador y abogado. |
+| `POST` | `/api/casos/{id}/restaurar/` | Restaura un caso de la papelera y deja constancia en el seguimiento y en la auditoría. `409` si el cliente del caso fue eliminado (hay que restaurar primero al cliente). Administrador y abogado. |
 
 ### Clientes (`/api/clientes/`)
 
@@ -231,7 +236,9 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 | `POST` | `/api/clientes/` | Crea un cliente. |
 | `GET` | `/api/clientes/{id}/` | Detalle del cliente (datos descifrados). |
 | `PATCH` | `/api/clientes/{id}/` | Actualiza un cliente. |
-| `DELETE` | `/api/clientes/{id}/` | Soft-delete (solo si no tiene casos activos; solo administrador). |
+| `DELETE` | `/api/clientes/{id}/` | Envía el cliente a la papelera (soft-delete: guarda quién y cuándo). Con casos activos responde `400` (`code: cliente_con_casos_activos`, `casos_activos: N`) sin cambiar nada; con `?eliminar_casos=true` también envía sus casos a la papelera. Administrador y abogado. |
+| `GET` | `/api/clientes/papelera/` | Clientes eliminados, los enviados más recientemente primero (`search` por nombre o apellido, mínimo 2 caracteres; paginado). Cada fila trae `casos_para_restaurar`. Administrador y abogado. |
+| `POST` | `/api/clientes/{id}/restaurar/` | Restaura al cliente y **solo los casos que se eliminaron junto con él** (los eliminados antes por separado siguen en la papelera de casos). Deja constancia en el seguimiento de cada caso y en la auditoría. Responde el cliente con `casos_restaurados`. Administrador y abogado. |
 | `GET` | `/api/clientes/lista/` | Listado compacto (`id`, `nombre_completo`) para selects. |
 | `GET` | `/api/clientes/{id}/casos/` | Casos asociados al cliente. |
 | `GET` | `/api/clientes/buscar/?q=` | Búsqueda por nombre/apellido descifrado (mínimo 2 caracteres). |
@@ -239,6 +246,16 @@ Como paso intermedio (sin dependencia de modelos de lenguaje generativos), el si
 ### Catálogo (`/api/catalogo/`)
 
 Gestión de ramas del derecho, normas, artículos y carga masiva de artículos desde fuentes externas.
+
+Carga de PDFs de normas (se procesa en un hilo en segundo plano; el progreso vive en el cache de Django durante 2 horas):
+
+| Método | Endpoint | Descripción |
+|--------|----------|-------------|
+| `POST` | `/api/catalogo/cargar-articulos/` | Sube el PDF e inicia la carga; responde `202` con el `task_id`. Administrador y abogado. |
+
+El archivo se valida por contenido, no solo por extensión y tamaño: debe empezar con la firma `%PDF-` y `pypdf` debe poder abrirlo con al menos una página (así se rechaza un archivo renombrado a `.pdf` o uno corrupto). Se aplica aquí y al adjuntar un PDF a un caso (`POST /api/casos/{id}/subir_pdf/`); ver `core/utils/archivos.py`.
+| `GET` | `/api/catalogo/cargar-articulos/estado/{task_id}/` | Estado, progreso y, al terminar, el resumen o el error de una carga. |
+| `GET` | `/api/catalogo/cargar-articulos/activas/` | Cargas que siguen corriendo ahora mismo (de cualquier usuario), con documento, progreso, quién la inició y `es_mia`. La pantalla de carga la usa para retomar el avance si el usuario sale y vuelve a entrar. |
 
 ### Usuarios (`/api/usuarios/`)
 
