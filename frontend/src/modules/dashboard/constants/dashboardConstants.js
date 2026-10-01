@@ -12,14 +12,9 @@ export const PIPELINE_WIDTH = {
   waiting: '0%',
 }
 
-// TODO: reemplazar por fetch a /api/ia/ranking/resumen/ cuando el endpoint esté listo
-export const TOP_ARTICULOS_MOCK = [
-  { numero: 'Art. 251', titulo: 'Homicidio', count: 38, pct: 76 },
-  { numero: 'Art. 331', titulo: 'Robo',      count: 29, pct: 58 },
-  { numero: 'Art. 263', titulo: 'Lesiones',  count: 21, pct: 42 },
-  { numero: 'Art. 335', titulo: 'Estafa',    count: 17, pct: 34 },
-  { numero: 'Art. 272', titulo: 'Violencia', count: 14, pct: 28 },
-]
+// El mock de "artículos más aplicados" que vivía acá ya no hace falta:
+// ArticulosCard ahora recibe normas_mas_consultadas real desde
+// GET /api/dashboard/resumen/ (ver useDashboardResumen).
 
 export const QUICK_ACCESS_ITEMS = [
   { icon: 'ti-folder-plus', label: 'Nuevo caso',      path: '/casos/nuevo' },
