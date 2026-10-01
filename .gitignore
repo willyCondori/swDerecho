@@ -35,3 +35,11 @@ build/
 # Logs
 # =========================
 *.log
+
+# Modelos de IA / embeddings
+backend/modelos/
+*.safetensors
+*.bin
+*.pt
+*.pth
+*.ckpt

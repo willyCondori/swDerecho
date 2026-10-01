@@ -9,6 +9,7 @@ const POLL_OTRAS_MS = 3000
 export function useCargaArticulos() {
   const [jerarquias, setJerarquias] = useState([])
   const [ramas,      setRamas]      = useState([])
+  const [normas,     setNormas]     = useState([])
   const [loadingOpts, setLoadingOpts] = useState(true)
 
   const [taskId,    setTaskId]    = useState(null)
@@ -32,12 +33,14 @@ export function useCargaArticulos() {
     const load = async () => {
       setLoadingOpts(true)
       try {
-        const [jerarquiasRes, ramasRes] = await Promise.all([
+        const [jerarquiasRes, ramasRes, normasRes] = await Promise.all([
           catalogoApi.jerarquias(),
           catalogoApi.ramas(),
+          catalogoApi.normas(),
         ])
         setJerarquias(jerarquiasRes.data ?? [])
         setRamas(ramasRes.data ?? [])
+        setNormas(normasRes.data ?? [])
       } catch (e) {
         setError('No se pudieron cargar las opciones del formulario.')
       } finally {
@@ -183,7 +186,7 @@ export function useCargaArticulos() {
   const procesando = estado === 'PENDING' || estado === 'STARTED'
 
   return {
-    jerarquias, ramas, loadingOpts,
+    jerarquias, ramas, normas, loadingOpts,
     cargar, reset,
     enviando, procesando,
     taskId, estado, progreso, paso, resumen, error, advertencias,

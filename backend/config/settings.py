@@ -249,10 +249,40 @@ PASSWORD_RESET_VENTANA_MINUTOS = int(os.getenv("PASSWORD_RESET_VENTANA_MINUTOS",
 LOGIN_MAX_INTENTOS    = int(os.getenv("LOGIN_MAX_INTENTOS", "5"))
 LOGIN_BLOQUEO_MINUTOS = int(os.getenv("LOGIN_BLOQUEO_MINUTOS", "15"))
 
+# Carpeta donde viven los modelos locales (backend/modelos/).
+MODELOS_DIR = BASE_DIR / 'modelos'
+
+_MODELO_POR_DEFECTO = MODELOS_DIR / 'sw-derecho-embeddings-v1-final'
+
+_modelo_cfg = config('SENTENCE_TRANSFORMER_MODEL', default=str(_MODELO_POR_DEFECTO))
+
+# Si el valor es una ruta relativa que existe dentro de BASE_DIR, se resuelve
+# contra BASE_DIR. Si es un id de HuggingFace (org/modelo) o una ruta absoluta,
+# se deja tal cual.
+_modelo_path = Path(_modelo_cfg)
+if not _modelo_path.is_absolute() and (BASE_DIR / _modelo_path).exists():
+    _modelo_cfg = str(BASE_DIR / _modelo_path)
+
+SENTENCE_TRANSFORMER_MODEL = _modelo_cfg
+
+# Etiqueta corta guardada en EmbeddingArticulo/EmbeddingChunk.modelo_version.
+# Path(...).name funciona tanto con rutas locales como con ids de HuggingFace.
+EMBEDDING_MODEL_VERSION = config(
+    'EMBEDDING_MODEL_VERSION',
+    default=Path(SENTENCE_TRANSFORMER_MODEL).name
+)
+
 SENTENCE_TRANSFORMER_MODEL = config(
     'SENTENCE_TRANSFORMER_MODEL',
     default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
 )
+
+# Etiqueta corta con la que SENTENCE_TRANSFORMER_MODEL queda identificado en
+# EmbeddingArticulo.modelo_version / EmbeddingChunk.modelo_version. Ver
+# modulo_ia/services/model_loader.py para el porqué de separar esto del
+# modelo en sí. Por defecto se deriva del propio nombre del modelo (la
+# última parte, después de la última "/"), así que si no se define
+# explícitamente, sigue siendo estable entre reinicios.
 
 LOGGING = {
     "version": 1,

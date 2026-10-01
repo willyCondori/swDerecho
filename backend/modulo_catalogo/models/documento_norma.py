@@ -40,6 +40,14 @@ class DocumentoNorma(models.Model):
                           null=True,
                           blank=True,
                       )
+    vigente         = models.BooleanField(
+                          default=True,
+                          help_text=(
+                              "False cuando una carga posterior con sobrescribir=True "
+                              "reemplazó este PDF. Se conserva como historial "
+                              "(trazabilidad, ley penal más benigna); no se borra."
+                          ),
+                      )
     created_at      = models.DateTimeField(auto_now_add=True)
 
     class Meta:

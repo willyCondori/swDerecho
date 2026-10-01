@@ -62,34 +62,11 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Configuración de embeddings
+# Configuración de embeddings — módulo único, compartido con embedding_service.py
+# y regenerar_embeddings_articulos.py (ver modulo_ia/services/model_loader.py).
 # ---------------------------------------------------------------------------
 
-DIMENSION_VECTOR = 768   # Ajustar si EmbeddingArticulo.vector usa otra dimensión
-
-
-# ---------------------------------------------------------------------------
-# Modelo SentenceTransformer (cache global, se carga una sola vez)
-# ---------------------------------------------------------------------------
-
-_modelo_cache = None
-
-
-def _obtener_modelo():
-    """Carga el modelo SentenceTransformer una sola vez por proceso."""
-    global _modelo_cache
-
-    if _modelo_cache is None:
-        from sentence_transformers import SentenceTransformer
-
-        logger.info(
-            "Cargando modelo de embeddings: %s",
-            settings.SENTENCE_TRANSFORMER_MODEL,
-        )
-
-        _modelo_cache = SentenceTransformer(settings.SENTENCE_TRANSFORMER_MODEL)
-
-    return _modelo_cache
+from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -302,6 +279,8 @@ PATRONES_ARTICULO = [
     r"Art\.\s+(\d+)\.-",
     r"Art\.\s*(\d+)º",
     r"ART\.\s+(\d+)°\.-",
+    r"Art\.\s+(\d+)°\s+(?=(?:bis|ter|quater|qu[áa]ter|quinquies|sexies|septies)\b)",
+    r"Art\.\s+(\d+)º\s+(?=(?:bis|ter|quater|qu[áa]ter|quinquies|sexies|septies)\b)",
 ]
 
 
@@ -314,6 +293,51 @@ _CONECTORES_REFERENCIA = {
     "con", "de", "a", "y", "e", "o", "u",
 }
 
+
+# Sufijos latinos usados para artículos intercalados (ej. "Artículo 389 bis.",
+# agregado después de que la ley original ya estaba numerada). Sin esta
+# excepción, _es_referencia_en_oracion los confunde con una referencia
+# dentro de una oración ("Artículo 389 de la presente Ley..."), porque en
+# ambos casos la palabra que sigue al número empieza en minúscula.
+_SUFIJOS_ARTICULO = {"bis", "ter", "quater", "quáter", "quinquies", "sexies", "septies"}
+
+
+def _extraer_sufijo_articulo(texto: str, pos_despues_numero: int) -> str:
+    """
+    Busca un sufijo latino ("bis", "ter", "quater"...) justo después del
+    número de artículo, para no fusionar "Artículo 389" con "Artículo 389
+    bis" como si fueran el mismo artículo. Devuelve el sufijo en minúsculas,
+    o "" si no hay ninguno.
+    """
+    resto = texto[pos_despues_numero:pos_despues_numero + 20]
+    resto_sin_simbolos = resto.lstrip(" \t°º.-")
+    m = re.match(r"([a-záéíóúñ]+)", resto_sin_simbolos)
+    if m and m.group(1) in _SUFIJOS_ARTICULO:
+        return m.group(1)
+    return ""
+# ---------------------------------------------------------------------------
+# Corte de disposiciones finales/transitorias y bloque de promulgación
+# ---------------------------------------------------------------------------
+PATRON_FIN_DOCUMENTO = re.compile(
+    r"\n\s*DISPOSICI[ÓO]N(?:ES)?\s+(?:FINAL(?:ES)?|TRANSITORIA(?:S)?|ADICIONAL(?:ES)?)\b"
+    r"|Rem[íi]tase\s+al\s+(?:Poder|[ÓO]rgano)\s+Ejecutivo"
+    r"|Es\s+dada\s+en\s+la\s+Sala\s+de"
+    r"|Por\s+tanto,?\s+la\s+promulgo",
+    re.IGNORECASE,
+)
+
+
+def _cortar_bloque_final_documento(texto: str) -> str:
+    """
+    Corta el texto completo del PDF en el primer indicio de disposiciones
+    finales/transitorias, fórmula de promulgación o bloque de firmas, para
+    que esas secciones (que nunca se detectan como "Artículo N") no queden
+    pegadas al último artículo real detectado.
+    """
+    match = PATRON_FIN_DOCUMENTO.search(texto)
+    if not match:
+        return texto
+    return texto[: match.start()].rstrip()
 
 def _es_mayuscula(texto: str) -> bool:
     letras = re.sub(r"[^A-Za-zÁÉÍÓÚÑáéíóúñ]", "", texto)
@@ -354,20 +378,15 @@ def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
         return not (palabra and palabra.group(1).lower() in _CONECTORES_REFERENCIA)
     return True
 
-
 def _es_referencia_en_oracion(texto: str, coincidencia) -> bool:
-    """
-    "Artículo 5 de la presente Ley..." al inicio de una oración no es un
-    encabezado: en los patrones que terminan en espacio (sin punto ni guion
-    tras el número), un encabezado real continúa con mayúscula o "(" y una
-    referencia continúa con minúscula ("de", "y", "del"...).
-    """
     if not coincidencia.group(0)[-1].isspace():
         return False
-    siguiente = texto[coincidencia.end():coincidencia.end() + 1]
+    resto = texto[coincidencia.end():coincidencia.end() + 12]
+    palabra = re.match(r"[a-záéíóúñ]+", resto)
+    if palabra and palabra.group(0) in _SUFIJOS_ARTICULO:
+        return False
+    siguiente = resto[:1]
     return siguiente.isalpha() and siguiente.islower()
-
-
 # ---------------------------------------------------------------------------
 # Jerarquía normativa
 # ---------------------------------------------------------------------------
@@ -417,7 +436,7 @@ def _asegurar_jerarquia_norma(norma, jerarquia_id=None):
 PATRON_PARENTESIS = re.compile(r"\(\s*([^()]+?)\s*\)")
 
 
-def extraer_titulo_articulo(numero: int, contenido: str) -> str:
+def extraer_titulo_articulo(numero, contenido: str) -> str:
     """
     Construye el título como "Art. {numero} - {TEXTO ENTRE PARÉNTESIS}".
 
@@ -627,23 +646,18 @@ def dividir_por_articulos(texto: str) -> list[dict]:
     """
     Divide el texto en artículos.
 
-    Devuelve:
-        [
-            {"numero": 361, "titulo": "Art. 361 - USURA AGRAVADA", "texto": "..."},
-            ...
-        ]
-
-    Usa la lista genérica PATRONES_ARTICULO — funciona para cualquier norma
-    (Civil, Penal, Laboral, CPE, CPP, o una nueva), no depende de que el
-    usuario elija un "tipo de norma" predefinido.
+    "numero" en el dict devuelto es un identificador de texto, no
+    necesariamente un entero puro: los artículos intercalados con sufijo
+    latino ("389 bis", "272 ter"...) se identifican como "{numero} {sufijo}"
+    para no fusionarse con el artículo base que comparte el mismo número.
     """
     texto = limpiar_texto(texto)
+    texto = _cortar_bloque_final_documento(texto)
+
 
     todos_matches = []
     for patron in PATRONES_ARTICULO:
         matches = list(re.finditer(patron, texto, re.MULTILINE))
-        # Filtra referencias en medio de una oración (ver _es_inicio_valido
-        # y _es_referencia_en_oracion)
         matches = [
             m for m in matches
             if _es_inicio_valido(texto, m.start(), _es_mayuscula(m.group(0)))
@@ -653,34 +667,40 @@ def dividir_por_articulos(texto: str) -> list[dict]:
 
     todos_matches.sort(key=lambda m: m.start())
 
-    # Deduplicar coincidencias producidas por distintos patrones
+    con_sufijo = [
+        (m, int(m.group(1)), _extraer_sufijo_articulo(texto, m.end(1)))
+        for m in todos_matches
+    ]
+
+    # Deduplicar coincidencias producidas por distintos patrones para el
+    # MISMO artículo (mismo número Y mismo sufijo, cerca en el texto)
     matches_unicos = []
     ultima_pos = -100
-    ultimo_num = -1
-    for match in todos_matches:
-        num = int(match.group(1))
+    ultimo_id = None
+    for match, numero_int, sufijo in con_sufijo:
         pos = match.start()
-        if num == ultimo_num and pos - ultima_pos < 50:
+        id_articulo = (numero_int, sufijo)
+        if id_articulo == ultimo_id and pos - ultima_pos < 50:
             continue
-        matches_unicos.append(match)
+        matches_unicos.append((match, numero_int, sufijo))
         ultima_pos = pos
-        ultimo_num = num
+        ultimo_id = id_articulo
 
     if not matches_unicos:
         logger.warning("No se encontraron artículos en el PDF (ningún patrón hizo match).")
         return []
 
     articulos = []
-    numeros_vistos = set()
+    ids_vistos = set()
 
-    for i, match in enumerate(matches_unicos):
-        numero = int(match.group(1))
-        if numero in numeros_vistos:
+    for i, (match, numero_int, sufijo) in enumerate(matches_unicos):
+        id_articulo = (numero_int, sufijo)
+        if id_articulo in ids_vistos:
             continue
-        numeros_vistos.add(numero)
+        ids_vistos.add(id_articulo)
 
         inicio = match.start()
-        fin = matches_unicos[i + 1].start() if i + 1 < len(matches_unicos) else len(texto)
+        fin = matches_unicos[i + 1][0].start() if i + 1 < len(matches_unicos) else len(texto)
 
         contenido = texto[inicio:fin].strip()
         contenido = _limpiar_contenido_articulo(contenido)
@@ -689,12 +709,12 @@ def dividir_por_articulos(texto: str) -> list[dict]:
         if len(contenido) < 20:
             continue
 
-        titulo = extraer_titulo_articulo(numero, contenido)
+        numero_str = f"{numero_int} {sufijo}" if sufijo else str(numero_int)
+        titulo = extraer_titulo_articulo(numero_str, contenido)
 
-        articulos.append({"numero": numero, "titulo": titulo, "texto": contenido})
+        articulos.append({"numero": numero_str, "titulo": titulo, "texto": contenido})
 
     return articulos
-
 
 # ---------------------------------------------------------------------------
 # Carga principal
@@ -822,6 +842,7 @@ def cargar_articulos_desde_bytes(
 
                 EmbeddingArticulo.objects.update_or_create(
                     articulo=articulo,
+                    modelo_version=version_activa(),
                     defaults={"vector": vector},
                 )
             except Exception as e:

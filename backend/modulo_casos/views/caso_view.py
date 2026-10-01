@@ -399,24 +399,33 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     def analizar(self, request, pk=None):
         """
         POST /api/casos/{id}/analizar/
-        Ejecuta el pipeline IA completo de forma síncrona:
-        chunking → embeddings → ranking → LLM → resultados → docx
+        Lanza el pipeline IA completo (chunking → embeddings → entidades →
+        ranking → resultado) en segundo plano y devuelve al toque. El
+        avance se consulta con GET /api/casos/{id}/ (campos
+        estado_analisis/analisis_paso) o con GET .../seguimiento/ para el
+        historial — no bloquea el request como antes.
+
+        409 si ya hay un análisis en curso para este caso (ver
+        Caso.analisis_en_curso): evita que un doble clic dispare dos
+        corridas en paralelo sobre los mismos chunks/ranking.
         """
         from modulo_ia.serializers.ia_serializer import AnalisisCasoSerializer
+        from modulo_ia.services.analisis_background import iniciar_analisis
 
         caso       = self.get_object()
         serializer = AnalisisCasoSerializer(data={"caso_id": caso.pk})
         serializer.is_valid(raise_exception=True)
 
-        from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
-        ejecutar_analisis_caso(caso.pk)
+        ok, detalle = iniciar_analisis(caso, request.user)
+        if not ok:
+            return Response({"detail": detalle}, status=status.HTTP_409_CONFLICT)
 
-        self._auditar("ANALYZE", registro_id=caso.pk)
-
+        caso.refresh_from_db(fields=["estado_analisis", "analisis_paso"])
         return Response(
             {
-                "detail" : "Análisis completado correctamente.",
-                "caso_id": caso.pk,
+                "detail"        : "Análisis iniciado.",
+                "caso_id"       : caso.pk,
+                "estado_analisis": caso.estado_analisis,
             },
-            status=status.HTTP_200_OK,
+            status=status.HTTP_202_ACCEPTED,
         )
