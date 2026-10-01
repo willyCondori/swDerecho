@@ -204,7 +204,9 @@ class RankingServiceVersionadoEmbeddingsTests(TestCase):
         self.assertEqual(len(vectores), 1)
         chunk_id, vector = vectores[0]
         self.assertEqual(chunk_id, self.chunk.id)
-        self.assertEqual(vector, self.vector_activo)
+        # pgvector devuelve un ndarray: assertEqual contra una lista lanza
+        # "truth value of an array is ambiguous".
+        np.testing.assert_allclose(np.asarray(vector), np.asarray(self.vector_activo))
 
     def test_score_semantico_articulo_especifico_usa_solo_la_version_activa(self):
         vectores_chunks_caso = RankingService._vectores_chunks_caso(self.caso)
@@ -218,3 +220,105 @@ class RankingServiceVersionadoEmbeddingsTests(TestCase):
         # habría salido ~0.0 en vez de 1.0.
         self.assertAlmostEqual(similitud, 1.0, places=5)
         self.assertEqual(chunk_id, self.chunk.id)
+
+
+class RankingServiceScoresEnLoteTests(TestCase):
+    """
+    _scores_semanticos_articulos_especificos puntúa varios artículos
+    "forzados" (figuras transversales) contra los chunks del caso con UNA
+    consulta y similitud coseno normalizada. Antes era una consulta por
+    artículo y un np.dot crudo (fuera de [-1, 1] con vectores sin normalizar).
+    """
+
+    @classmethod
+    def setUpTestData(cls):
+        rol = Rol.objects.create(nombre="Abogado test lote")
+        cls.usuario = Usuario.objects.create_user(usuario="lote.test", password="Segura#123", rol=rol)
+        cls.cliente = Cliente.objects.create(nombres="Cliente", apellidos="Test")
+        cls.rama = RamaDerecho.objects.create(nombre="Rama test lote")
+        jerarquia = Jerarquia.objects.create(nivel=52, nombre="Jerarquía test lote")
+        cls.norma = Norma.objects.create(nombre="Norma test lote", jerarquia=jerarquia)
+
+        cls.caso = Caso.objects.create(
+            codigo="CASO-LOTE", titulo="CASO-LOTE", descripcion="",
+            usuario=cls.usuario, cliente=cls.cliente, rama_detectada=cls.rama,
+        )
+        cls.chunk_a = ChunkCaso.objects.create(caso=cls.caso, contenido="tema a", orden=1, tipo="texto")
+        cls.chunk_b = ChunkCaso.objects.create(caso=cls.caso, contenido="tema b", orden=2, tipo="texto")
+        cls.v_a = _vector_bloque(0, seed=31)
+        cls.v_b = _vector_bloque(1, seed=32)
+        cls.v_c = _vector_bloque(2, seed=33)
+        EmbeddingChunk.objects.create(chunk=cls.chunk_a, modelo_version=version_activa(), vector=cls.v_a)
+        EmbeddingChunk.objects.create(chunk=cls.chunk_b, modelo_version=version_activa(), vector=cls.v_b)
+
+        def articulo(numero, vector):
+            art = Articulo.objects.create(
+                numero_articulo=numero, titulo=f"Art. {numero}", contenido=f"Contenido {numero}",
+                norma=cls.norma, rama=cls.rama,
+            )
+            if vector is not None:
+                EmbeddingArticulo.objects.create(articulo=art, modelo_version=version_activa(), vector=vector)
+            return art
+
+        cls.art_a = articulo("LOTE-A", cls.v_a)
+        cls.art_b = articulo("LOTE-B", cls.v_b)
+        # Mismo tema que el chunk A pero con magnitud 5: sin normalizar, un
+        # producto punto daría ~5.0 en vez de 1.0.
+        cls.art_a_grande = articulo("LOTE-A5", (np.array(cls.v_a) * 5).tolist())
+        cls.art_ortogonal = articulo("LOTE-C", cls.v_c)
+        cls.art_sin_embedding = articulo("LOTE-SIN", None)
+
+    def _vectores(self):
+        return RankingService._vectores_chunks_caso(self.caso)
+
+    def test_cada_articulo_toma_su_mejor_chunk(self):
+        res = RankingService._scores_semanticos_articulos_especificos(
+            [self.art_a.id, self.art_b.id], self._vectores()
+        )
+        sim_a, chunk_a = res[self.art_a.id]
+        sim_b, chunk_b = res[self.art_b.id]
+        self.assertAlmostEqual(sim_a, 1.0, places=5)
+        self.assertEqual(chunk_a, self.chunk_a.id)
+        self.assertAlmostEqual(sim_b, 1.0, places=5)
+        self.assertEqual(chunk_b, self.chunk_b.id)
+
+    def test_similitud_es_coseno_aunque_el_vector_no_este_normalizado(self):
+        res = RankingService._scores_semanticos_articulos_especificos(
+            [self.art_a_grande.id], self._vectores()
+        )
+        similitud, chunk_id = res[self.art_a_grande.id]
+        self.assertAlmostEqual(similitud, 1.0, places=5)
+        self.assertLessEqual(similitud, 1.0 + 1e-9)
+        self.assertEqual(chunk_id, self.chunk_a.id)
+
+    def test_sin_embedding_u_ortogonal_queda_en_cero(self):
+        res = RankingService._scores_semanticos_articulos_especificos(
+            [self.art_sin_embedding.id, self.art_ortogonal.id], self._vectores()
+        )
+        self.assertEqual(res[self.art_sin_embedding.id], (0.0, None))
+        self.assertEqual(res[self.art_ortogonal.id][1], None)
+        self.assertEqual(res[self.art_ortogonal.id][0], 0.0)
+
+    def test_sin_ids_o_sin_chunks_devuelve_vacio_sin_consultar(self):
+        vectores = self._vectores()
+        with self.assertNumQueries(0):
+            self.assertEqual(
+                RankingService._scores_semanticos_articulos_especificos([], vectores), {}
+            )
+            self.assertEqual(
+                RankingService._scores_semanticos_articulos_especificos([self.art_a.id], []),
+                {self.art_a.id: (0.0, None)},
+            )
+
+    def test_una_sola_consulta_para_varios_articulos(self):
+        vectores = self._vectores()
+        ids = [self.art_a.id, self.art_b.id, self.art_a_grande.id, self.art_ortogonal.id]
+        with self.assertNumQueries(1):
+            RankingService._scores_semanticos_articulos_especificos(ids, vectores)
+
+    def test_wrapper_de_un_solo_articulo_sigue_funcionando(self):
+        similitud, chunk_id = RankingService._score_semantico_articulo_especifico(
+            self.art_b.id, self._vectores()
+        )
+        self.assertAlmostEqual(similitud, 1.0, places=5)
+        self.assertEqual(chunk_id, self.chunk_b.id)
