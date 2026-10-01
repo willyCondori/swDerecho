@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'modulo_casos',
     'modulo_catalogo',
     'modulo_clientes',
+    'modulo_dashboard',
     'modulo_documentos',
     'modulo_ia',
     'modulo_usuarios',
