@@ -158,6 +158,8 @@ class CasoReadSerializer(serializers.ModelSerializer):
             "tiene_documento", "tiene_generado",
             "etapa", "etapa_display", "etapa_actualizada_at",
             "estado", "created_at",
+            "estado_analisis", "analisis_paso", "analisis_error",
+            "analisis_iniciado_en", "analisis_completado_en",
         ]
 
     def get_hechos(self, obj):

@@ -24,7 +24,7 @@ export default function ProgressPanel({ paso, progreso, documento, retomada = fa
         {retomada
           ? 'Esta carga ya estaba en curso: retomamos su avance. '
           : ''}
-        Puedes salir de esta pantalla; la carga sigue en el servidor y al volver verás su avance.
+        Puedes salir de esta pantalla la carga sigue en el servidor y al volver verás su avance.
       </p>
     </div>
   )

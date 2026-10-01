@@ -19,16 +19,30 @@ function EstadoBadge({ tieneResultado, tieneDocumento }) {
   return <span className={`${styles.badge} ${styles.badgeMuted}`}>Sin analizar</span>
 }
 
+// Texto y estado del botón "Analizar", a partir del estado real que
+// persiste el backend (caso.estado_analisis) — no de una bandera local,
+// que se pierde al recargar la página y podía quedar desincronizada del
+// estado real (ver el historial de este archivo antes de este cambio).
+function estadoBotonAnalisis(caso, analizando) {
+  if (analizando) return { texto: 'Iniciando análisis...', deshabilitado: true }
+  if (caso.estado_analisis === 'procesando') {
+    return { texto: 'Analizando...', deshabilitado: true }
+  }
+  return {
+    texto: caso.resultado ? 'Volver a analizar' : 'Analizar caso con IA',
+    deshabilitado: false,
+  }
+}
+
 export default function CasoDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
-  const [analisisEncolado, setAnalisisEncolado] = useState(false)
   const [errorEliminar, setErrorEliminar] = useState('')
 
   const {
     caso, articulos, loading, error,
-    analizando, eliminando, eliminar, analizar, reload,
+    analizando, eliminando, eliminar, analizar,
   } = useCasoDetail(id)
 
   if (loading) {
@@ -49,10 +63,13 @@ export default function CasoDetailPage() {
   if (!caso) return null
 
   const handleAnalizar = async () => {
-    const ok = await analizar()
-    if (ok) setAnalisisEncolado(false)
-        await reload()  // recarga el caso para reflejar el estado de análisis encolado
+    await analizar()
+    // No hace falta reload(): analizar() ya actualiza caso.estado_analisis
+    // al toque, y el polling de useCasoDetail toma el relevo mientras
+    // "procesando" hasta que termine.
   }
+
+  const estadoBoton = estadoBotonAnalisis(caso, analizando)
 
   const handleEliminar = async () => {
     const confirmado = window.confirm(
@@ -107,6 +124,10 @@ export default function CasoDetailPage() {
             )}
 
 {/*            <DocumentosCasoList casoId={id} /> */}
+          </div>
+
+          <div className={styles.card}>
+            <DocumentosCasoList casoId={id} />
           </div>
 
           {caso.hechos?.length > 0 && (
@@ -254,19 +275,20 @@ export default function CasoDetailPage() {
                 type="button"
                 className={styles.btnPrimary}
                 onClick={handleAnalizar}
-                disabled={analizando || analisisEncolado}
+                disabled={estadoBoton.deshabilitado}
               >
-                {analizando
-                  ? 'Encolando análisis...'
-                  : analisisEncolado
-                    ? 'Análisis en proceso...'
-                    : caso.resultado
-                      ? 'Volver a analizar'
-                      : 'Analizar caso con IA'}
+                {estadoBoton.texto}
               </button>
-              {analisisEncolado && (
+              {caso.estado_analisis === 'procesando' && (
                 <p className={styles.hintText}>
-                  El análisis corre en segundo plano. Recargá la página en unos minutos para ver el resultado.
+                  El análisis corre en segundo plano
+                  {caso.analisis_paso ? ` (paso: ${caso.analisis_paso})` : ''}. Esta página se
+                  actualiza sola cuando termina.
+                </p>
+              )}
+              {caso.estado_analisis === 'error' && (
+                <p className={styles.errorBanner}>
+                  El último análisis falló{caso.analisis_error ? `: ${caso.analisis_error}` : '.'}
                 </p>
               )}
             </div>

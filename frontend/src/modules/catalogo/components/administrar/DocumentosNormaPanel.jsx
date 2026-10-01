@@ -52,7 +52,12 @@ export default function DocumentosNormaPanel({ norma, onClose }) {
             <li key={doc.id} className={styles.item}>
               <i className={`ti ti-file-type-pdf ${styles.itemIcon}`} aria-hidden="true" />
               <div className={styles.itemInfo}>
-                <span className={baseStyles.itemNombre}>{doc.nombre_original}</span>
+                <span className={baseStyles.itemNombre}>
+                  {doc.nombre_original}{' '}
+                  {doc.vigente === false
+                    ? <em title="Una carga posterior reemplazó este PDF; se conserva como historial">(reemplazado)</em>
+                    : <strong>(vigente)</strong>}
+                </span>
                 <span className={baseStyles.itemDescripcion}>
                   {formatTamano(doc.tamano)} · {doc.rama_nombre || 'sin rama'} ·{' '}
                   {formatFechaHora(doc.created_at)}
