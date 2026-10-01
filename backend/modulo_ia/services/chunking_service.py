@@ -2,8 +2,8 @@ import re
 
 from modulo_ia.models.chunk import ChunkCaso
 
-TAMANO_CHUNK = 800     # caracteres aprox. por chunk
-SOLAPAMIENTO = 150     # caracteres compartidos entre chunk y chunk
+TAMANO_CHUNK = 300     # caracteres aprox. por chunk
+SOLAPAMIENTO = 50     # caracteres compartidos entre chunk y chunk
 
 
 def extraer_texto_pdf(documento) -> str:
