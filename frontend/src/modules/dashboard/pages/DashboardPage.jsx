@@ -2,27 +2,22 @@
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../../auth/store/authStore'
 import useCasos from '../hooks/useCasos'
-import { computeCasoStats, getGreeting } from '../utils/dashboardUtils'
+import useDashboardResumen from '../hooks/useDashboardResumen'
+import { getGreeting } from '../utils/dashboardUtils'
 import MetricsGrid from '../components/MetricsGrid'
 import CasosRecientesCard from '../components/CasosRecientesCard'
 import ArticulosCard from '../components/ArticulosCard'
-import PipelineCard from '../components/PipelineCard'
-import AccesoRapidoCard from '../components/AccesoRapidoCard'
 import styles from './DashboardPage.module.css'
-
-// Pipeline IA — en producción vendría del estado Celery del último análisis
-const PIPELINE_STATE = {
-  chunking: 'done',
-  embeddings: 'done',
-  ranking: 'active',
-  llm: 'waiting',
-}
 
 export default function DashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuthStore()
+  // Casos recientes: sigue usando la muestra paginada, porque acá sí
+  // interesa el detalle de los últimos casos, no un agregado.
   const { casos, loading, error, reload } = useCasos({ pageSize: 20 })
-  const stats = computeCasoStats(casos)
+  // Métricas y "artículos más aplicados": vienen agregadas del backend
+  // completo (GET /api/dashboard/resumen/), no de esta misma muestra de 20.
+  const { resumen, loading: loadingResumen } = useDashboardResumen()
 
   return (
     <div className={styles.root}>
@@ -48,12 +43,12 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      <MetricsGrid loading={loading} stats={stats} />
+      <MetricsGrid loading={loadingResumen} stats={resumen} />
 
       <div className={styles.mainGrid}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
           <CasosRecientesCard casos={casos} loading={loading} error={error} onRetry={reload} />
-          <ArticulosCard />
+          <ArticulosCard articulos={resumen.normas_mas_consultadas} loading={loadingResumen} />
         </div>
 {/* 
 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
