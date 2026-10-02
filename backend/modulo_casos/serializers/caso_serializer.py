@@ -232,6 +232,9 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
         with transaction.atomic():
             caso = super().create(validated_data)
             registrar_seguimiento_inicial(caso, request.user)
+            from modulo_notificaciones.services.notificacion_service import notificar_caso_nuevo
+
+            transaction.on_commit(lambda: notificar_caso_nuevo(caso, request.user))
         return caso
 
     @staticmethod
