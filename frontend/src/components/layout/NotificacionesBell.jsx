@@ -5,6 +5,7 @@ import useNotificaciones from '../../modules/notificaciones/hooks/useNotificacio
 import styles from './NotificacionesBell.module.css'
 
 const ICONO_POR_TIPO = {
+  caso_nuevo: 'ti-folder-plus',
   analisis_completado: 'ti-circle-check',
   analisis_error: 'ti-alert-triangle',
   documento_nuevo: 'ti-file-text',

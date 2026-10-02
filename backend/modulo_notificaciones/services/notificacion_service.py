@@ -8,6 +8,10 @@ adentro y solo la loguea.
 """
 import logging
 
+from django.db import transaction
+from core.permissions.roles import administradores_activos_qs
+from core.utils.usuarios import nombre_visible_usuario
+
 from modulo_notificaciones.models import Notificacion, TipoNotificacion
 
 logger = logging.getLogger(__name__)
@@ -81,3 +85,23 @@ def notificar_documento_nuevo(documento, usuario_subio):
         ),
         caso=caso,
     )
+
+
+def notificar_caso_nuevo(caso, creador):
+    """Avisa a los administradores activos quién creó el caso confirmado."""
+    try:
+        nombre = nombre_visible_usuario(creador)
+        autor = f"{nombre} ({creador.usuario})" if nombre != creador.usuario else nombre
+        for administrador in administradores_activos_qs():
+            # Un fallo de inserción no debe romper una transacción externa
+            # ni impedir los avisos a los demás administradores.
+            with transaction.atomic():
+                crear_notificacion(
+                    usuario=administrador,
+                    tipo=TipoNotificacion.CASO_NUEVO,
+                    titulo="Nuevo caso creado",
+                    mensaje=f'{autor} creó el caso "{caso.titulo}" ({caso.codigo}).',
+                    caso=caso,
+                )
+    except Exception:
+        logger.exception("No se pudo notificar la creación del caso %s", caso.pk)

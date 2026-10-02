@@ -6,6 +6,7 @@ from modulo_casos.models.caso import Caso
 
 
 class TipoNotificacion(models.TextChoices):
+    CASO_NUEVO          = "caso_nuevo", "Caso nuevo"
     ANALISIS_COMPLETADO = "analisis_completado", "Análisis completado"
     ANALISIS_ERROR       = "analisis_error", "Análisis con error"
     DOCUMENTO_NUEVO      = "documento_nuevo", "Documento nuevo"
