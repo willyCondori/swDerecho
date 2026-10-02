@@ -17,7 +17,7 @@ from unittest.mock import patch
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import override_settings
+from django.test import SimpleTestCase, override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -187,3 +187,41 @@ class PostRegistraDatosDeLaCargaTests(CargasActivasBase):
         self.assertEqual(info["rama"], "Penal")
         self.assertEqual(info["usuario_id"], self.abogado.id)
         self.assertEqual(info["usuario_nombre"], "Laura Quispe")
+
+
+class CierreConexionesCargaTests(SimpleTestCase):
+    def ejecutar_carga(self, *, falla=False, callback=None, falla_indice=False):
+        resultado = ResultadoFalso()
+        with patch(CARGAR_FN, return_value=resultado) as cargar, patch(
+            "modulo_catalogo.services.background_tasks.threading.Thread"
+        ) as hilo, patch(
+            "modulo_catalogo.services.background_tasks.connections.close_all"
+        ) as cerrar, patch(
+            "modulo_catalogo.services.background_tasks._quitar_del_indice"
+        ) as quitar:
+            if falla:
+                cargar.side_effect = RuntimeError("carga fallida")
+            if falla_indice:
+                quitar.side_effect = RuntimeError("cache fallido")
+            lanzar_carga_en_background(b"pdf", 1, 1, on_exito=callback)
+            ejecutar = hilo.call_args.kwargs["target"]
+            if falla_indice:
+                with self.assertRaisesMessage(RuntimeError, "cache fallido"):
+                    ejecutar()
+            else:
+                ejecutar()
+            cerrar.assert_called_once_with()
+        cache.clear()
+
+    def test_cierra_conexiones_al_terminar(self):
+        self.ejecutar_carga()
+
+    def test_cierra_conexiones_si_falla_la_carga(self):
+        self.ejecutar_carga(falla=True)
+
+    def test_cierra_conexiones_si_falla_el_callback(self):
+        from unittest.mock import Mock
+        self.ejecutar_carga(callback=Mock(side_effect=RuntimeError("callback fallido")))
+
+    def test_cierra_conexiones_si_falla_la_limpieza_del_indice(self):
+        self.ejecutar_carga(falla_indice=True)

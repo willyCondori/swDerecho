@@ -7,6 +7,7 @@ Complementan a core.tests.test_validar_pdf, que prueba el helper aislado.
 """
 import shutil
 import tempfile
+from unittest.mock import patch
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
@@ -55,8 +56,14 @@ class CargaArticulosValidacionContenidoTests(APITestCase):
         self.assertIn("dañado", str(r.data["archivo"]))
 
     def test_un_pdf_valido_pasa_la_validacion(self):
-        r = self._post(PDF_MINIMO_1_PAGINA)
+        with patch(
+            "modulo_catalogo.views.carga_articulos_view.lanzar_carga_en_background",
+            return_value="tarea-validacion",
+        ) as lanzar:
+            r = self._post(PDF_MINIMO_1_PAGINA)
         self.assertEqual(r.status_code, status.HTTP_202_ACCEPTED, r.data)
+        lanzar.assert_called_once()
+        self.assertEqual(r.data["task_id"], "tarea-validacion")
 
 
 class SubirPdfCasoValidacionContenidoTests(APITestCase):
