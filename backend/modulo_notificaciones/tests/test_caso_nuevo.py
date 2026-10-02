@@ -7,14 +7,21 @@ from modulo_catalogo.models.rama import RamaDerecho
 from modulo_clientes.models.cliente import Cliente
 from modulo_casos.models.caso import Caso
 from modulo_notificaciones.models import Notificacion, TipoNotificacion
+from modulo_usuarios.models.usuario import Usuario
 from modulo_usuarios.tests.factories import crear_perfil, crear_rol, crear_usuario
 
 
 class CasoNuevoNotificacionTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
+        # Las migraciones pueden haber creado administradores iniciales.
+        # También deben recibir el aviso: no asumir una base vacía.
+        administradores_previos = set(Usuario.objects.filter(
+            estado=True, rol__nombre__iexact="Administrador",
+        ).values_list("pk", flat=True))
         cls.admin = crear_usuario("admin.casos", rol=crear_rol("Administrador"))
         cls.admin2 = crear_usuario("admin2.casos", rol=cls.admin.rol)
+        cls.destinatarios = administradores_previos | {cls.admin.pk, cls.admin2.pk}
         cls.inactivo = crear_usuario("admin.inactivo", rol=cls.admin.rol, estado=False)
         cls.abogado = crear_usuario("abogado.creador", rol=crear_rol("Abogado"))
         crear_perfil(cls.abogado, nombres="Ana", apellidos="Quispe")
@@ -40,7 +47,7 @@ class CasoNuevoNotificacionTests(APITestCase):
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
         avisos = self.avisos().filter(caso_id=respuesta.data["id"])
         self.assertSetEqual(set(avisos.values_list("usuario_id", flat=True)),
-                            {self.admin.pk, self.admin2.pk})
+                            self.destinatarios)
         for aviso in avisos:
             self.assertIn("Ana Quispe (abogado.creador)", aviso.mensaje)
             self.assertIn(respuesta.data["codigo"], aviso.mensaje)
@@ -58,7 +65,7 @@ class CasoNuevoNotificacionTests(APITestCase):
         with self.captureOnCommitCallbacks(execute=True):
             respuesta = self.client.post("/api/casos/crear_con_cliente/", datos, format="json")
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        self.assertEqual(self.avisos().filter(caso_id=respuesta.data["id"]).count(), 2)
+        self.assertEqual(self.avisos().filter(caso_id=respuesta.data["id"]).count(), len(self.destinatarios))
 
     def test_creacion_invalida_no_notifica(self):
         with self.captureOnCommitCallbacks(execute=True) as callbacks:
@@ -89,5 +96,5 @@ class CasoNuevoNotificacionTests(APITestCase):
         with self.captureOnCommitCallbacks(execute=True):
             respuesta = self.client.post("/api/casos/", self.datos, format="json")
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        self.assertEqual(self.avisos().count(), 2)
+        self.assertEqual(self.avisos().count(), len(self.destinatarios))
         self.assertIn("admin.casos creó", self.avisos().first().mensaje)
