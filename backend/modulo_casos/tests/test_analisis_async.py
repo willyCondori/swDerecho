@@ -19,6 +19,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.utils import timezone
+from django.test import SimpleTestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -212,3 +213,21 @@ class EjecutarAnalisisCasoTests(APITestCase):
             ejecutar_analisis_caso(self.caso.pk, usuario=self.dueño)
 
         self.assertEqual(self.caso.chunks.count(), 0)
+
+
+class CierreConexionesAnalisisTests(SimpleTestCase):
+    def test_cierra_conexiones_incluso_si_falla_la_notificacion(self):
+        from unittest.mock import Mock
+        from modulo_ia.services.analisis_background import _ejecutar_en_hilo
+
+        caso = Mock(estado_analisis=EstadoAnalisis.COMPLETADO)
+        with patch("modulo_casos.models.caso.Caso.objects") as casos, patch(
+            "modulo_ia.tasks.analisis_task.ejecutar_analisis_caso"
+        ), patch(
+            "modulo_notificaciones.services.notificacion_service.notificar_analisis_completado",
+            side_effect=RuntimeError("notificacion fallida"),
+        ), patch("django.db.connections.close_all") as cerrar:
+            casos.filter.return_value.select_related.return_value.first.return_value = caso
+            with self.assertRaisesMessage(RuntimeError, "notificacion fallida"):
+                _ejecutar_en_hilo(1, None)
+            cerrar.assert_called_once_with()

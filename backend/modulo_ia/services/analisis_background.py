@@ -57,7 +57,7 @@ def iniciar_analisis(caso, usuario):
 
 
 def _ejecutar_en_hilo(caso_id: int, usuario_id):
-    from django.db import close_old_connections
+    from django.db import connections
     from modulo_casos.models.caso import Caso, EstadoAnalisis
     from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
     from modulo_notificaciones.services.notificacion_service import (
@@ -79,12 +79,14 @@ def _ejecutar_en_hilo(caso_id: int, usuario_id):
         # arriba, si el caso sigue existiendo). Se lee de nuevo acá en
         # vez de confiar en una variable local porque es la única fuente
         # de verdad, igual que el resto de este módulo.
-        caso = Caso.objects.filter(pk=caso_id).select_related("usuario").first()
-        if caso is not None:
-            if caso.estado_analisis == EstadoAnalisis.COMPLETADO:
-                notificar_analisis_completado(caso)
-            elif caso.estado_analisis == EstadoAnalisis.ERROR:
-                notificar_analisis_error(caso)
-        # Cada hilo abre su propia conexión a la BD; sin esto quedan
-        # conexiones colgadas acumulándose con cada análisis.
-        close_old_connections()
+        try:
+            caso = Caso.objects.filter(pk=caso_id).select_related("usuario").first()
+            if caso is not None:
+                if caso.estado_analisis == EstadoAnalisis.COMPLETADO:
+                    notificar_analisis_completado(caso)
+                elif caso.estado_analisis == EstadoAnalisis.ERROR:
+                    notificar_analisis_error(caso)
+        finally:
+            # close_old_connections conserva conexiones sanas; al terminar
+            # el hilo hay que cerrar todas, incluso si falla la notificación.
+            connections.close_all()
