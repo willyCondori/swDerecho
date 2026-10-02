@@ -33,6 +33,7 @@ import threading
 import uuid
 
 from django.core.cache import cache
+from django.db import connections
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -186,7 +187,12 @@ def lanzar_carga_en_background(
                 timeout=CACHE_TTL_SEGUNDOS,
             )
         finally:
-            _quitar_del_indice(task_id)
+            try:
+                _quitar_del_indice(task_id)
+            finally:
+                # Las conexiones pertenecen al hilo: cerrarlas incluso si
+                # falla el cache o el callback de finalización.
+                connections.close_all()
 
     hilo = threading.Thread(target=_run, daemon=True)
     hilo.start()
