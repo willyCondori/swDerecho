@@ -58,22 +58,33 @@ def iniciar_analisis(caso, usuario):
 
 def _ejecutar_en_hilo(caso_id: int, usuario_id):
     from django.db import close_old_connections
+    from modulo_casos.models.caso import Caso, EstadoAnalisis
     from modulo_ia.tasks.analisis_task import ejecutar_analisis_caso
+    from modulo_notificaciones.services.notificacion_service import (
+        notificar_analisis_completado, notificar_analisis_error,
+    )
     from modulo_usuarios.models.usuario import Usuario
 
     try:
         usuario = Usuario.objects.filter(pk=usuario_id).first() if usuario_id else None
         ejecutar_analisis_caso(caso_id, usuario)
-        # PENDIENTE (siguiente paso, no en este cambio): acá es donde se
-        # crearía la Notificacion de "análisis completado" o "con error",
-        # leyendo el estado_analisis que ejecutar_analisis_caso ya dejó
-        # persistido en el Caso.
     except Exception:
         # ejecutar_analisis_caso ya deja al Caso en estado ERROR por
         # cualquier falla del pipeline; esto solo cubre un error
         # verdaderamente inesperado (ej. el propio caso_id no existe).
         logger.exception("Fallo inesperado lanzando el análisis del caso %s", caso_id)
     finally:
+        # El estado final (completado o error) ya quedó persistido en el
+        # propio Caso por ejecutar_analisis_caso (o por el except de
+        # arriba, si el caso sigue existiendo). Se lee de nuevo acá en
+        # vez de confiar en una variable local porque es la única fuente
+        # de verdad, igual que el resto de este módulo.
+        caso = Caso.objects.filter(pk=caso_id).select_related("usuario").first()
+        if caso is not None:
+            if caso.estado_analisis == EstadoAnalisis.COMPLETADO:
+                notificar_analisis_completado(caso)
+            elif caso.estado_analisis == EstadoAnalisis.ERROR:
+                notificar_analisis_error(caso)
         # Cada hilo abre su propia conexión a la BD; sin esto quedan
         # conexiones colgadas acumulándose con cada análisis.
         close_old_connections()

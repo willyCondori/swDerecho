@@ -1,0 +1,157 @@
+/* components/layout/NotificacionesBell.module.css */
+
+.contenedor {
+  position: relative;
+}
+
+/* Replica .topbarBtn de AppLayout.module.css — un CSS module no puede
+   reusar la clase de otro, así que se repite acá para que el botón se
+   vea igual al resto de los íconos de la topbar. */
+.topbarBtn {
+  position: relative;
+  background: none;
+  border: none;
+  color: var(--c-text-muted);
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: var(--sp-1);
+  border-radius: var(--radius);
+}
+.topbarBtn:hover { color: var(--c-text-secondary); }
+.conNoLeidas { color: var(--c-text-secondary); }
+
+.badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 15px;
+  height: 15px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-red-400);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+.panel {
+  position: absolute;
+  top: calc(100% + var(--sp-2));
+  right: 0;
+  width: 340px;
+  max-width: calc(100vw - var(--sp-4));
+  max-height: 420px;
+  display: flex;
+  flex-direction: column;
+  background: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.panelHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--c-border);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-primary);
+  flex-shrink: 0;
+}
+
+.marcarTodasBtn {
+  background: none;
+  border: none;
+  color: var(--c-purple-300, #c4b5fd);
+  font-size: var(--fs-xs);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  padding: 0;
+}
+.marcarTodasBtn:hover { text-decoration: underline; }
+
+.panelBody {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.estadoVacio {
+  padding: var(--sp-5) var(--sp-3);
+  text-align: center;
+  color: var(--c-text-muted);
+  font-size: var(--fs-sm);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-3);
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--c-border);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-sans);
+}
+.item:last-child { border-bottom: none; }
+.item:hover { background: var(--c-bg-hover); }
+
+.itemNoLeida { background: rgba(167, 139, 250, 0.06); }
+
+.itemIcon {
+  margin-top: 2px;
+  font-size: 1rem;
+  color: var(--c-text-muted);
+  flex-shrink: 0;
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.itemTitulo {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--c-text-primary);
+}
+
+.itemMensaje {
+  font-size: var(--fs-xs);
+  color: var(--c-text-secondary);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.itemFecha {
+  font-size: var(--fs-xs);
+  color: var(--c-text-muted);
+}
+
+.puntoNoLeida {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--c-purple-400, #a78bfa);
+}
