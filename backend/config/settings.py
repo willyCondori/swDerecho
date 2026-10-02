@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'modulo_dashboard',
     'modulo_documentos',
     'modulo_ia',
+    'modulo_notificaciones',
     'modulo_usuarios',
 
     "corsheaders",

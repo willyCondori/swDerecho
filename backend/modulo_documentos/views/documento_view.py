@@ -28,6 +28,7 @@ from modulo_documentos.serializers.documento_serializer import (
     PlantillaDocumentoWriteSerializer,
     TipoDocSerializer,
 )
+from modulo_notificaciones.services.notificacion_service import notificar_documento_nuevo
 
 # ---------------------------------------------------------------------------
 # TipoDoc
@@ -89,6 +90,15 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
         if caso_id:
             qs = qs.filter(caso_id=caso_id)
         return qs
+
+    def perform_create(self, serializer):
+        documento = serializer.save()
+        # Solo tiene sentido notificar si alguien MÁS que el propio dueño
+        # del caso subió este documento (ej. un Administrador ayudando con
+        # un caso ajeno) — si el dueño lo sube él mismo, no hace falta
+        # avisarle algo que acaba de hacer.
+        if documento.caso.usuario_id and documento.caso.usuario_id != self.request.user.pk:
+            notificar_documento_nuevo(documento, self.request.user)
 
     def destroy(self, request, *args, **kwargs):
         """Elimina registro y archivo físico."""
