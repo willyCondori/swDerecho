@@ -21,7 +21,10 @@ function formulario(payload) {
 }
 
 const cargaArticulosApi = {
-  revisar: (payload) => api.post(`${BASE}/revisar/`, formulario(payload), { timeout: 120000 }),
+  revisar: (payload) => api.post(`${BASE}/revisar/`, formulario(payload), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  }),
   cargar: (payload) => {
     return api.post(`${BASE}/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },

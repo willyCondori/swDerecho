@@ -390,17 +390,7 @@ def _es_mayuscula(texto: str) -> bool:
 
 
 def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
-    """
-    Filtra referencias en medio de una oración ("...conforme al Artículo 5.").
 
-    Un "Artículo N" precedido por una letra minúscula se considera referencia.
-    Excepción: si el patrón está escrito TODO EN MAYÚSCULAS ("ARTÍCULO 6."),
-    lo normal es que sea un encabezado; en texto corrido sin saltos de línea
-    puede venir justo después de un título sin punto ("Capítulo II Derechos de
-    las mujeres ARTÍCULO 6.") y descartarlo haría perder el artículo entero.
-    Solo se descarta si la palabra anterior es un conector de referencia
-    ("el", "del", "según"...).
-    """
     anterior = texto[max(0, pos - 200):pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
@@ -435,15 +425,6 @@ def _es_referencia_en_oracion(texto: str, coincidencia) -> bool:
 # ---------------------------------------------------------------------------
 # Jerarquía normativa
 # ---------------------------------------------------------------------------
-#
-# Antes el nivel se adivinaba a partir de una "fuente" fija (CPE=1,
-# Civil/Penal/Laboral=2), lo que era incorrecto en general (un Decreto
-# Supremo, una Ley Orgánica o una Ordenanza Municipal no son "nivel 2") y
-# además obligaba a extender ese dict cada vez que se quería cargar una
-# norma distinta. Ahora el nivel de jerarquía es un campo que el usuario
-# elige explícitamente en el formulario de carga (rama, tipo de norma /
-# jerarquía, nombre del documento), y se asigna directamente a la Norma.
-
 def _asegurar_jerarquia_norma(norma, jerarquia_id=None):
     """
     Si la norma aún no tiene jerarquía asignada y se indicó una
@@ -482,19 +463,7 @@ PATRON_PARENTESIS = re.compile(r"\(\s*([^()]+?)\s*\)")
 
 
 def extraer_titulo_articulo(numero, contenido: str) -> str:
-    """
-    Construye el título como "Art. {numero} - {TEXTO ENTRE PARÉNTESIS}".
 
-    Ejemplo:
-        numero=361, contenido="Art. 361°.- (USURA AGRAVADA). La sanción..."
-        → "Art. 361 - USURA AGRAVADA"
-
-    Busca el paréntesis inmediatamente después de la cabecera para no
-    usar como título una cita o un inciso del cuerpo.
-
-    Si el artículo no trae paréntesis al inicio (pasa seguido en Civil,
-    Laboral y CPE), el título queda solo como "Art. {numero}".
-    """
     base = f"Art. {numero}"
 
     if not contenido:
@@ -533,16 +502,7 @@ PATRON_PREFIJO_ARTICULO = re.compile(
 # ---------------------------------------------------------------------------
 
 def _es_encabezado_seccion(ls: str) -> bool:
-    """
-    Detecta una línea completa que es título de capítulo/sección
-    (no cuerpo del artículo): sin dígitos, toda en mayúsculas.
-    Sin límite de palabras — títulos de capítulo pueden ser largos
-    (ej. "FUNCIONES DE CONTROL, DE DEFENSA DE LA SOCIEDAD Y DE DEFENSA
-    DEL ESTADO" en la CPE, 13 palabras). Lo que los distingue del cuerpo
-    del artículo no es el largo, sino que NO tienen minúsculas ni dígitos
-    en toda la línea — algo prácticamente inexistente en el texto de un
-    artículo real.
-    """
+
     if not ls or len(ls) > 110:
         return False
     letras = re.sub(r"[^A-ZÁÉÍÓÚÑ]", "", ls.upper())
@@ -573,10 +533,7 @@ def _limpiar_contenido_articulo(contenido: str) -> str:
         elif _es_encabezado_seccion(ls):
             es_encabezado = True
 
-        # Una línea que es solo un número (sin nada más) es casi siempre un
-        # número de página u otro artefacto de la extracción del PDF, sin
-        # importar de qué norma se trate — antes esto solo se aplicaba a
-        # "Laboral", pero el mismo ruido aparece en cualquier PDF.
+   
         if re.match(r"^\d+$", ls):
             es_encabezado = True
 
