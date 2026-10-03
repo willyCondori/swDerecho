@@ -1,5 +1,3 @@
-from urllib import request
-
 from django.db.models import Count, F, Q
 from rest_framework import status
 from rest_framework.decorators import action
@@ -24,6 +22,7 @@ from modulo_clientes.services.papelera_service import (
 )
 
 MIN_CARACTERES_BUSQUEDA = 2
+MAX_RESULTADOS_BUSQUEDA = 50
 
 
 class ClienteViewSet(AuditoriaMixin, ModelViewSet):
@@ -39,7 +38,7 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     POST   /api/clientes/{id}/restaurar/ — restaura un cliente y los casos que se eliminaron con él [admin, abogado]
     GET    /api/clientes/lista/     — compacto para selects
     GET    /api/clientes/{id}/casos/— casos del cliente
-    GET    /api/clientes/buscar/    — búsqueda por nombre (descifrado)
+    GET    /api/clientes/buscar/    — búsqueda por prefijos indexados del nombre
     """
     queryset        = Cliente.objects.filter(estado=True).order_by("-created_at")
     filter_backends = [OrderingFilter]
@@ -176,9 +175,10 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     def casos(self, request, pk=None):
         """GET /api/clientes/{id}/casos/ — casos asociados al cliente."""
         from modulo_casos.serializers.caso_serializer import CasoListSerializer
+        from modulo_casos.services.listado_service import preparar_listado_casos
 
         cliente = self.get_object()
-        casos = cliente.casos.filter(estado=True).order_by("-created_at")
+        casos = preparar_listado_casos(cliente.casos.filter(estado=True).order_by('-created_at'))
         return self._respuesta_paginada(casos, CasoListSerializer, request)
 
     @action(detail=False, methods=["get"], url_path="buscar")
@@ -189,9 +189,8 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
         que se mantiene al guardar cada cliente: no descifra la tabla.
 
         Cada palabra de `q` (2+ letras) debe ser el comienzo de alguna
-        palabra del nombre o apellido, sin distinguir mayúsculas ni tildes
-        ("mam" encuentra a "Mamani"; "juan perez" también). Ver
-        modulo_clientes.services.busqueda_service.
+        palabra del nombre o apellido, sin distinguir mayúsculas ni tildes.
+        El selector puede pedir limit (máximo 50) y compacto=true.
         """
         query = request.query_params.get("q", "").strip().lower()
         if len(query) < MIN_CARACTERES_BUSQUEDA:
@@ -200,9 +199,25 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resultados = filtrar_por_busqueda(self.get_queryset(), query)
+        limite = request.query_params.get('limit')
+        if limite is not None:
+            try:
+                limite = int(limite)
+                if limite < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return Response({'limit': 'Debe ser un entero positivo.'}, status=status.HTTP_400_BAD_REQUEST)
+            limite = min(limite, MAX_RESULTADOS_BUSQUEDA)
 
-        serializer = ClienteReadSerializer(
+        resultados = filtrar_por_busqueda(self.get_queryset(), query)
+        if limite is not None:
+            resultados = resultados[:limite]
+
+        serializer_class = (
+            ClienteListSerializer if request.query_params.get('compacto', '').lower() in ('true', '1')
+            else ClienteReadSerializer
+        )
+        serializer = serializer_class(
             resultados, many=True, context={"request": request}
         )
         return Response(serializer.data)

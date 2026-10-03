@@ -62,16 +62,18 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
     usuario_auditoria = usuario or caso.usuario
 
     try:
+        # Extracción y modelo fuera de la transacción que publica el análisis.
+        _actualizar_paso(caso_id, "chunking")
+        chunks_preparados = ChunkingService.preparar_chunks(caso)
+        _actualizar_paso(caso_id, "embeddings")
+        vectores = EmbeddingService.preparar_vectores(chunks_preparados)
         # Todo el paso de mutación de datos en una sola transacción: si
         # falla a mitad (ej. el 4to de 5 pasos), no queda el caso con
         # chunks nuevos pero ranking viejo, ni con la mitad del ranking
         # borrado y la otra mitad sin reemplazar.
         with transaction.atomic():
-            _actualizar_paso(caso_id, "chunking")
-            chunks = ChunkingService.crear_chunks(caso)
-
-            _actualizar_paso(caso_id, "embeddings")
-            embeddings = EmbeddingService.generar_para_caso(chunks)
+            chunks = ChunkingService.persistir_chunks(caso, chunks_preparados)
+            embeddings = EmbeddingService.generar_para_caso(chunks, vectores=vectores)
 
             _actualizar_paso(caso_id, "entidades")
             entidades = EntidadDetectionService.detectar_para_caso(chunks)

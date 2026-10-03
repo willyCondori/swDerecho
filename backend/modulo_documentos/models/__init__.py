@@ -1,3 +1,3 @@
-from .documento import TipoDoc, DocumentoCaso, PlantillaDocumento, DocumentoGenerado
+from .documento import TipoDoc, DocumentoCaso, TextoDocumentoCaso, PlantillaDocumento, DocumentoGenerado
 
-__all__ = ["TipoDoc", "DocumentoCaso", "PlantillaDocumento", "DocumentoGenerado"]
+__all__ = ["TipoDoc", "DocumentoCaso", "TextoDocumentoCaso", "PlantillaDocumento", "DocumentoGenerado"]

@@ -52,10 +52,13 @@ Características:
 import math
 import re
 import logging
+import unicodedata
 from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.db import transaction
+from modulo_documentos.services.extraccion_texto_service import ExtraccionTextoService
+from modulo_ia.services.vectorizacion_service import vectorizar_textos
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +69,7 @@ logger = logging.getLogger(__name__)
 # y regenerar_embeddings_articulos.py (ver modulo_ia/services/model_loader.py).
 # ---------------------------------------------------------------------------
 
-from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
+from modulo_ia.services.model_loader import obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -193,35 +196,19 @@ def quitar_encabezados_y_pies(paginas: list[str]) -> list[str]:
     return limpias
 
 
-def _texto_desde_reader(reader) -> str:
-    paginas = []
-    for page in reader.pages:
-        texto = page.extract_text()
-        if texto:
-            paginas.append(texto)
-    return "\n".join(quitar_encabezados_y_pies(paginas))
-
-
 def extraer_texto_pdf(ruta: str) -> str:
     """Extrae texto de todas las páginas de un PDF (desde archivo en disco)."""
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
-
-    return _texto_desde_reader(PdfReader(ruta))
+    with open(ruta, "rb") as archivo:
+        paginas = ExtraccionTextoService.paginas(archivo)
+    return "\n".join(quitar_encabezados_y_pies([p for p in paginas if p]))
 
 
 def extraer_texto_pdf_bytes(contenido: bytes) -> str:
     """Extrae texto directamente desde bytes (archivo en memoria)."""
     import io
 
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
-
-    return _texto_desde_reader(PdfReader(io.BytesIO(contenido)))
+    paginas = ExtraccionTextoService.paginas(io.BytesIO(contenido))
+    return "\n".join(quitar_encabezados_y_pies([p for p in paginas if p]))
 
 
 # ---------------------------------------------------------------------------
@@ -300,6 +287,71 @@ _CONECTORES_REFERENCIA = {
 # dentro de una oración ("Artículo 389 de la presente Ley..."), porque en
 # ambos casos la palabra que sigue al número empieza en minúscula.
 _SUFIJOS_ARTICULO = {"bis", "ter", "quater", "quáter", "quinquies", "sexies", "septies"}
+_SUFIJOS_ARTICULO.update({"octies", "nonies", "decies"})
+
+# El encabezado se reconoce completo, incluidos ordinales y sufijos.
+# NFC conserva º/° (NFKC los convertiría en letras).
+PATRON_CABECERA = re.compile(
+    r"(?<!\w)(?P<palabra>art[íi]culo\.?|art\.)\s*"
+    r"(?P<numero>\d+)(?!\d)[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*"
+    r"(?:(?P<sufijo>bis|ter|quater|quáter|quinquies|sexies|septies|octies|nonies|decies)"
+    r"\b[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*)?",
+    re.IGNORECASE,
+)
+
+PATRON_SECCION_FINAL = re.compile(
+    r"\bDISPOSICI[ÓO]N(?:ES)?\s+(?:FINAL(?:ES)?|TRANSITORIA(?:S)?|"
+    r"ADICIONAL(?:ES)?|ABROGATORIA(?:S)?)\b"
+    r"|\bART[ÍI]CULOS\s+TRANSITORIOS\b"
+)
+PATRON_NORMA_COMPILADA = re.compile(
+    r"C[ÓO]DIGO\s+(?:DE\s+)?(?:PROCEDIMIENTO\s+)?PENAL"
+    r"|REGLAMENTO\s+DE\s+LA\s+LEY\s+N[º°]?\s*\d+"
+)
+
+
+class DocumentoConVariasNormasError(ValueError):
+    """Evita guardar artículos de dos normas con los mismos números."""
+
+
+def normalizar_texto_pdf(texto):
+    texto = unicodedata.normalize("NFC", texto)
+    return texto.translate(str.maketrans({
+        "\u00a0": " ", "\u202f": " ", "\u2007": " ",
+        "\u00ad": "-", "\u2010": "-", "\u2011": "-",
+        "\u200b": "", "\ufeff": "",
+    }))
+
+
+def _cabeceras_documento(texto):
+    candidatas = []
+    for match in PATRON_CABECERA.finditer(texto):
+        palabra = match.group("palabra")
+        if not palabra[0].isupper():
+            continue  # referencias como «artículo 339.I» dentro de una frase
+        contexto_anterior = texto[max(0, match.start() - 120):match.start()]
+        anterior = contexto_anterior.rstrip()
+        if re.search(r'["“«][ \t]*\Z', contexto_anterior):
+            continue
+        previa = re.search(r"([^\W\d_]+)$", anterior)
+        if previa and previa.group().islower() and previa.group().lower() in _CONECTORES_REFERENCIA:
+            continue
+        tiene_titulo = bool(re.match(r"\s*\(", texto[match.end():match.end() + 15]))
+        if not tiene_titulo and not _es_inicio_valido(texto, match.start(), _es_mayuscula(palabra)):
+            continue
+        parte_numero = match.group()[len(palabra):]
+        puntuado = bool(re.search(r"[º°.\-]", parte_numero))
+        if not puntuado and not tiene_titulo and _es_referencia_en_oracion(texto, match):
+            continue
+        candidatas.append(match)
+
+    # Leyes modificatorias: las cabeceras propias van en mayúsculas y
+    # el texto incorporado se cita como «Artículo N». También puede contener
+    # listas de delitos y comillas OCR desbalanceadas: no basta contar comillas.
+    cita_articulo = re.search(r'["“«]\s*(?:Artículo|Articulo|Art\.)\s+\d', texto)
+    if candidatas and _es_mayuscula(candidatas[0].group("palabra")) and cita_articulo:
+        candidatas = [m for m in candidatas if _es_mayuscula(m.group("palabra"))]
+    return candidatas
 
 
 def _extraer_sufijo_articulo(texto: str, pos_despues_numero: int) -> str:
@@ -356,7 +408,7 @@ def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
     Solo se descarta si la palabra anterior es un conector de referencia
     ("el", "del", "según"...).
     """
-    anterior = texto[:pos]
+    anterior = texto[max(0, pos - 200):pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
         i -= 1
@@ -444,9 +496,8 @@ def extraer_titulo_articulo(numero, contenido: str) -> str:
         numero=361, contenido="Art. 361°.- (USURA AGRAVADA). La sanción..."
         → "Art. 361 - USURA AGRAVADA"
 
-    Busca el paréntesis solo cerca del inicio del artículo (primeros ~200
-    caracteres) para no capturar por error un paréntesis que aparezca más
-    adelante en el cuerpo (una cita, un inciso, etc.)
+    Busca el paréntesis inmediatamente después de la cabecera para no
+    usar como título una cita o un inciso del cuerpo.
 
     Si el artículo no trae paréntesis al inicio (pasa seguido en Civil,
     Laboral y CPE), el título queda solo como "Art. {numero}".
@@ -456,8 +507,11 @@ def extraer_titulo_articulo(numero, contenido: str) -> str:
     if not contenido:
         return base
 
-    inicio = contenido.strip()[:200]
-    match = PATRON_PARENTESIS.search(inicio)
+    inicio = contenido.strip()
+    cabecera = PATRON_CABECERA.match(inicio)
+    if not cabecera:
+        return base
+    match = PATRON_PARENTESIS.match(inicio[cabecera.end():].lstrip())
 
     if not match:
         return base
@@ -475,7 +529,7 @@ def extraer_titulo_articulo(numero, contenido: str) -> str:
 # ---------------------------------------------------------------------------
 
 PATRON_PREFIJO_ARTICULO = re.compile(
-    r"^\s*(?:Art(?:[íi]culo)?\.?\s*\d+\s*[°º]?\s*\.?-?\s*)"
+    r"^\s*" + PATRON_CABECERA.pattern + r"\s*"
     r"(?:\([^()]*\)\s*\.?\s*)?",
     re.IGNORECASE,
 )
@@ -642,7 +696,61 @@ def construir_texto_embedding(titulo: str, contenido: str) -> str:
 # División por artículos
 # ---------------------------------------------------------------------------
 
-def dividir_por_articulos(texto: str) -> list[dict]:
+def dividir_documento_por_normas(texto: str) -> list[dict]:
+    """Separa compilaciones sin fusionar artículos con números iguales."""
+    texto = limpiar_texto(normalizar_texto_pdf(texto))
+    cabeceras = _cabeceras_documento(texto)
+    if not cabeceras:
+        return []
+    # Un prólogo puede enumerar artículos modificados antes del cuerpo
+    # numerado 1, 2, ... (compilación de los códigos, decretos introductorios).
+    inicio_cuerpo = 0
+    for i, (actual, siguiente) in enumerate(zip(cabeceras, cabeceras[1:])):
+        if (actual.group("numero") == "1" and siguiente.group("numero") == "2"
+                and (i == 0 or PATRON_NORMA_COMPILADA.search(texto[:actual.start()]))):
+            inicio_cuerpo = i
+            break
+    cabeceras = cabeceras[inicio_cuerpo:]
+    limites = [cabeceras[0].start()]
+    for i, cabecera in enumerate(cabeceras[1:-1], 1):
+        anterior = cabeceras[i - 1]
+        siguiente = cabeceras[i + 1]
+        contexto = texto[anterior.end():cabecera.start()]
+        if (cabecera.group("numero") == "1" and not cabecera.group("sufijo")
+                and siguiente.group("numero") == "2"
+                and int(anterior.group("numero")) > 10
+                and PATRON_NORMA_COMPILADA.search(contexto)):
+            limites.append(cabecera.start())
+    limites.append(len(texto))
+    secciones = []
+    for inicio, fin in zip(limites, limites[1:]):
+        fragmento = texto[inicio:fin]
+        prefijo = texto[max(0, inicio - 1500):inicio]
+        nombres = list(PATRON_NORMA_COMPILADA.finditer(prefijo))
+        nombre = re.sub(r"\s+", " ", nombres[-1].group()).title() if nombres else "Norma principal"
+        secciones.append({"nombre": nombre, "articulos": _dividir_seccion_articulos(fragmento)})
+    return secciones
+
+
+def dividir_por_articulos(texto: str, seccion_documento=None) -> list[dict]:
+    """Extrae una norma; una compilación exige seleccionar una sección."""
+    secciones = dividir_documento_por_normas(texto)
+    if not secciones:
+        return []
+    if seccion_documento is not None:
+        if not isinstance(seccion_documento, int) or not 0 <= seccion_documento < len(secciones):
+            raise ValueError("La sección del documento no existe.")
+        return secciones[seccion_documento]["articulos"]
+    if len(secciones) > 1:
+        nombres = ", ".join(s["nombre"] for s in secciones)
+        raise DocumentoConVariasNormasError(
+            f"El PDF contiene varias normas ({nombres}). Cargue cada norma por separado "
+            "para no mezclar sus artículos."
+        )
+    return secciones[0]["articulos"]
+
+
+def _dividir_seccion_articulos(texto: str) -> list[dict]:
     """
     Divide el texto en artículos.
 
@@ -651,26 +759,28 @@ def dividir_por_articulos(texto: str) -> list[dict]:
     latino ("389 bis", "272 ter"...) se identifican como "{numero} {sufijo}"
     para no fusionarse con el artículo base que comparte el mismo número.
     """
-    texto = limpiar_texto(texto)
-    texto = _cortar_bloque_final_documento(texto)
-
-
-    todos_matches = []
-    for patron in PATRONES_ARTICULO:
-        matches = list(re.finditer(patron, texto, re.MULTILINE))
-        matches = [
-            m for m in matches
-            if _es_inicio_valido(texto, m.start(), _es_mayuscula(m.group(0)))
-            and not _es_referencia_en_oracion(texto, m)
-        ]
-        todos_matches.extend(matches)
-
-    todos_matches.sort(key=lambda m: m.start())
-
-    con_sufijo = [
-        (m, int(m.group(1)), _extraer_sufijo_articulo(texto, m.end(1)))
-        for m in todos_matches
-    ]
+    cabeceras = _cabeceras_documento(texto)
+    final = PATRON_SECCION_FINAL.search(texto)
+    if final:
+        anteriores = [m for m in cabeceras if m.start() < final.start()]
+        posteriores = [m for m in cabeceras if m.start() > final.start()]
+        # Art. 364 del Código Penal sigue numerado en el título final.
+        # En cambio, «Art. 47» citado en las disposiciones del CPP no es
+        # un nuevo artículo propio, ni lo son los reinicios transitorios.
+        if not (anteriores and posteriores and
+                int(posteriores[0].group("numero")) == int(anteriores[-1].group("numero")) + 1):
+            texto = texto[:final.start()]
+            cabeceras = anteriores
+    # Las fuentes editoriales y firmas no son parte del último artículo.
+    fin_editorial = re.search(
+        r"(?m)^\s*FUENTE\s*$|Rem[íi]tase\s+al\s+(?:Poder|[ÓO]rgano)\s+Ejecutivo"
+        r"|Es\s+dada\s+en\s+la\s+Sala\s+de|Por\s+tanto,?\s+la\s+promulgo",
+        texto, re.IGNORECASE,
+    )
+    if fin_editorial:
+        texto = texto[:fin_editorial.start()]
+        cabeceras = [m for m in cabeceras if m.start() < len(texto)]
+    con_sufijo = [(m, int(m.group("numero")), (m.group("sufijo") or "").lower()) for m in cabeceras]
 
     # Deduplicar coincidencias producidas por distintos patrones para el
     # MISMO artículo (mismo número Y mismo sufijo, cerca en el texto)
@@ -743,14 +853,6 @@ def cargar_articulos_desde_bytes(
     except RamaDerecho.DoesNotExist:
         raise ValueError(f"No existe la rama con ID {rama_id}.")
 
-    _asegurar_jerarquia_norma(norma, jerarquia_id)
-
-    resultado = ResultadoCarga(
-        norma_nombre=norma.nombre,
-        rama_nombre=rama.nombre,
-        jerarquia_nombre=norma.jerarquia.nombre if norma.jerarquia_id else None,
-    )
-
     _update_task(task, 5, "Extrayendo texto del PDF...")
     try:
         texto = extraer_texto_pdf_bytes(contenido_pdf)
@@ -759,6 +861,13 @@ def cargar_articulos_desde_bytes(
 
     _update_task(task, 15, "Dividiendo en artículos...")
     lista_articulos = dividir_por_articulos(texto)
+    # Validar el documento antes de modificar la norma o generar embeddings.
+    _asegurar_jerarquia_norma(norma, jerarquia_id)
+    resultado = ResultadoCarga(
+        norma_nombre=norma.nombre,
+        rama_nombre=rama.nombre,
+        jerarquia_nombre=norma.jerarquia.nombre if norma.jerarquia_id else None,
+    )
     resultado.total_encontrados = len(lista_articulos)
 
     if not lista_articulos:
@@ -770,6 +879,33 @@ def cargar_articulos_desde_bytes(
     catalogo_entidades = ArticuloEntidadService.obtener_catalogo()
 
     total = len(lista_articulos)
+
+    numeros_existentes = set() if sobrescribir else set(
+        Articulo.objects.filter(norma=norma, rama=rama).values_list("numero_articulo", flat=True)
+    )
+    pendientes = [
+        (idx, art) for idx, art in enumerate(lista_articulos)
+        if str(art["numero"]) not in numeros_existentes
+        and art["texto"] and len(art["texto"].strip()) >= 20
+    ]
+    vectores = {}
+    errores_embedding = {}
+    # Solo el cálculo costoso ocurre aquí; el reemplazo de artículos
+    # sigue publicándose atómicamente abajo.
+    for inicio in range(0, len(pendientes), settings.EMBEDDING_BATCH_SIZE):
+        lote = pendientes[inicio:inicio + settings.EMBEDDING_BATCH_SIZE]
+        textos = [construir_texto_embedding(art["titulo"], art["texto"]) for _, art in lote]
+        try:
+            vectores.update(zip((idx for idx, _ in lote), vectorizar_textos(textos, modelo)))
+        except Exception:
+            # Un texto que falle no impide vectorizar los demás artículos.
+            for (idx, _), texto_embed in zip(lote, textos):
+                try:
+                    vectores[idx] = vectorizar_textos([texto_embed], modelo)[0]
+                except Exception as exc:
+                    errores_embedding[idx] = str(exc)
+        pct = int(18 + ((inicio + len(lote)) / max(1, len(pendientes))) * 52)
+        _update_task(task, pct, "Generando embeddings por lotes...")
 
     # ------------------------------------------------------------------
     # Todo lo que escribe en la base de datos (borrado por "sobrescribir",
@@ -796,12 +932,10 @@ def cargar_articulos_desde_bytes(
             texto_articulo = art_dict["texto"]
 
             if idx % 10 == 0 or idx == total:
-                pct = int(18 + (idx / total) * 80)
+                pct = int(70 + (idx / total) * 28)
                 _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
 
-            if Articulo.objects.filter(
-                norma=norma, rama=rama, numero_articulo=str(numero)
-            ).exists():
+            if str(numero) in numeros_existentes:
                 resultado.duplicados += 1
                 continue
 
@@ -824,6 +958,7 @@ def cargar_articulos_desde_bytes(
                         frecuencia_historica=0,
                         estado=True,
                     )
+                numeros_existentes.add(str(numero))
             except Exception as e:
                 resultado.errores += 1
                 resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
@@ -831,20 +966,14 @@ def cargar_articulos_desde_bytes(
                 continue
 
             try:
-                texto_embed = construir_texto_embedding(titulo, texto_articulo)
-                vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
-
-                if len(vector) != DIMENSION_VECTOR:
-                    raise ValueError(
-                        f"El embedding del Art. {numero} tiene {len(vector)} "
-                        f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+                if idx - 1 in errores_embedding:
+                    raise ValueError(errores_embedding[idx - 1])
+                with transaction.atomic():
+                    EmbeddingArticulo.objects.create(
+                        articulo=articulo,
+                        modelo_version=version_activa(),
+                        vector=vectores[idx - 1],
                     )
-
-                EmbeddingArticulo.objects.update_or_create(
-                    articulo=articulo,
-                    modelo_version=version_activa(),
-                    defaults={"vector": vector},
-                )
             except Exception as e:
                 resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
                 logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
@@ -852,7 +981,8 @@ def cargar_articulos_desde_bytes(
                 # cuenta dos veces como error total del artículo.
 
             try:
-                ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
+                with transaction.atomic():
+                    ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
             except Exception as e:
                 resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
                 logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)

@@ -1,4 +1,7 @@
-from pypdf import PdfReader
+import hashlib
+from importlib.metadata import version
+
+from django.core.files.storage import default_storage
 
 
 class ExtraccionTextoService:
@@ -9,18 +12,45 @@ class ExtraccionTextoService:
     """
 
     @staticmethod
-    def extraer(archivo) -> str:
+    def paginas(archivo):
+        """Un solo extractor para casos y catálogo; restaura el puntero."""
+        from pypdf import PdfReader
+
+        posicion = archivo.tell()
+        try:
+            archivo.seek(0)
+            return [pagina.extract_text() or "" for pagina in PdfReader(archivo).pages]
+        finally:
+            archivo.seek(posicion)
+
+    @classmethod
+    def extraer_documento(cls, documento):
+        from modulo_documentos.models.documento import TextoDocumentoCaso
+
+        version_extractor = f"pypdf-{version('pypdf')}-v1"
+        # El hash detecta incluso un PDF reemplazado conservando su ruta.
+        with default_storage.open(documento.ruta_archivo, "rb") as archivo:
+            digest = hashlib.sha256()
+            for bloque in iter(lambda: archivo.read(1024 * 1024), b""):
+                digest.update(bloque)
+            hash_pdf = digest.hexdigest()
+            cache = TextoDocumentoCaso.objects.filter(
+                documento=documento, hash_pdf=hash_pdf, version_extractor=version_extractor,
+            ).first()
+            if cache is not None:
+                return cache.texto
+            texto = cls.extraer(archivo)
+        TextoDocumentoCaso.objects.update_or_create(
+            documento=documento,
+            defaults={"hash_pdf": hash_pdf, "version_extractor": version_extractor, "texto": texto},
+        )
+        return texto
+
+    @classmethod
+    def extraer(cls, archivo) -> str:
         """
         `archivo` es un objeto file-like (ej. request.FILES['archivo_pdf']
         o el campo `archivo` de un Documento ya guardado). Devuelve el
         texto concatenado de todas las páginas.
         """
-        archivo.seek(0)
-        lector = PdfReader(archivo)
-        paginas_texto = []
-        for pagina in lector.pages:
-            texto_pagina = pagina.extract_text() or ""
-            if texto_pagina.strip():
-                paginas_texto.append(texto_pagina)
-        archivo.seek(0)  # deja el puntero al inicio por si algo más lee el archivo después
-        return "\n\n".join(paginas_texto).strip()
+        return "\n\n".join(p.strip() for p in cls.paginas(archivo) if p.strip()).strip()

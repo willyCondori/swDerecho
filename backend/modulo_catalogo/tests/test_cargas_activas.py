@@ -14,6 +14,7 @@ import tempfile
 import threading
 import time
 from unittest.mock import patch
+from datetime import timedelta
 
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -142,8 +143,11 @@ class IndiceDeCargasActivasTests(CargasActivasBase):
         self.assertFalse(self.activas(self.admin).data[0]["es_mia"])
 
     def test_la_mas_reciente_va_primero(self):
-        primera = self.lanzar(CargaFalsa(), nombre_documento="Primera")
-        segunda = self.lanzar(CargaFalsa(), nombre_documento="Segunda")
+        # El reloj puede devolver el mismo instante en dos llamadas seguidas.
+        inicio = background_tasks.timezone.now()
+        with patch.object(background_tasks.timezone, "now", side_effect=[inicio, inicio + timedelta(seconds=1)]):
+            primera = self.lanzar(CargaFalsa(), nombre_documento="Primera")
+            segunda = self.lanzar(CargaFalsa(), nombre_documento="Segunda")
         ids = [c["task_id"] for c in self.activas().data]
         self.assertEqual(ids, [segunda, primera])
 

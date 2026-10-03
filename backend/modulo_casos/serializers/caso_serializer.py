@@ -300,9 +300,15 @@ class CasoListSerializer(serializers.ModelSerializer):
         return f"{nombres} {apellidos}".strip()
 
     def get_tiene_documento(self, obj):
+        indicador = getattr(obj, 'tiene_documento', None)
+        if indicador is not None:
+            return indicador
         return obj.documentos.filter(tipo_archivo="pdf").exists()
 
     def get_tiene_resultado(self, obj):
+        indicador = getattr(obj, 'tiene_resultado', None)
+        if indicador is not None:
+            return indicador
         return hasattr(obj, "resultado")
 
 

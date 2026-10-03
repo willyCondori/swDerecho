@@ -112,12 +112,19 @@ jobs:
             modulo_catalogo.tests.test_articulos_listado \
             modulo_catalogo.tests.test_articulos_orden \
             modulo_ia.tests.test_ranking_service \
+            modulo_ia.tests.test_embeddings_lotes \
+            modulo_ia.tests.test_preparacion_analisis \
+            modulo_documentos.tests.test_extraccion_texto \
+            modulo_catalogo.tests.test_carga_embeddings_lotes \
+            modulo_catalogo.tests.test_articulos_busqueda \
             modulo_auditoria.tests.test_auditoria_endpoints \
             modulo_documentos.tests.test_documentos_endpoints \
             modulo_catalogo.tests.test_vincular_documentos_norma \
             modulo_catalogo.tests.test_regenerar_embeddings_version \
             modulo_casos.tests.test_analisis_async \
             modulo_casos.tests.test_creacion_con_cliente \
+            modulo_casos.tests.test_rendimiento_listados \
+            modulo_clientes.tests.test_busqueda_rendimiento \
             modulo_notificaciones.tests \
             modulo_catalogo.tests.test_regenerar_embeddings_version \
             modulo_catalogo.tests.test_documento_norma_endpoints \
@@ -127,6 +134,8 @@ jobs:
             modulo_clientes.tests.test_busqueda_clientes \
             modulo_catalogo.tests.test_cargas_activas \
             modulo_catalogo.tests.test_extractor_articulos \
+            modulo_catalogo.tests.test_extractor_normas_reales \
+            modulo_catalogo.tests.test_indices_busqueda \
             core.tests.test_validar_pdf \
             modulo_catalogo.tests.test_validacion_pdf_endpoints \
             -v 2

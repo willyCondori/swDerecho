@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.db.models.functions import Upper
 from .norma import Norma
 from .rama import RamaDerecho
 from .entidad import EntidadJuridica
@@ -36,19 +38,14 @@ class Articulo(models.Model):
         db_table = "articulos"
         ordering = ["norma", "numero_articulo"]
         indexes  = [
+            GinIndex(OpClass(Upper("titulo"), name="gin_trgm_ops"), name="idx_art_titulo_trgm"),
+            GinIndex(OpClass(Upper("contenido"), name="gin_trgm_ops"), name="idx_art_contenido_trgm"),
+            GinIndex(OpClass(Upper("numero_articulo"), name="gin_trgm_ops"), name="idx_art_numero_trgm"),
             models.Index(fields=["norma"],               name="idx_articulos_norma"),
             models.Index(fields=["rama"],                name="idx_articulos_rama"),
             models.Index(fields=["estado"],              name="idx_articulos_estado"),
             models.Index(fields=["-frecuencia_historica"],name="idx_articulos_frecuencia"),
             models.Index(fields=["numero_articulo"],     name="idx_articulos_numero"),
-            # Búsqueda de texto del catálogo (SearchFilter -> icontains): Django
-            # la traduce a UPPER(col) LIKE UPPER('%texto%'), que un índice
-            # normal no puede usar. La migración 0010_busqueda_trigramas_articulos
-            # crea a mano (SQL) tres índices GIN de trigramas (pg_trgm) sobre
-            # UPPER(numero_articulo), UPPER(titulo) y UPPER(contenido): Django
-            # 5.2 genera SQL inválido
-            # para GinIndex(OpClass(Upper(...))), igual que el HNSW de
-            # modulo_ia, no se declaran en Meta.indexes.
         ]
 
     def __str__(self):

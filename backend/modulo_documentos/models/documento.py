@@ -48,6 +48,17 @@ class DocumentoCaso(models.Model):
         return f"{self.nombre_original} ({self.caso.codigo})"
 
 
+class TextoDocumentoCaso(models.Model):
+    """Texto reutilizable, separado del listado de documentos y ligado al PDF."""
+    documento = models.OneToOneField(DocumentoCaso, on_delete=models.CASCADE)
+    hash_pdf = models.CharField(max_length=64)
+    version_extractor = models.CharField(max_length=100)
+    texto = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "textos_documentos_caso"
+
+
 class PlantillaDocumento(models.Model):
     """
     Plantilla .docx base cargada por el administrador.

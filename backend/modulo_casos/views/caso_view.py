@@ -33,6 +33,7 @@ from modulo_casos.services.papelera_service import (
     restaurar_desde_papelera,
 )
 from modulo_casos.services.seguimiento_service import registrar_seguimiento
+from modulo_casos.services.listado_service import preparar_listado_casos
 
 class CasoViewSet(AuditoriaMixin, ModelViewSet):
     """
@@ -83,10 +84,14 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         qs = (
             Caso.objects
             .filter(estado=True)
-            .select_related("usuario", "cliente", "rama_detectada")
-            .prefetch_related("documentos", "documentos_generados")
             .order_by("-created_at")
         )
+        if self.action == 'list':
+            qs = preparar_listado_casos(qs)
+        else:
+            qs = qs.select_related('usuario', 'cliente', 'rama_detectada').prefetch_related(
+                'documentos', 'documentos_generados',
+            )
         # Todos los roles (Administrador, Abogado, Asistente) ven todos
         # los casos activos. La restricción de "solo lectura" para
         # Asistente ya la resuelve EsOperativo a nivel de método HTTP
@@ -111,12 +116,15 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         if fecha_hasta:
             qs = qs.filter(created_at__date__lte=fecha_hasta)
         if tiene_pdf is not None:
-            if tiene_pdf.lower() in ["true", "1"]:
+            con_pdf = tiene_pdf.lower() in ['true', '1']
+            if self.action == 'list':
+                qs = qs.filter(tiene_documento=con_pdf)
+            elif con_pdf:
                 qs = qs.filter(documentos__tipo_archivo="pdf")
             else:
                 qs = qs.exclude(documentos__tipo_archivo="pdf")
 
-        return qs.distinct()
+        return qs if self.action == 'list' else qs.distinct()
 
     def get_serializer_class(self):
         if self.action == "create":
@@ -223,7 +231,9 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     @action(detail=False, methods=["get"], url_path="mis_casos")
     def mis_casos(self, request):
         """GET /api/casos/mis_casos/ — casos del usuario autenticado."""
-        qs         = Caso.objects.filter(usuario=request.user, estado=True).order_by("-created_at")
+        qs = preparar_listado_casos(
+            Caso.objects.filter(usuario=request.user, estado=True).order_by('-created_at')
+        )
         page       = self.paginate_queryset(qs)
         serializer = CasoListSerializer(
             page if page is not None else qs, many=True, context=self.get_serializer_context()

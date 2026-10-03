@@ -99,6 +99,50 @@ class RankingServiceEntidadesPorChunkTests(TestCase):
         resultado_a = next(r for r in resultados if r.articulo_id == self.articulo_robo.id)
         self.assertEqual(float(resultado_a.score_entidades), 0.0)
 
+    def test_busqueda_de_varios_chunks_usa_una_consulta_y_conserva_el_mejor_match(self):
+        caso = self._crear_caso_con_chunks(
+            "CASO-UNA-CONSULTA",
+            [("robo", self.v_a, []), ("violencia", self.v_b, [])] * 5,
+        )
+        with self.assertNumQueries(1):
+            scores, chunks = RankingService._score_semantico_por_articulo(caso)
+        self.assertAlmostEqual(scores[self.articulo_robo.pk], 1.0, places=5)
+        self.assertAlmostEqual(scores[self.articulo_violencia.pk], 1.0, places=5)
+        self.assertIn(chunks[self.articulo_robo.pk], caso.chunks.values_list("id", flat=True))
+
+    def test_entidades_precargadas_no_generan_consultas_adicionales(self):
+        articulo = Articulo.objects.prefetch_related("entidades").get(pk=self.articulo_robo.pk)
+        with self.assertNumQueries(0):
+            score = RankingService._score_entidades(articulo, {"menor de edad"})
+        self.assertEqual(score, 1.0)
+
+    def test_chunk_sin_articulos_activos_devuelve_ranking_vacio(self):
+        caso = self._crear_caso_con_chunks("CASO-SIN-ARTICULOS", [("texto", self.v_a, [])])
+        Articulo.objects.filter(norma=self.norma).update(estado=False)
+        scores, chunks = RankingService._score_semantico_por_articulo(caso)
+        self.assertEqual(dict(scores), {})
+        self.assertEqual(chunks, {})
+
+    def test_sin_embeddings_activos_informa_el_error(self):
+        caso = self._crear_caso_con_chunks("CASO-SIN-EMBEDDINGS", [])
+        with self.assertRaisesMessage(ValueError, "versión de modelo activa"):
+            RankingService._score_semantico_por_articulo(caso)
+
+    def test_busqueda_excluye_otras_ramas_normas_inactivas_y_versiones(self):
+        caso = self._crear_caso_con_chunks("CASO-FILTROS-SQL", [("texto", self.v_a, [])])
+        otra_rama = RamaDerecho.objects.create(nombre="Rama fuera del filtro")
+        fuera = Articulo.objects.create(numero_articulo="FUERA", contenido="Texto", norma=self.norma, rama=otra_rama)
+        EmbeddingArticulo.objects.create(articulo=fuera, modelo_version=version_activa(), vector=self.v_a)
+        viejo = Articulo.objects.create(numero_articulo="VIEJO", contenido="Texto", norma=self.norma, rama=self.rama)
+        EmbeddingArticulo.objects.create(articulo=viejo, modelo_version="version-anterior", vector=self.v_a)
+        scores, _ = RankingService._score_semantico_por_articulo(caso)
+        self.assertNotIn(fuera.pk, scores)
+        self.assertNotIn(viejo.pk, scores)
+        self.norma.estado = False
+        self.norma.save(update_fields=["estado"])
+        scores, _ = RankingService._score_semantico_por_articulo(caso)
+        self.assertEqual(dict(scores), {})
+
     def test_entidad_de_otro_chunk_no_contamina_un_articulo_no_relacionado(self):
         """
         Caso 2: el chunk de "robo" no debe recibir crédito por la entidad
@@ -204,9 +248,7 @@ class RankingServiceVersionadoEmbeddingsTests(TestCase):
         self.assertEqual(len(vectores), 1)
         chunk_id, vector = vectores[0]
         self.assertEqual(chunk_id, self.chunk.id)
-        # pgvector devuelve un ndarray: assertEqual contra una lista lanza
-        # "truth value of an array is ambiguous".
-        np.testing.assert_allclose(np.asarray(vector), np.asarray(self.vector_activo))
+        np.testing.assert_allclose(vector, self.vector_activo, rtol=1e-6, atol=1e-8)
 
     def test_score_semantico_articulo_especifico_usa_solo_la_version_activa(self):
         vectores_chunks_caso = RankingService._vectores_chunks_caso(self.caso)

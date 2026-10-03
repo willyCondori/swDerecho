@@ -62,5 +62,5 @@ class ArticulosOrdenNaturalTests(APITestCase):
 
     def test_por_norma_tambien_sale_en_orden_numerico(self):
         resp = self.client.get(f"{URL}por_norma/", {"norma_id": self.norma.pk})
-        numeros = [a["numero_articulo"] for a in resp.data]
+        numeros = [a["numero_articulo"] for a in resp.data["results"]]
         self.assertEqual(numeros, ["1", "2", "9", "10", "10 bis", "11", "100", "A-1"])

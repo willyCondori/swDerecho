@@ -32,7 +32,7 @@ class EntidadDetectadaCaso(models.Model):
 class EmbeddingArticulo(models.Model):
     """
     Vector semántico de un artículo jurídico generado con Sentence Transformers.
-    Se indexa con HNSW (pgvector) para búsqueda coseno eficiente.
+    Se compara mediante distancia coseno de pgvector.
 
     Un artículo puede tener VARIOS embeddings, uno por cada versión de
     modelo con la que se generó (ver modulo_ia.services.model_loader).
@@ -65,9 +65,6 @@ class EmbeddingArticulo(models.Model):
         indexes  = [
             models.Index(fields=["articulo"], name="idx_emb_art_articulo"),
             models.Index(fields=["modelo_version"], name="idx_emb_art_version"),
-            # El índice HNSW se crea en migración personalizada:
-            # CREATE INDEX idx_emb_art_vector ON embeddings_articulos
-            # USING hnsw (vector vector_cosine_ops);
         ]
 
     def __str__(self):

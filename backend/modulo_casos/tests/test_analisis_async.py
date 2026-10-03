@@ -9,7 +9,7 @@ y responde al toque con 202. Estos tests cubren:
   - ejecutar_analisis_caso en sí: éxito (COMPLETADO + ResultadoCaso +
     auditoría con el usuario correcto) y falla (ERROR + auditoría con el
     mensaje, y que no tumbe el caller). El único paso mockeado es
-    EmbeddingService.generar_para_caso, porque es el único que necesita
+    EmbeddingService.preparar_vectores, porque es el único que necesita
     el modelo real de Sentence Transformers (no instalado en este
     entorno de tests — ver el comentario en backend-tests.yml).
   - Caso.analisis_en_curso(): que un "procesando" viejo (más de
@@ -124,15 +124,8 @@ class AnalisisEnCursoModelTests(APITestCase):
 
 
 def _generar_embeddings_falsos(chunks):
-    """Reemplaza a EmbeddingService.generar_para_caso: crea EmbeddingChunk
-    reales (con la versión activa) para que RankingService tenga algo
-    válido que comparar, sin invocar el modelo real."""
-    return [
-        EmbeddingChunk.objects.create(
-            chunk=chunk, modelo_version=version_activa(), vector=[0.1] * 768,
-        )
-        for chunk in chunks
-    ]
+    """Vectores de prueba; la persistencia real sigue bajo prueba."""
+    return [[0.1] * 768 for _ in chunks]
 
 
 class EjecutarAnalisisCasoTests(APITestCase):
@@ -152,7 +145,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
         )
 
     def test_exito_marca_completado_y_crea_resultado(self):
-        with patch("modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+        with patch("modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
                    side_effect=_generar_embeddings_falsos):
             resultado = ejecutar_analisis_caso(self.caso.pk, usuario=self.otro)
 
@@ -165,7 +158,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
         self.assertEqual(resultado["caso_id"], self.caso.pk)
 
     def test_exito_audita_con_el_usuario_que_disparo_el_analisis(self):
-        with patch("modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+        with patch("modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
                    side_effect=_generar_embeddings_falsos):
             ejecutar_analisis_caso(self.caso.pk, usuario=self.otro)
 
@@ -173,7 +166,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
         self.assertEqual(auditoria.usuario_id, self.otro.pk)  # no el dueño del caso, sino quien lo disparó
 
     def test_sin_usuario_explicito_audita_al_dueno_del_caso(self):
-        with patch("modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+        with patch("modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
                    side_effect=_generar_embeddings_falsos):
             ejecutar_analisis_caso(self.caso.pk, usuario=None)
 
@@ -182,7 +175,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
 
     def test_falla_marca_error_y_no_relanza_la_excepcion(self):
         with patch(
-            "modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+            "modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
             side_effect=RuntimeError("falla simulada del modelo"),
         ):
             resultado = ejecutar_analisis_caso(self.caso.pk, usuario=self.dueño)  # no debe lanzar
@@ -194,7 +187,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
 
     def test_falla_tambien_audita(self):
         with patch(
-            "modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+            "modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
             side_effect=RuntimeError("falla simulada"),
         ):
             ejecutar_analisis_caso(self.caso.pk, usuario=self.dueño)
@@ -207,7 +200,7 @@ class EjecutarAnalisisCasoTests(APITestCase):
         # todo el paso de escritura corre en una transacción, el chunk que
         # sí se llegó a crear no debería quedar huérfano en la base.
         with patch(
-            "modulo_ia.services.embedding_service.EmbeddingService.generar_para_caso",
+            "modulo_ia.services.embedding_service.EmbeddingService.preparar_vectores",
             side_effect=RuntimeError("falla simulada"),
         ):
             ejecutar_analisis_caso(self.caso.pk, usuario=self.dueño)

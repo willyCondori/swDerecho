@@ -3,7 +3,7 @@ import api from './axiosInstance'
 
 const clientesApi = {
   listar(params = {}) {
-    return api.get('/api/clientes', { params })
+    return api.get('/api/clientes/', { params })
   },
 
   /** GET /api/clientes/clientes/lista/ — compacto para selects */
@@ -48,8 +48,8 @@ const clientesApi = {
     return api.get(`/api/clientes/${id}/casos/`, { params })
   },
 
-  buscar(q) {
-    return api.get('/api/clientes/buscar/', { params: { q } })
+  buscar(q, { signal, limit, compacto } = {}) {
+    return api.get('/api/clientes/buscar/', { params: { q, limit, compacto }, signal })
   },
 }
 
