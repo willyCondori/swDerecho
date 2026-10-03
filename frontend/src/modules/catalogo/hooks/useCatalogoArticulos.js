@@ -108,7 +108,6 @@ export function useCatalogoArticulos() {
           : ordering
 
       const { data } = await catalogoApi.articulos({
-        compacto: true,
         page,
         page_size: pageSize,
         search: searchDebounced || undefined,

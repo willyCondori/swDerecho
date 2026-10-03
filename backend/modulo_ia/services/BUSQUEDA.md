@@ -63,8 +63,9 @@ respaldo; no se incorporó un motor OCR ni se modificó la estrategia de fragmen
 ## Contrato del catálogo
 
 El listado admite `compacto=true`: devuelve `contenido_preview` (360 caracteres)
-y omite `contenido`. La interfaz usa este modo y solicita el detalle al expandir.
-Sin este parámetro, el listado conserva el contenido completo.
+y omite `contenido`. Este modo queda disponible como opción de la API.
+La interfaz solicita el listado con el contenido completo y lo muestra al
+expandir, sin consultas adicionales.
 `por_norma` y `por_rama` ahora devuelven `{count, next, previous, results}`,
 con `page` y `page_size`, igual que el listado general.
 
@@ -76,6 +77,6 @@ No se modificaron hilos, colas, caché de progreso ni polling para concurrencia.
 
 Las pruebas cubren una consulta para varios chunks, cero consultas adicionales
 para entidades precargadas, filtros por rama/versión/estado, upsert por lote,
-invalidez del caché PDF, cálculo fuera de transacción, rollback y carga diferida
+invalidez del caché PDF, cálculo fuera de transacción, rollback y visualización
 del contenido completo en la interfaz. No sustituyen una medición de tiempos
 con el modelo y los documentos reales ni una prueba de carga.
