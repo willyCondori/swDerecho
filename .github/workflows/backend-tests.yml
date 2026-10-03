@@ -117,6 +117,7 @@ jobs:
             modulo_catalogo.tests.test_articulos_orden \
             modulo_ia.tests.test_ranking_service \
             modulo_ia.tests.test_embeddings_lotes \
+            modulo_ia.tests.test_preparacion_modelos \
             modulo_ia.tests.test_preparacion_analisis \
             modulo_documentos.tests.test_extraccion_texto \
             modulo_catalogo.tests.test_carga_embeddings_lotes \

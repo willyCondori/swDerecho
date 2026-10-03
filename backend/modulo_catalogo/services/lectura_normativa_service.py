@@ -21,9 +21,10 @@ def normalizar(texto):
     return ' '.join(unicodedata.normalize('NFKC', texto).split())
 
 
-def bloques_lineas(lineas, limite=2400):
+def bloques_lineas(lineas, limite=2400, indices=None):
     bloque, largo = [], 0
-    for numero, linea in enumerate(lineas):
+    for numero in (range(len(lineas)) if indices is None else indices):
+        linea = lineas[numero]
         # El modelo solo localiza cabeceras: una línea muy larga se representa
         # por su comienzo. El cuerpo íntegro se conserva fuera del prompt.
         entrada = f'{numero}: {linea[:550]}'
@@ -115,13 +116,38 @@ def localizar_clasico(lineas, excluidas=None):
     return unidades
 
 
+def indices_estructura_compacta(lineas):
+    """Solo compactar documentos con numeración principal continua y cabeceras claras.
+
+    Los índices siguen apuntando al original completo. Ante otra forma de
+    cabecera o un salto de numeración se conserva la lectura de todas las líneas.
+    El análisis de efectos recibe siempre el contenido íntegro de las unidades.
+    """
+    excluidas = set()
+    conocidas = localizar_clasico(lineas, excluidas)
+    articulos = [u['numero'] for u in conocidas if u['tipo'] == 'articulo']
+    if len(articulos) < 3 or articulos != [str(i) for i in range(1, len(articulos) + 1)]:
+        return None
+    posiciones = {u['linea'] for u in conocidas}
+    for i, linea in enumerate(lineas):
+        if i in excluidas or i in posiciones:
+            continue
+        if SECCION.match(linea):
+            posiciones.add(i)
+        elif re.match(r'^\s*(?:ART[IÍ]CULO\b|ART\.|' + ORDINALES +
+                      r'\b|\d+\s*[.:-]+\s*\()', linea, re.I):
+            return None
+    return sorted(posiciones)
+
+
 def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
     from .carga_pdf_service import dividir_por_articulos, extraer_titulo_articulo as extraer_titulo
     motor = motor or settings.LECTURA_NORMATIVA_MOTOR
     lineas = texto.splitlines()
     if motor == 'qwen':
         unidades = []
-        for i, bloque in enumerate(bloques_lineas(lineas)):
+        indices = indices_estructura_compacta(lineas)
+        for i, bloque in enumerate(bloques_lineas(lineas, indices=indices)):
             if progreso: progreso({'paso': f'Identificando unidades del PDF, bloque {i + 1}'})
             unidades.extend(consultar_fragmentado(
                 'Localiza inicios de artículos y disposiciones de la norma PRINCIPAL. '
@@ -258,12 +284,22 @@ def detectar_cambios(unidades, progreso=None):
     cambios = []
     for i, u in enumerate(unidades):
         if progreso: progreso({'paso': f'Analizando efectos normativos: {i + 1}/{len(unidades)}'})
-        if not re.search(r'\b(?:abrog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|derog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|'
-                         r'modific(?:a(?:da|do|das|dos|n)?|ar)|incorpor(?:a(?:da|do|das|dos|n)?|ar)|'
-                         r'sustituy\w*|vigencia|publicaci[oó]n|plazos?)\b', texto_operativo(u['texto']), re.I):
+        operativo = texto_operativo(u['texto'])
+        reforma = re.search(r'\b(?:abrog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|derog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|'
+                            r'modific(?:a(?:da|do|das|dos|n)?|ar)|incorpor(?:a(?:da|do|das|dos|n)?|ar)|'
+                            r'sustituy\w*)\b', operativo, re.I)
+        temporal = re.search(r'\b(?:vigencia|publicaci[oó]n|plazos?)\b', operativo, re.I)
+        if not reforma:
+            if temporal:
+                # Este aviso no cambia vigencia ni necesita interpretar un plazo.
+                # La evidencia sigue siendo el original; no atribuirle destinos.
+                cambios.append({'operacion': 'temporal', 'norma': '', 'unidad': '',
+                                'alcance': 'Regla de vigencia o plazo; no implica derogación',
+                                'cita': operativo, 'origen': 'clausula', 'causante': '',
+                                'fecha_causante': '', 'unidad_fuente': u['numero']})
             continue
         # Evitar truncamiento silencioso de cláusulas que exceden el contexto.
-        partes = bloques_efectos(texto_operativo(u['texto']))
+        partes = bloques_efectos(operativo)
         for parte in partes:
             import copy
             esquema = copy.deepcopy(CAMBIOS)

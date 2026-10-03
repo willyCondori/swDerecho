@@ -47,11 +47,12 @@ export default function CargaArticulosPage() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [revision, setRevision] = useState(null)
   const [revisando, setRevisando] = useState(false)
+  const [pasoRevision, setPasoRevision] = useState('')
   const [errorRevision, setErrorRevision] = useState('')
   const [modoActualizacion, setModoActualizacion] = useState('articulos')
   const [seleccion, setSeleccion] = useState([])
   const revisionActual = useRef(0)
-  useEffect(() => { revisionActual.current++; setRevision(null); setErrorRevision(''); setRevisando(false) }, [archivo, form])
+  useEffect(() => { revisionActual.current++; setRevision(null); setErrorRevision(''); setRevisando(false); setPasoRevision('') }, [archivo, form])
 
   const modoExistente = form.modo === 'existente'
   const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
@@ -92,11 +93,14 @@ export default function CargaArticulosPage() {
         fecha_norma: form.fechaNorma, fecha_publicacion: form.fechaPublicacion, url_fuente: form.urlFuente }).filter(([, v]) => v)),
     }
     setRevisando(true)
+    setPasoRevision('Iniciando revisión del PDF…')
     setErrorRevision('')
     const solicitud = ++revisionActual.current
     try {
       const { data } = await (payload.motorLectura === 'qwen'
-        ? cargaArticulosApi.revisarConIA(payload, () => solicitud === revisionActual.current)
+        ? cargaArticulosApi.revisarConIA(payload, () => solicitud === revisionActual.current, (estado) => {
+          if (solicitud === revisionActual.current && estado.paso) setPasoRevision(estado.paso)
+        })
         : cargaArticulosApi.revisar(payload))
       if (solicitud !== revisionActual.current) return
       setRevision({ ...data, payload })
@@ -292,6 +296,7 @@ export default function CargaArticulosPage() {
               </button>
             </div>
           </div>
+          {revisando && <p role="status" aria-live="polite">{pasoRevision}</p>}
           {errorRevision && <p role="alert" className={styles.reviewWarning}>{errorRevision}</p>}
         </form>
       )}

@@ -332,3 +332,41 @@ class ReferenciasEnReglasTemporalesTests(SimpleTestCase):
         self.assertEqual(c['operacion'], 'temporal')
         self.assertEqual(c['norma'], '')
         self.assertEqual(c['unidad'], '')
+
+
+class EstructuraCompactaTests(SimpleTestCase):
+    def test_reduce_consultas_sin_recortar_el_texto_original(self):
+        texto = '\n'.join(f'ARTÍCULO {i}. (Objeto).\n' + 'Contenido original extenso.\n' * 100 for i in range(1, 5))
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}) as consulta:
+            unidades = extraer_unidades(texto, 'qwen')
+        self.assertEqual(consulta.call_count, 1)
+        self.assertEqual(len(unidades), 4)
+        self.assertEqual(unidades[0]['texto'].count('Contenido original extenso.'), 100)
+        prompt = consulta.call_args.args[1]
+        self.assertIn('102: ARTÍCULO 2.', prompt)
+        self.assertNotIn('Contenido original extenso.', prompt)
+
+    def test_cabecera_desconocida_o_numeracion_discontinua_conservan_lectura_completa(self):
+        from modulo_catalogo.services.lectura_normativa_service import indices_estructura_compacta
+        for texto in ['ARTÍCULO 1.\nARTÍCULO 3.\nARTÍCULO 4.',
+                      'ARTÍCULO 1.\nARTÍCULO 2.\nARTÍCULO 3.\n4.- (Otra cabecera).',
+                      'ARTÍCULO 1.\nARTÍCULO 2.\nARTÍCULO 3.\nARTÍCULO CUARTO.']:
+            self.assertIsNone(indices_estructura_compacta(texto.splitlines()))
+
+
+class AvisoTemporalDirectoTests(SimpleTestCase):
+    def test_plazo_sin_reforma_no_necesita_inferencia_ni_deroga_destinos(self):
+        texto = 'PRIMERA. El reglamento se elaborará en un plazo de noventa días desde la publicación.'
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar') as consulta:
+            cambios = detectar_cambios([{'numero': 'DF PRIMERA', 'texto': texto}])
+        consulta.assert_not_called()
+        self.assertEqual(len(cambios), 1)
+        self.assertEqual(cambios[0]['operacion'], 'temporal')
+        self.assertEqual(cambios[0]['norma'], '')
+        self.assertEqual(cambios[0]['unidad'], '')
+        self.assertEqual(cambios[0]['cita'], texto)
+
+    def test_plazo_junto_con_derogacion_sigue_consultando_qwen(self):
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': []}) as consulta:
+            detectar_cambios([{'numero': 'DD ÚNICA', 'texto': 'Queda derogado el Artículo 5 de la Ley 123 desde la publicación.'}])
+        consulta.assert_called_once()

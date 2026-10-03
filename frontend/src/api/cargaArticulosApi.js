@@ -28,13 +28,15 @@ const cargaArticulosApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   }),
-  revisarConIA: async (payload, sigueVigente = () => true) => {
+  revisarConIA: async (payload, sigueVigente = () => true, onProgreso = () => {}) => {
     const inicio = await api.post(`${BASE}/revisar-iniciar/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     while (sigueVigente()) {
       await new Promise((resolve) => setTimeout(resolve, 1500))
       const { data } = await api.get(`/api/catalogo/tareas-normativas/${inicio.data.task_id}/`)
+      if (!sigueVigente()) break
+      onProgreso(data.resumen || {})
       if (data.estado === 'SUCCESS') return { data: data.resultado }
       if (data.estado === 'FAILURE') throw new Error(data.error || 'La lectura normativa falló.')
     }

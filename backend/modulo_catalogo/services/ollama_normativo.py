@@ -16,6 +16,15 @@ class RespuestaIncompleta(ValueError):
 
 
 
+def keep_alive_configurado():
+    valor = settings.OLLAMA_NORMATIVO_KEEP_ALIVE
+    # Ollama acepta segundos numéricos o duraciones como "10m"; "-1" no es duración.
+    try:
+        return int(valor)
+    except (ValueError, TypeError):
+        return valor
+
+
 def consultar(instruccion, texto, esquema, imagenes=None):
     modelo = settings.OLLAMA_NORMATIVO_MODELO
     clave = 'normativo:qwen:v2:' + hashlib.sha256(json.dumps(
@@ -25,7 +34,7 @@ def consultar(instruccion, texto, esquema, imagenes=None):
         return previo
     cuerpo = {
         'model': modelo, 'stream': False, 'think': False,
-        'keep_alive': settings.OLLAMA_NORMATIVO_KEEP_ALIVE,
+        'keep_alive': keep_alive_configurado(),
         'format': esquema,
         'options': {'num_ctx': settings.OLLAMA_NORMATIVO_CONTEXTO,
                     'num_predict': 1600, 'temperature': 0},
@@ -53,3 +62,24 @@ def consultar(instruccion, texto, esquema, imagenes=None):
                          f'{modelo}. Detalle: {exc}') from exc
     cache.set(clave, datos, timeout=86400)
     return datos
+
+
+def precargar_modelo():
+    """Carga pesos y contexto sin generar texto; usa el mismo contexto que las consultas."""
+    try:
+        with _semaforo:
+            respuesta = requests.post(
+                settings.OLLAMA_NORMATIVO_URL.rstrip('/') + '/api/generate',
+                json={'model': settings.OLLAMA_NORMATIVO_MODELO, 'stream': False,
+                      'keep_alive': keep_alive_configurado(),
+                      'options': {'num_ctx': settings.OLLAMA_NORMATIVO_CONTEXTO}},
+                timeout=(5, settings.OLLAMA_NORMATIVO_TIMEOUT),
+            )
+            respuesta.raise_for_status()
+            if not respuesta.json().get('done'):
+                raise ValueError('Ollama no confirmó la carga del modelo.')
+    except (requests.RequestException, ValueError) as exc:
+        raise RuntimeError(
+            'No se pudo preparar Qwen al iniciar el servidor. Inicia Ollama y ejecuta '
+            f'ollama pull {settings.OLLAMA_NORMATIVO_MODELO}. Detalle: {exc}'
+        ) from exc

@@ -27,22 +27,26 @@ dataset de TSJ) es cambiar estas dos variables de entorno y correr
 los embeddings de la versión anterior quedan intactos en la base, así que
 volver atrás es solo volver a cambiar las variables, sin regenerar nada.
 """
+import logging
+import threading
+
 from django.conf import settings
 
 DIMENSION_VECTOR = 768  # debe coincidir con VectorField(dimensions=768) en modulo_ia/models/embedding.py
 
-_modelo_cache = {}  # cacheado por SENTENCE_TRANSFORMER_MODEL, a nivel de módulo/worker
+_modelo_cache = {}  # una instancia por modelo/dispositivo y proceso
+_carga_lock = threading.Lock()
 
 
 def obtener_modelo():
-    """Carga (o reutiliza del caché) el SentenceTransformer configurado."""
-    ruta_modelo = settings.SENTENCE_TRANSFORMER_MODEL
-    if ruta_modelo not in _modelo_cache:
-        import logging
-        from sentence_transformers import SentenceTransformer
-        logging.getLogger(__name__).info("Cargando modelo de embeddings: %s", ruta_modelo)
-        _modelo_cache[ruta_modelo] = SentenceTransformer(ruta_modelo, device=settings.EMBEDDING_DEVICE)
-    return _modelo_cache[ruta_modelo]
+    """Reutiliza la instancia; las primeras llamadas concurrentes no la duplican."""
+    clave = (settings.SENTENCE_TRANSFORMER_MODEL, settings.EMBEDDING_DEVICE)
+    with _carga_lock:
+        if clave not in _modelo_cache:
+            from sentence_transformers import SentenceTransformer
+            logging.getLogger(__name__).info("Cargando modelo de embeddings: %s (%s)", *clave)
+            _modelo_cache[clave] = SentenceTransformer(clave[0], device=clave[1])
+        return _modelo_cache[clave]
 
 
 def version_activa() -> str:

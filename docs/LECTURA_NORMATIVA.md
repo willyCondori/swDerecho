@@ -15,7 +15,9 @@ Para el servidor estimado de 12 GB RAM y 4 GB VRAM:
 OLLAMA_NORMATIVO_MODELO=qwen3.5:2b
 OLLAMA_NORMATIVO_CONTEXTO=4096
 OLLAMA_NORMATIVO_TIMEOUT=180
-OLLAMA_NORMATIVO_KEEP_ALIVE=0
+OLLAMA_NORMATIVO_KEEP_ALIVE=-1
+EMBEDDING_PRELOAD_STARTUP=True
+OLLAMA_NORMATIVO_PRELOAD_STARTUP=True
 EMBEDDING_DEVICE=cpu
 EMBEDDING_BATCH_SIZE=8
 GACETA_PAUSA_SEGUNDOS=0.5
@@ -23,9 +25,20 @@ GACETA_PAUSA_SEGUNDOS=0.5
 
 Configura `OLLAMA_NUM_PARALLEL=1` y `OLLAMA_MAX_LOADED_MODELS=1` en el proceso
 que ejecuta Ollama. El cliente también serializa las inferencias. Los embeddings
-se generan en CPU y Qwen se descarga de memoria al acabar cada consulta.
+se generan en CPU y Qwen permanece cargado en Ollama entre consultas.
 Esto reduce la competencia por VRAM; el rendimiento en el servidor de 4 GB
 debe medirse allí. El tamaño del archivo del modelo no es su consumo total.
+
+El servidor WSGI/ASGI prepara ambos modelos antes de aceptar peticiones:
+Sentence Transformers carga una sola instancia por proceso y ejecuta una
+vectorización inicial; Qwen carga sus pesos y contexto en Ollama. El arranque
+inicial puede tardar; las peticiones posteriores reutilizan los modelos.
+Los comandos `migrate`, `shell` y los tests no hacen esta precarga. Si Ollama no
+está disponible, el servidor indica el fallo al iniciar. Para una instalación
+sin Qwen, configura `OLLAMA_NORMATIVO_PRELOAD_STARTUP=False`.
+Para desactivar también la precarga de embeddings usa `EMBEDDING_PRELOAD_STARTUP=False`.
+`keep_alive=-1` evita la descarga por inactividad; un reinicio de Ollama o la
+presión de memoria pueden exigir cargar Qwen nuevamente. Comprueba `ollama ps`.
 
 Ejecuta Django en **un proceso** para las tareas y la caché locales.
 La revisión de Qwen se realiza en segundo plano. Los hilos no sobreviven a
@@ -111,3 +124,45 @@ no certifica que su PDF incorpore todas las reformas posteriores.
 Consulta las normas modificatorias en la Gaceta antes de considerar vigente
 una consolidación. No se ha certificado una versión consolidada oficial a
 03/10/2026. Un proyecto de ley en trámite no se aplica como norma promulgada.
+
+
+## Precarga y mensajes de las pruebas
+
+Reinicia el backend para activar la precarga WSGI/ASGI. En la comprobación local,
+el arranque con ambos modelos tardó aproximadamente 35 segundos y el siguiente
+embedding tardó 0,1 segundos reutilizando la misma instancia. Qwen quedó en GPU
+con `ollama ps` mostrando `Forever`. Estas mediciones corresponden al equipo
+local; no sustituyen una prueba en el servidor de 12 GB RAM y 4 GB VRAM.
+
+Para PDFs con artículos consecutivos y cabeceras reconocibles se consulta a
+Qwen sobre las cabeceras y sus índices originales, conservando el texto íntegro
+para reconstruir artículos y analizar efectos. Si hay saltos de numeración o
+cabeceras ambiguas, se mantiene la lectura de todas las líneas. La Ley 1636
+pasó de 17 a 2 bloques de identificación de estructura.
+
+Los tests provocan deliberadamente `Texto no vectorizable`, `callback fallido`,
+`carga fallida` y `Fallo de ranking` usando `unittest.mock`. Es normal ver sus
+tracebacks en el registro aunque el resultado final sea `OK`; no se ocultan los
+errores porque el mismo registro sirve para diagnosticar fallos reales.
+Las pruebas de PDFs inválidos también generan HTTP 400 (`Bad Request`).
+
+Un HTTP 401 (`Unauthorized`) en notificaciones señala una petición sin
+autenticación válida. Si ocurre en el navegador, vuelve a iniciar sesión; si
+continúa, revisa la respuesta de `/api/usuarios/auth/refresh/`. Para un HTTP 400
+al subir un PDF real, consulta la respuesta JSON de esa petición: el estado por
+sí solo no indica la causa.
+
+
+Medición completa posterior: Ley 1636, nueve páginas y 37.657 caracteres,
+59 segundos con Qwen residente y avisos temporales directos. La medición previa
+a eliminar esas inferencias temporales fue de 238 segundos. No se alteraron las
+22 unidades ni las reformas identificadas: la disposición derogatoria afecta
+todo el Artículo 281 Quater y únicamente el Parágrafo III del Artículo 323 Bis.
+Los plazos sin verbos de reforma producen un aviso informativo a partir del
+original, sin consultar Qwen ni declarar artículos derogados. Cuando un plazo
+acompaña una reforma, se conserva el análisis de Qwen. Son mediciones locales
+puntuales, no un tiempo garantizado para todos los PDFs.
+
+Validación: 270 tests de backend y 108 de frontend aprobados; tras el ajuste de
+avisos temporales se aprobaron 82 tests de lectura, revisión, vigencia y endpoints
+(incluidas dos pruebas nuevas). Compilación frontend correcta y lint sin errores.
