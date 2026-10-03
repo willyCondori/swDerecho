@@ -1,3 +1,4 @@
+from django.db import transaction
 from django.db.models import F
 from rest_framework import status
 from rest_framework.decorators import action
@@ -132,6 +133,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             return [EsAbogado()]
         return [EsOperativo()]
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         """
         POST /api/casos/
@@ -146,10 +148,11 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         caso = serializer.save()
-        self._auditar("CREATE", registro_id=caso.pk)
 
         if tiene_pdf:
             self._guardar_pdf(request, caso)
+
+        self._auditar("CREATE", registro_id=caso.pk)
 
         return Response(
             CasoReadSerializer(caso, context=self.get_serializer_context()).data,
@@ -157,6 +160,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         )
 
     @action(detail=False, methods=["post"], url_path="crear_con_cliente")
+    @transaction.atomic
     def crear_con_cliente(self, request):
         """
         POST /api/casos/crear_con_cliente/
@@ -164,8 +168,9 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         caso falla al crearse, el cliente recién insertado se revierte
         también (ver CasoConClienteSerializer).
 
-        Body: nombres, apellidos,
-              titulo, descripcion, archivo_pdf (opcional, multipart).
+        Body: nombres, apellidos, telefono (opcional),
+              titulo, descripcion, rama_detectada_id,
+              archivo_pdf (opcional, multipart).
         """
         tiene_pdf  = "archivo_pdf" in request.FILES
         serializer = CasoConClienteSerializer(
@@ -176,15 +181,13 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         resultado = serializer.save()
         caso = resultado["caso"]
 
-        self._auditar("CREATE", registro_id=caso.pk, metadata={"cliente_id": resultado["cliente"].pk})
-
-        # El PDF se guarda DESPUÉS de confirmar la transacción de
-        # cliente+caso. Si esto falla, el cliente y el caso ya quedaron
-        # creados correctamente (correcto: la falta de PDF no debe
-        # revertir un caso válido); el usuario puede reintentar subirlo
-        # con POST /api/casos/{id}/subir_pdf/.
+        # El PDF forma parte de la creación: si se rechaza o falla su
+        # guardado, se revierten también el cliente y el caso. Las
+        # notificaciones on_commit se envían solo al confirmar todo.
         if tiene_pdf:
             self._guardar_pdf(request, caso)
+
+        self._auditar("CREATE", registro_id=caso.pk, metadata={"cliente_id": resultado["cliente"].pk})
 
         return Response(
             CasoReadSerializer(caso, context=self.get_serializer_context()).data,

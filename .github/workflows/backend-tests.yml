@@ -117,6 +117,7 @@ jobs:
             modulo_catalogo.tests.test_vincular_documentos_norma \
             modulo_catalogo.tests.test_regenerar_embeddings_version \
             modulo_casos.tests.test_analisis_async \
+            modulo_casos.tests.test_creacion_con_cliente \
             modulo_notificaciones.tests \
             modulo_catalogo.tests.test_regenerar_embeddings_version \
             modulo_catalogo.tests.test_documento_norma_endpoints \

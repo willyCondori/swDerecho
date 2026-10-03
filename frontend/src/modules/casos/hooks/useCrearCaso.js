@@ -2,7 +2,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import casosApi from '../../../api/casosApi'
-import clientesApi from '../../../api/clientesApi'
 import { tieneEspaciosExcesivos, tieneEmoji } from '../../../utils/validators'
 
 const initialForm = {
@@ -148,57 +147,42 @@ export default function useCrearCaso() {
     setError(null)
 
     try {
-      let clienteId
-
-      if (modoCliente === 'nuevo') {
-        // 1) Crear el cliente primero
-        try {
-          const res = await clientesApi.crear(clienteForm)
-          clienteId = res.data.id
-        } catch (e) {
-          console.error('Error creando cliente:', e, e?.response?.data)
-          const apiErrors = e?.response?.data
-          if (apiErrors && typeof apiErrors === 'object') {
-            setFieldErrors(apiErrors)
-          } else {
-            setError('No se pudo crear el cliente.')
-          }
-          return
-        }
-      } else {
-        // Cliente ya existente, seleccionado del buscador
-        clienteId = clienteExistenteId
+      // Cliente nuevo y caso se guardan juntos en el backend. Una segunda
+      // petición dejaría al cliente creado si el caso fuera rechazado.
+      const datos = {
+        titulo: form.titulo,
+        descripcion: form.descripcion || '',
+        rama_detectada_id: form.rama_id,
+        ...(modoCliente === 'nuevo' ? clienteForm : { cliente_id: clienteExistenteId }),
       }
-
-      // 2) Crear el caso usando el id del cliente (nuevo o existente)
-      let data
+      let data = datos
       let config = {}
 
       if (modo === 'pdf') {
         data = new FormData()
-        data.append('titulo', form.titulo)
-        data.append('descripcion', form.descripcion || '')
-        data.append('cliente_id', clienteId)
-        data.append('archivo_pdf', archivo)
-        data.append('rama_detectada_id', form.rama_id)
-        config = { headers: { 'Content-Type': 'multipart/form-data' } }
-      } else {
-        data = {
-          titulo: form.titulo,
-          descripcion: form.descripcion,
-          cliente_id: clienteId,
-          rama_detectada_id: form.rama_id,
+        for (const [campo, valor] of Object.entries(datos)) {
+          data.append(campo, valor)
         }
+        data.append('archivo_pdf', archivo)
+        config = { headers: { 'Content-Type': 'multipart/form-data' } }
       }
 
-      const { data: caso } = await casosApi.crear(data, config)
+      const { data: caso } = modoCliente === 'nuevo'
+        ? await casosApi.crearConCliente(data, config)
+        : await casosApi.crear(data, config)
       navigate(`/casos/${caso.id}`)
       return caso
     } catch (e) {
       console.error('Error creando caso:', e, e?.response?.data)
       const apiErrors = e?.response?.data
-      if (apiErrors && typeof apiErrors === 'object') {
-        setFieldErrors(apiErrors)
+      if (apiErrors && typeof apiErrors === 'object' && !Array.isArray(apiErrors)) {
+        setFieldErrors({
+          ...apiErrors,
+          rama_id: apiErrors.rama_detectada_id,
+          archivo: apiErrors.archivo_pdf ?? apiErrors.archivo,
+        })
+        const mensaje = apiErrors.non_field_errors ?? apiErrors.detail
+        if (mensaje) setError(Array.isArray(mensaje) ? mensaje.join(' ') : mensaje)
       } else {
         setError('No se pudo crear el caso.')
       }
