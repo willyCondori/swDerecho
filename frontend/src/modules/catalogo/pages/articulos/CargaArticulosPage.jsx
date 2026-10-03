@@ -1,5 +1,7 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import cargaArticulosApi from '../../../../api/cargaArticulosApi'
+import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
 import { useArchivoPdf } from '../../hooks/useArchivoPdf'
 import { validarFormulario } from '../../utils/validation'
@@ -22,7 +24,7 @@ import styles from './CargaArticulosPage.module.css'
 const FORM_INICIAL = {
   modo: 'nueva', // 'nueva' | 'existente'
   normaId: '',
-  nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '', sobrescribir: false,
+  nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '',
 }
 
 export default function CargaArticulosPage() {
@@ -41,6 +43,13 @@ export default function CargaArticulosPage() {
 
   const [form, setForm] = useState(FORM_INICIAL)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [revision, setRevision] = useState(null)
+  const [revisando, setRevisando] = useState(false)
+  const [errorRevision, setErrorRevision] = useState('')
+  const [modoActualizacion, setModoActualizacion] = useState('articulos')
+  const [seleccion, setSeleccion] = useState([])
+  const revisionActual = useRef(0)
+  useEffect(() => { revisionActual.current++; setRevision(null); setErrorRevision(''); setRevisando(false) }, [archivo, form])
 
   const modoExistente = form.modo === 'existente'
   const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
@@ -57,11 +66,7 @@ export default function CargaArticulosPage() {
 
   const handleModoChange = (modo) => {
     if (modo === form.modo) return
-    // Al elegir una norma existente, lo más común es que sea justamente
-    // para subir su PDF más nuevo y reemplazar sus artículos: se marca
-    // "sobrescribir" por defecto, pero el usuario lo puede destildar si
-    // solo quiere sumar artículos nuevos sin tocar los que ya tiene.
-    setForm((prev) => ({ ...prev, modo, sobrescribir: modo === 'existente' }))
+    setForm((prev) => ({ ...prev, modo }))
     setFieldErrors({})
   }
 
@@ -72,15 +77,28 @@ export default function CargaArticulosPage() {
       setFieldErrors(errores)
       return
     }
-    await cargar({
+    const payload = {
       archivo,
       normaId: modoExistente ? form.normaId : null,
       nombreDocumento: modoExistente ? '' : form.nombreDocumento.trim(),
       sigla: modoExistente ? '' : form.sigla.trim(),
       jerarquiaId: modoExistente ? '' : form.jerarquiaId,
       ramaId: form.ramaId,
-      sobrescribir: form.sobrescribir,
-    })
+    }
+    setRevisando(true)
+    setErrorRevision('')
+    const solicitud = ++revisionActual.current
+    try {
+      const { data } = await cargaArticulosApi.revisar(payload)
+      if (solicitud !== revisionActual.current) return
+      setRevision({ ...data, payload })
+      setSeleccion(data.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero))
+    } catch (err) {
+      if (solicitud !== revisionActual.current) return
+      const datos = err.response?.data
+      const mensaje = datos?.detail || (datos && Object.values(datos).flat()[0])
+      setErrorRevision(typeof mensaje === 'string' ? mensaje : 'No se pudo revisar el PDF. Vuelve a intentarlo.')
+    } finally { if (solicitud === revisionActual.current) setRevisando(false) }
   }
 
   const handleReiniciar = () => {
@@ -88,6 +106,7 @@ export default function CargaArticulosPage() {
     remover()
     setForm(FORM_INICIAL)
     setFieldErrors({})
+    setRevision(null)
   }
 
   return (
@@ -106,7 +125,7 @@ export default function CargaArticulosPage() {
 
       {!resumen && <CargasEnCursoAviso cargas={otrasCargas} />}
 
-      {mostrandoFormulario && (
+      {mostrandoFormulario && !revision && (
         <form onSubmit={handleSubmit} noValidate>
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>
@@ -222,45 +241,33 @@ export default function CargaArticulosPage() {
 
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
 
-            <div className={styles.checkboxRow}>
-              <input
-                id="sobrescribir"
-                name="sobrescribir"
-                type="checkbox"
-                className={styles.checkbox}
-                checked={form.sobrescribir}
-                onChange={handleInputChange}
-              />
-              <label htmlFor="sobrescribir" className={styles.checkboxLabel}>
-                <strong>Sobrescribir artículos existentes.</strong> Si esta norma y
-                rama ya tienen artículos cargados, serán eliminados antes de
-                insertar los nuevos (se sube la versión más nueva del PDF y
-                reemplaza el contenido anterior). Si no marcas esta opción, los
-                artículos duplicados simplemente se omitirán.
-              </label>
-            </div>
-
             <div className={styles.submitRow}>
               <button type="button" className={styles.btnSecondary} onClick={handleReiniciar}>
                 Limpiar
               </button>
-              <button type="submit" className={styles.btnPrimary} disabled={enviando || loadingOpts}>
-                {enviando ? (
+              <button type="submit" className={styles.btnPrimary} disabled={enviando || revisando || loadingOpts}>
+                {revisando ? (
                   <>
                     <span className={styles.spinner} aria-hidden="true" />
-                    Enviando...
+                    Revisando PDF…
                   </>
                 ) : (
                   <>
                     <i className="ti ti-upload" aria-hidden="true" />
-                    Procesar PDF
+                    Revisar PDF antes de cargar
                   </>
                 )}
               </button>
             </div>
           </div>
+          {errorRevision && <p role="alert" className={styles.reviewWarning}>{errorRevision}</p>}
         </form>
       )}
+
+      {mostrandoFormulario && revision && <RevisionCargaPanel revision={revision} modo={modoActualizacion}
+        onModo={setModoActualizacion} seleccion={seleccion} onSeleccion={setSeleccion} enviando={enviando}
+        onCancelar={() => setRevision(null)} onConfirmar={() => cargar({ ...revision.payload,
+          modoActualizacion, revisionToken: revision.revision_token, articulosSeleccionados: seleccion })} />}
 
       {procesando && (
         <ProgressPanel

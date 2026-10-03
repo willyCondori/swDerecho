@@ -19,6 +19,11 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         </div>
       </div>
 
+      {resumen.revision && <p className={styles.reviewSummary}>
+        {resumen.revision.actualizar} artículos actualizados · {resumen.revision.nuevo} nuevos ·
+        {' '}{resumen.revision.retirados} retirados del catálogo activo ·
+        {' '}{resumen.revision.derogados_indicados} con indicación de derogación o abrogación en el PDF.
+      </p>}
       <div className={styles.statsGrid}>
         <div className={styles.statBox}>
           <p className={styles.statValue}>{resumen.total_encontrados}</p>

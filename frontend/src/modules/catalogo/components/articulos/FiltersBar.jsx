@@ -6,6 +6,7 @@ export default function FiltersBar({
   ramaId, onRamaChange, ramas,
   normaId, onNormaChange, normas,
   hayFiltros, totalCount, onReset,
+  numeroArticulo, onNumeroChange, buscando,
 }) {
   return (
     <div className={styles.filtersBar}>
@@ -31,6 +32,8 @@ export default function FiltersBar({
       </div>
 
       <div className={styles.filtersDivider} />
+      <input className={styles.filterSelect} value={numeroArticulo} onChange={(e) => onNumeroChange(e.target.value)}
+        aria-label="Número de artículo" placeholder="Número exacto: 23 bis" />
 
       <select
         className={styles.filterSelect}
@@ -62,11 +65,11 @@ export default function FiltersBar({
         <>
           <div className={styles.filtersDivider} />
           <span className={styles.activeCount}>
-            {totalCount.toLocaleString('es-BO')} resultados
+            {buscando ? 'Buscando…' : `${totalCount.toLocaleString('es-BO')} resultados`}
           </span>
           <button className={styles.resetBtn} onClick={onReset}>
             <i className="ti ti-x" aria-hidden="true" />
-            Limpiar
+            Limpiar filtros
           </button>
         </>
       )}

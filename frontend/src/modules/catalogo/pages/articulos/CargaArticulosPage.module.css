@@ -1,5 +1,20 @@
 /* modules/catalogo/pages/CargaArticulosPage.module.css */
 
+.modeOptions { border: 0; margin: 1rem 0; padding: 0; display: grid; gap: .75rem; }
+.modeOptions label { display: grid; grid-template-columns: auto 1fr; gap: .5rem; border: 1px solid var(--c-border);
+  border-radius: var(--radius-md); padding: 1rem; cursor: pointer; }
+.modeOptions label span { grid-column: 2; font-size: var(--fs-sm); color: var(--c-text-primary); line-height: 1.6; }
+.modeOptions label:has(input:checked) { border-color: var(--c-purple-300); background: var(--c-bg-surface); }
+.modeOptions input { accent-color: var(--c-purple-300); }
+.reviewSummary { background: var(--c-bg-surface); padding: 1rem; border-radius: var(--radius-md); }
+.reviewList { max-height: 480px; overflow: auto; margin: 1rem 0; }
+.reviewArticle { border-bottom: 1px solid var(--c-border); padding: 1rem 0; }
+.reviewArticle label { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.reviewArticle label > span { margin-left: auto; border: 1px solid var(--c-border-strong); border-radius: var(--radius-sm); padding: 2px 8px; font-size: var(--fs-sm); }
+.reviewArticle details { margin-top: .5rem; white-space: pre-wrap; line-height: 1.7; }
+.reviewArticle summary, .reviewMissing summary { cursor: pointer; }
+.reviewWarning { padding: .75rem; color: var(--c-text-primary); border-left: 3px solid #e3ad58; }
+.reviewMissing { margin: 1rem 0; line-height: 1.7; }
 .root {
   max-width: 760px;
   margin: 0 auto;

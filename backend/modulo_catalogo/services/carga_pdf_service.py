@@ -88,6 +88,7 @@ class ResultadoCarga:
     errores: int = 0
 
     errores_detalle: list = field(default_factory=list)
+    revision: dict = None
 
     def resumen(self) -> dict:
         return {
@@ -99,6 +100,7 @@ class ResultadoCarga:
             "duplicados": self.duplicados,
             "errores": self.errores,
             "errores_detalle": self.errores_detalle[:20],
+            **({'revision': self.revision} if self.revision is not None else {}),
         }
 
 
@@ -280,12 +282,6 @@ _CONECTORES_REFERENCIA = {
     "con", "de", "a", "y", "e", "o", "u",
 }
 
-
-# Sufijos latinos usados para artículos intercalados (ej. "Artículo 389 bis.",
-# agregado después de que la ley original ya estaba numerada). Sin esta
-# excepción, _es_referencia_en_oracion los confunde con una referencia
-# dentro de una oración ("Artículo 389 de la presente Ley..."), porque en
-# ambos casos la palabra que sigue al número empieza en minúscula.
 _SUFIJOS_ARTICULO = {"bis", "ter", "quater", "quáter", "quinquies", "sexies", "septies"}
 _SUFIJOS_ARTICULO.update({"octies", "nonies", "decies"})
 
@@ -345,9 +341,6 @@ def _cabeceras_documento(texto):
             continue
         candidatas.append(match)
 
-    # Leyes modificatorias: las cabeceras propias van en mayúsculas y
-    # el texto incorporado se cita como «Artículo N». También puede contener
-    # listas de delitos y comillas OCR desbalanceadas: no basta contar comillas.
     cita_articulo = re.search(r'["“«]\s*(?:Artículo|Articulo|Art\.)\s+\d', texto)
     if candidatas and _es_mayuscula(candidatas[0].group("palabra")) and cita_articulo:
         candidatas = [m for m in candidatas if _es_mayuscula(m.group("palabra"))]
@@ -751,22 +744,12 @@ def dividir_por_articulos(texto: str, seccion_documento=None) -> list[dict]:
 
 
 def _dividir_seccion_articulos(texto: str) -> list[dict]:
-    """
-    Divide el texto en artículos.
-
-    "numero" en el dict devuelto es un identificador de texto, no
-    necesariamente un entero puro: los artículos intercalados con sufijo
-    latino ("389 bis", "272 ter"...) se identifican como "{numero} {sufijo}"
-    para no fusionarse con el artículo base que comparte el mismo número.
-    """
+ 
     cabeceras = _cabeceras_documento(texto)
     final = PATRON_SECCION_FINAL.search(texto)
     if final:
         anteriores = [m for m in cabeceras if m.start() < final.start()]
         posteriores = [m for m in cabeceras if m.start() > final.start()]
-        # Art. 364 del Código Penal sigue numerado en el título final.
-        # En cambio, «Art. 47» citado en las disposiciones del CPP no es
-        # un nuevo artículo propio, ni lo son los reinicios transitorios.
         if not (anteriores and posteriores and
                 int(posteriores[0].group("numero")) == int(anteriores[-1].group("numero")) + 1):
             texto = texto[:final.start()]
@@ -817,7 +800,9 @@ def _dividir_seccion_articulos(texto: str) -> list[dict]:
         contenido = _quitar_encabezado_colgante(contenido)
 
         if len(contenido) < 20:
-            continue
+            from .revision_carga_service import indica_derogacion
+            if not indica_derogacion({'texto': contenido}):
+                continue
 
         numero_str = f"{numero_int} {sufijo}" if sufijo else str(numero_int)
         titulo = extraer_titulo_articulo(numero_str, contenido)
@@ -837,6 +822,10 @@ def cargar_articulos_desde_bytes(
     jerarquia_id: int = None,
     task=None,
     sobrescribir: bool = False,
+    modo_actualizacion=None,
+    revision=None,
+    articulos_seleccionados=None,
+    documento_id=None,
 ) -> ResultadoCarga:
    
     from modulo_catalogo.models.norma import Norma
@@ -852,6 +841,13 @@ def cargar_articulos_desde_bytes(
         raise ValueError(f"No existe la norma con ID {norma_id}.")
     except RamaDerecho.DoesNotExist:
         raise ValueError(f"No existe la rama con ID {rama_id}.")
+
+    if modo_actualizacion:
+        from .revision_carga_service import aplicar_carga_revisada
+        if not revision:
+            raise ValueError('Debes revisar el PDF antes de actualizar.')
+        return aplicar_carga_revisada(norma, rama, revision['articulos'], modo_actualizacion,
+                                      articulos_seleccionados, revision['huella'], documento_id, task)
 
     _update_task(task, 5, "Extrayendo texto del PDF...")
     try:

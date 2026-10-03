@@ -3,23 +3,27 @@ import api from './axiosInstance'
 
 const BASE = '/api/catalogo/cargar-articulos'
 
+function formulario(payload) {
+  const fd = new FormData()
+  fd.append('archivo', payload.archivo)
+  if (payload.normaId) fd.append('norma_id', payload.normaId)
+  else {
+    fd.append('nombre_documento', payload.nombreDocumento)
+    if (payload.sigla) fd.append('sigla', payload.sigla)
+  }
+  if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
+  fd.append('rama_id', payload.ramaId)
+  if (payload.modoActualizacion) fd.append('modo_actualizacion', payload.modoActualizacion)
+  if (payload.revisionToken) fd.append('revision_token', payload.revisionToken)
+  if (payload.articulosSeleccionados) fd.append('articulos_seleccionados', JSON.stringify(payload.articulosSeleccionados))
+  fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
+  return fd
+}
+
 const cargaArticulosApi = {
+  revisar: (payload) => api.post(`${BASE}/revisar/`, formulario(payload), { timeout: 120000 }),
   cargar: (payload) => {
-    const fd = new FormData()
-    fd.append('archivo', payload.archivo)
-    // Modo "norma existente": se manda norma_id y el backend la usa
-    // directamente, sin buscar/crear por nombre. nombre_documento/sigla
-    // solo aplican al modo "norma nueva".
-    if (payload.normaId) {
-      fd.append('norma_id', payload.normaId)
-    } else {
-      fd.append('nombre_documento', payload.nombreDocumento)
-      if (payload.sigla) fd.append('sigla', payload.sigla)
-    }
-    if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
-    fd.append('rama_id', payload.ramaId)
-    fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
-    return api.post(`${BASE}/`, fd, {
+    return api.post(`${BASE}/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },

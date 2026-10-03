@@ -134,6 +134,7 @@ def lanzar_carga_en_background(
     sobrescribir: bool = False,
     info: dict = None,
     on_exito=None,
+    **opciones_revision,
 ) -> str:
     """
     Arranca el procesamiento del PDF en un hilo aparte y devuelve
@@ -168,6 +169,7 @@ def lanzar_carga_en_background(
                 jerarquia_id=jerarquia_id,
                 task=progreso,
                 sobrescribir=sobrescribir,
+                **opciones_revision,
             )
             cache.set(
                 CACHE_PREFIX + task_id,

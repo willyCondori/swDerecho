@@ -577,6 +577,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
         qs      = super().get_queryset()
         norma   = self.request.query_params.get("norma_id")
         rama    = self.request.query_params.get("rama_id")
+        numero = self.request.query_params.get('numero_articulo', '').strip()
+        if numero:
+            qs = qs.filter(numero_articulo__iexact=numero)
         if norma:
             qs  = qs.filter(norma_id=norma)
         if rama:

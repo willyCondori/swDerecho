@@ -14,6 +14,8 @@ from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
 from modulo_catalogo.models.documento_norma import DocumentoNorma
+from modulo_catalogo.models.norma import Norma
+from .revision_carga_view import validar_revision
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
@@ -76,13 +78,18 @@ class CargaArticulosView(APIView):
 
         serializer = CargaArticulosPDFSerializer(
             data=request.data,
-            context={"request": request},
+            context={"request": request, "solo_revision": bool(request.data.get('modo_actualizacion'))},
         )
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
+        revision = validar_revision(data, request.user.pk) if data.get('modo_actualizacion') else None
+        if revision and data.get('norma') is None:
+            data['norma'] = Norma.objects.create(nombre=data['nombre_documento'], sigla=data.get('sigla') or None,
+                                                jerarquia=data.get('jerarquia'), estado=True)
+            serializer.context['norma_creada'] = True
 
         archivo = data["archivo"]
         norma = data["norma"]
@@ -135,6 +142,7 @@ class CargaArticulosView(APIView):
                 ruta_archivo=ruta_relativa,
                 tamano=archivo.size,
                 subido_por=usuario,
+                vigente=not bool(revision),
             )
 
         except Exception as e:
@@ -151,6 +159,11 @@ class CargaArticulosView(APIView):
             with open(ruta_archivo, "rb") as f:
                 contenido = f.read()
 
+            opciones_revision = ({
+                'modo_actualizacion': data['modo_actualizacion'], 'revision': revision,
+                'articulos_seleccionados': data.get('articulos_seleccionados', []),
+                'documento_id': documento_norma.pk,
+            } if revision else {})
             task_id = lanzar_carga_en_background(
                 contenido_pdf=contenido,
                 norma_id=norma.id,
@@ -159,7 +172,7 @@ class CargaArticulosView(APIView):
                 sobrescribir=sobrescribir,
                 on_exito=(
                     (lambda: _marcar_documentos_reemplazados(documento_norma))
-                    if sobrescribir else None
+                    if sobrescribir and not revision else None
                 ),
                 info={
                     "nombre_documento": norma.nombre,
@@ -168,6 +181,7 @@ class CargaArticulosView(APIView):
                     "usuario_id": usuario.id,
                     "usuario_nombre": _nombre_usuario(usuario),
                 },
+                **opciones_revision,
             )
 
         except Exception as e:
@@ -202,6 +216,8 @@ class CargaArticulosView(APIView):
                     "rama_nombre": rama.nombre,
                     "jerarquia_id": jerarquia.id if jerarquia else None,
                     "sobrescribir": sobrescribir,
+                    "modo_actualizacion": data.get('modo_actualizacion'),
+                    "articulos_seleccionados": data.get('articulos_seleccionados', []),
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
                     "task_id": task_id,
@@ -222,9 +238,10 @@ class CargaArticulosView(APIView):
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
             "documento_norma_id": documento_norma.id,
+            "modo_actualizacion": data.get('modo_actualizacion'),
         }
 
-        if existentes:
+        if existentes and not revision:
             respuesta["advertencia"] = (
                 f"Ya existían {existentes} artículos en esta norma+rama"
             )

@@ -177,7 +177,7 @@ class ArticuloReadSerializer(serializers.ModelSerializer):
         fields = [
             "id", "numero_articulo", "titulo", "contenido",
             "norma", "rama", "entidades",
-            "frecuencia_historica", "estado", "created_at",
+            "frecuencia_historica", "estado", "created_at", "documento_norma_id",
         ]
 
 
@@ -265,7 +265,7 @@ class ArticuloListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "numero_articulo", "titulo", "contenido",
             "norma_nombre", "norma_sigla", "rama_nombre",
-            "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica",
+            "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica", "documento_norma_id", "norma_id",
         ]
 
     def get_jerarquia_nivel(self, obj):

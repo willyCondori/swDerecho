@@ -72,6 +72,9 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                            source="rama",
                        )
     sobrescribir     = serializers.BooleanField(default=False, required=False)
+    modo_actualizacion = serializers.ChoiceField(choices=['completo', 'articulos'], required=False)
+    revision_token = serializers.CharField(required=False, allow_blank=True)
+    articulos_seleccionados = serializers.JSONField(required=False)
 
     def validate_archivo(self, value):
         # Solo PDF
@@ -157,12 +160,13 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                             "Pídele a un administrador que la restaure desde Catálogo → Normas antes de cargarle artículos."
                         )
                     })
-                norma = Norma.objects.create(
-                    nombre=nombre_documento,
-                    sigla=sigla,
-                    estado=True,
-                )
-                self.context["norma_creada"] = True
+                if not self.context.get('solo_revision'):
+                    norma = Norma.objects.create(
+                        nombre=nombre_documento,
+                        sigla=sigla,
+                        estado=True,
+                    )
+                    self.context["norma_creada"] = True
 
         attrs["norma"] = norma
 

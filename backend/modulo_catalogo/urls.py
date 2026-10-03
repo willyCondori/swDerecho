@@ -9,6 +9,7 @@ from .views.catalogo_view import (
     ArticuloViewSet,
 )
 from .views.documento_norma_view import DocumentoNormaViewSet
+from .views.revision_carga_view import RevisionCargaPDFView
 from .views.carga_articulos_view import (
     CargaArticulosView,
     CargasActivasPDFView,
@@ -27,6 +28,7 @@ router.register(r"documentos-norma", DocumentoNormaViewSet, basename="documentos
 urlpatterns = [
     path("", include(router.urls)),
     path("cargar-articulos/", CargaArticulosView.as_view()),
+    path("cargar-articulos/revisar/", RevisionCargaPDFView.as_view()),
     # Dos rutas para el mismo estado: soporta tanto
     # /cargar-articulos/estado/?task_id=... (query param — la que ya
     # está usando el frontend, según el log) como

@@ -5,7 +5,7 @@ const catalogoApi = {
   ramas:      ()       => api.get('/api/catalogo/ramas/lista/'),
   jerarquias: ()       => api.get('/api/catalogo/jerarquias/lista/'),
   normas:     ()       => api.get('/api/catalogo/normas/lista/'),
-  articulos:  (params) => api.get('/api/catalogo/articulos/', { params }),
+  articulos:  (params, signal) => api.get('/api/catalogo/articulos/', { params, signal }),
   articulo:   (id)     => api.get(`/api/catalogo/articulos/${id}/`),
   // api/catalogoApi.js
   listaRamas() {

@@ -136,6 +136,7 @@ jobs:
             modulo_catalogo.tests.test_extractor_articulos \
             modulo_catalogo.tests.test_extractor_normas_reales \
             modulo_catalogo.tests.test_indices_busqueda \
+            modulo_catalogo.tests.test_revision_carga \
             core.tests.test_validar_pdf \
             modulo_catalogo.tests.test_validacion_pdf_endpoints \
             -v 2

@@ -31,9 +31,29 @@ PDF separados por norma. Las firmas, fuentes editoriales y disposiciones
 finales sin numeración consecutiva no se guardan como artículos principales.
 
 Los PDF escaneados sin capa de texto necesitan OCR; este cambio no añade OCR.
-Las filas ya cargadas y sus embeddings no se corrigen automáticamente:
-necesitan una recarga revisada y regeneración de embeddings. Las filas
-incorrectas anteriores tampoco desaparecen al sobrescribir números correctos.
+Las filas ya cargadas y sus embeddings no se corrigen automáticamente.
+El formulario permite revisar un PDF antes de confirmar su carga:
+
+- Reemplazo completo: publica todo el PDF en la norma y rama elegidas y
+  retira del catálogo activo los artículos ausentes. Conserva sus IDs,
+  referencias y el PDF anterior como historial.
+- Actualización selectiva: publica solo los números elegidos, mantiene
+  los otros artículos y registra el PDF fuente de cada artículo actualizado.
+
+La revisión distingue nuevos, modificados, sin cambios y ausentes. Solo
+identifica como indicación de derogación/abrogación el estado explícito en
+la cabecera propia; una cita en el cuerpo o un artículo ausente no se
+interpreta como derogación. También admite cabeceras breves como
+`Art. 2. (Derogado)`.
+
+`POST cargar-articulos/revisar/` no escribe en la BD. Su token dura 30 minutos,
+está vinculado al usuario, archivo, destino y contenido actual del catálogo.
+`POST cargar-articulos/` acepta `modo_actualizacion`, `revision_token` y
+`articulos_seleccionados` (JSON). Verifica el token antes de guardar un archivo
+y comprueba de nuevo el catálogo al publicar. Los embeddings se preparan antes
+de una transacción que publica artículos, entidades, fuentes y retiros juntos;
+un fallo deja la versión anterior activa. El booleano `sobrescribir` permanece
+compatible con clientes antiguos; el nuevo formulario usa los modos revisados.
 
 ## Pruebas
 

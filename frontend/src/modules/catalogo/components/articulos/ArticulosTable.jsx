@@ -13,11 +13,12 @@ function SortIcon({ campo, ordering, orderDir }) {
 export default function ArticulosTable({
   articulos, loading, error, pageSize,
   ordering, orderDir, onSort,
-  expanded, onToggleExpand,
   hayFiltros, onReintentar, onLimpiarFiltros, onCargarPdf,
+  busqueda,
 }) {
   return (
     <div className={styles.tableScroll}>
+      {loading && <p role="status" className={styles.articleNotice}>Buscando artículos…</p>}
       <table className={styles.table} aria-label="Catálogo de artículos jurídicos">
         <thead className={styles.thead}>
           <tr>
@@ -27,7 +28,7 @@ export default function ArticulosTable({
                 <SortIcon campo="numero_articulo" ordering={ordering} orderDir={orderDir} />
               </span>
             </th>
-            <th className={styles.th}>Título / Contenido</th>
+            <th className={styles.th}>Título</th>
             <th className={`${styles.th} ${styles.sortable}`} onClick={() => onSort('rama')}>
               Rama
               <span className={styles.sortIcon}>
@@ -99,8 +100,7 @@ export default function ArticulosTable({
               <ArticuloRow
                 key={art.id}
                 articulo={art}
-                isExpanded={expanded.has(art.id)}
-                onToggleExpand={onToggleExpand}
+                busqueda={busqueda}
               />
             ))
           )}
