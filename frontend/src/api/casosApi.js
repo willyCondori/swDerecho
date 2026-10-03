@@ -22,6 +22,10 @@ const casosApi = {
     return api.post('/api/casos/', data, config)
   },
 
+  crearConCliente(data, config = {}) {
+    return api.post('/api/casos/crear_con_cliente/', data, config)
+  },
+
   actualizar(id, data) {
     return api.patch(`/api/casos/${id}/`, data)
   },

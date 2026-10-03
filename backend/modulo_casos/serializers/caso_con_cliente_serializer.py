@@ -1,12 +1,12 @@
 from django.db import transaction
 from rest_framework import serializers
 
-from modulo_casos.serializers.caso_serializer import CasoCreateSerializer
+from modulo_casos.serializers.caso_serializer import CasoCreateSerializer, CasoTituloDescripcionMixin
 from modulo_clientes.serializers.cliente_serializer import ClienteWriteSerializer
 from modulo_catalogo.models.rama import RamaDerecho
 
 
-class CasoConClienteSerializer(serializers.Serializer):
+class CasoConClienteSerializer(CasoTituloDescripcionMixin, serializers.Serializer):
     """
     Crea un Cliente y un Caso en una única transacción atómica.
 
@@ -16,7 +16,7 @@ class CasoConClienteSerializer(serializers.Serializer):
     "huérfano" sin caso asociado en la base de datos.
 
     No duplica reglas de negocio: reutiliza ClienteWriteSerializer
-    (regex de nombre, edad máxima...) y CasoCreateSerializer (límites
+    (nombres, teléfono y duplicados) y CasoCreateSerializer (límites
     de título/descripción, generación de código único, asignación
     del usuario autenticado) que ya existen en cada módulo.
 
@@ -30,6 +30,7 @@ class CasoConClienteSerializer(serializers.Serializer):
     # Datos del cliente
     nombres          = serializers.CharField(max_length=200)
     apellidos        = serializers.CharField(max_length=200)
+    telefono         = serializers.CharField(max_length=20, required=False, allow_blank=True)
 
     # Datos del caso
     titulo             = serializers.CharField(max_length=500)
@@ -48,18 +49,10 @@ class CasoConClienteSerializer(serializers.Serializer):
         cliente_ser = ClienteWriteSerializer(data={
             "nombres": attrs["nombres"],
             "apellidos": attrs["apellidos"],
+            "telefono": attrs.get("telefono", ""),
         })
         cliente_ser.is_valid(raise_exception=True)
         attrs["_cliente_validado"] = cliente_ser.validated_data
-
-        # Reutiliza las mismas reglas de título/descripción que
-        # CasoCreateSerializer, sin necesitar aún un cliente_id
-        # (el cliente todavía no existe en este punto).
-        caso_validador = CasoCreateSerializer()
-        attrs["titulo"] = caso_validador.validate_titulo(attrs["titulo"])
-        attrs["descripcion"] = caso_validador.validate_descripcion(
-            attrs.get("descripcion", "")
-        )
 
         if not attrs.get("descripcion") and not tiene_pdf:
             raise serializers.ValidationError(
