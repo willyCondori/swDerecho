@@ -92,6 +92,9 @@ class RevisionCargaPDFView(APIView):
                                   'destino': datos_destino(data), 'huella': huella_catalogo(filas),
                                   'articulos': articulos, 'cambios': cambios, 'metadatos': metadatos,
                                   'motor': motor, 'documento_oficial_id': data.get('documento_oficial_id')}, timeout=7200)
+        from modulo_catalogo.services.vigencia_service import preparar_avisos_revision
+        avisos_revision = preparar_avisos_revision(cambios, metadatos, data.get('norma'),
+            data['norma'].nombre if data.get('norma') else data['nombre_documento'])
         return Response({'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
-                         'motor': motor, 'cambios_normativos': cambios, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
+                         'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
                          **comparar_articulos(articulos, filas)})

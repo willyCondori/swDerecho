@@ -5,9 +5,22 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from core.permissions.roles_permission import EsAdmin, EsOperativo
 from modulo_catalogo.models import CambioNormativo, DocumentoOficial, VersionArticulo, Norma
-from modulo_catalogo.services.vigencia_service import confirmar
+from modulo_catalogo.services.vigencia_service import confirmar, evaluar_destino, describir_unidad_fuente, aviso
 
 class CambioSerializer(serializers.ModelSerializer):
+    destino_catalogo = serializers.SerializerMethodField()
+    disposicion_fuente = serializers.SerializerMethodField()
+    aviso = serializers.SerializerMethodField()
+
+    def get_destino_catalogo(self, obj):
+        return evaluar_destino({**obj.referencia, 'operacion': obj.operacion, 'origen': obj.origen}, obj.fuente.norma)
+
+    def get_disposicion_fuente(self, obj):
+        return describir_unidad_fuente(obj.unidad_fuente)
+
+    def get_aviso(self, obj):
+        return aviso(obj)
+
     fuente_nombre = serializers.CharField(source='fuente.norma.nombre', read_only=True)
     url_fuente = serializers.CharField(source='fuente.url_fuente', read_only=True)
     class Meta:

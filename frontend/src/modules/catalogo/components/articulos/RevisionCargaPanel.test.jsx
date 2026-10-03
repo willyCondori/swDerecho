@@ -33,3 +33,15 @@ it('el modo completo incluye todo el PDF y muestra los artículos que se retirar
   expect(screen.getByText(/artículos anteriores ausentes del PDF · se retirarán/)).toBeTruthy()
   expect(screen.getByRole('button', { name: 'Confirmar reemplazo completo' }).disabled).toBe(false)
 })
+
+
+it('muestra la norma causante, la disposición exacta y el aviso de destino ausente', () => {
+  render(<RevisionCargaPanel revision={{ ...revision, cambios_normativos: [{ operacion: 'abroga',
+    norma: 'Ley 11080', unidad: '', alcance: 'total', norma_causante: 'Ley 2298',
+    disposicion_fuente: 'disposición final tercera', cita: 'Queda abrogada la Ley 11080.',
+    destino_catalogo: { encontrado: false, mensaje: 'Solo aviso: la norma no está cargada.' } }] }}
+    modo="articulos" onModo={vi.fn()} seleccion={['1']} onSeleccion={vi.fn()} onConfirmar={vi.fn()} onCancelar={vi.fn()} />)
+  expect(screen.getByText(/Fuente: Ley 2298, disposición final tercera/)).toBeTruthy()
+  expect(screen.getByText('Solo aviso: la norma no está cargada.')).toBeTruthy()
+  expect(screen.getByText(/Cargar el PDF no confirma derogaciones ni abrogaciones/)).toBeTruthy()
+})

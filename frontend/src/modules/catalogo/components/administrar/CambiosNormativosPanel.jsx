@@ -6,7 +6,7 @@ import styles from '../articulos/Normativa.module.css'
 function Cambio({ cambio, normas, onActualizado }) {
   const [fecha, setFecha] = useState(cambio.fecha_norma_causante || '')
   const [causanteFecha, setCausanteFecha] = useState(cambio.fecha_norma_causante || '')
-  const [destino, setDestino] = useState(String(cambio.norma_afectada || ''))
+  const destino = String(cambio.destino_catalogo?.norma_id || cambio.norma_afectada || '')
   const [fechaDestino, setFechaDestino] = useState('')
   const [fragmento, setFragmento] = useState('')
   const [observacion, setObservacion] = useState('')
@@ -25,9 +25,11 @@ function Cambio({ cambio, normas, onActualizado }) {
       setError(datos?.detail || (datos && Object.values(datos).flat().join(' ')) || 'No se pudo revisar el cambio.')
     } finally { setOcupado(false) }
   }
-  const confirmable = !['general', 'temporal'].includes(cambio.operacion)
+  const confirmable = !['general', 'temporal'].includes(cambio.operacion) && Boolean(cambio.destino_catalogo?.encontrado)
   return <li>
     <strong>{cambio.operacion.toUpperCase()}</strong> · {cambio.norma_causante || cambio.fuente_nombre} · {cambio.fecha_norma_causante || 'Fecha por verificar'}
+    <p>Disposición de origen: {cambio.disposicion_fuente || cambio.unidad_fuente}</p>
+    {cambio.destino_catalogo && <p role="note">{cambio.destino_catalogo.mensaje}</p>}
     <p>Afecta: {cambio.referencia.norma || 'Norma del documento'} {cambio.referencia.unidad} · Alcance: {cambio.referencia.alcance}</p>
     <blockquote>{cambio.cita}</blockquote>
     {cambio.url_fuente && <a href={cambio.url_fuente} target="_blank" rel="noopener noreferrer">Ver fuente oficial</a>}
@@ -36,7 +38,7 @@ function Cambio({ cambio, normas, onActualizado }) {
       {!confirmable && <p>Requiere identificar inequívocamente la norma o unidad afectada. Una cláusula general no deroga artículos concretos automáticamente.</p>}
       {confirmable && <>
         <div className={styles.controles}>
-          <label>Norma afectada <select value={destino} disabled={Boolean(cambio.norma_afectada)} onChange={(e) => setDestino(e.target.value)}>
+          <label>Norma afectada <select value={destino} disabled>
             <option value="">Seleccionar destino verificado</option>{normas.map((n) => <option key={n.id} value={n.id}>{n.nombre}</option>)}
           </select></label>
           <label>Fecha de la norma afectada, si falta <input type="date" value={fechaDestino} onChange={(e) => setFechaDestino(e.target.value)} /></label>
@@ -50,7 +52,7 @@ function Cambio({ cambio, normas, onActualizado }) {
         </>}
         <label>Fecha de efecto verificada <input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></label>
         <label><p>Fundamento de la revisión</p><textarea value={observacion} onChange={(e) => setObservacion(e.target.value)} placeholder="Verificación de fecha, alcance, competencia y vigencia" /></label>
-        <button type="button" disabled={ocupado || !destino || !fecha || !causanteFecha || !observacion.trim()} onClick={() => guardar(false)}>Confirmar afectación</button></>}
+        <button type="button" disabled={ocupado || !destino || !fecha || !causanteFecha || !observacion.trim()} onClick={() => guardar(false)}>{cambio.operacion === 'deroga' ? 'Confirmar derogación' : cambio.operacion === 'abroga' ? 'Confirmar abrogación' : 'Confirmar afectación'}</button></>}
       <button type="button" disabled={ocupado} onClick={() => guardar(true)}>Descartar detección</button>
     </>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
@@ -73,7 +75,7 @@ export default function CambiosNormativosPanel() {
   useEffect(() => { refrescar() }, [refrescar])
   return <section className={styles.panel}>
     <h2>Verificar afectaciones normativas</h2>
-    <p>Los avisos pendientes ya acompañan al artículo o ley. Confirma después de verificar la fuente, la fecha y el alcance.</p>
+    <p>Cada detección muestra su norma causante y la disposición de origen. Si el destino está cargado, confirma después de verificar la fuente, la fecha y el alcance. Si no está cargado, se conserva solo el aviso.</p>
     <label>Estado <select value={estado} onChange={(e) => { setEstado(e.target.value); setPagina(1) }}>
       <option value="pendiente">Pendientes</option><option value="confirmado">Confirmados</option><option value="descartado">Descartados</option>
     </select></label>{' '}<button type="button" onClick={refrescar}>Actualizar</button>

@@ -29,10 +29,11 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     {Boolean(revision.cambios_normativos?.length) && <details open>
       <summary>{revision.cambios_normativos.length} efectos normativos detectados</summary>
       <ul>{revision.cambios_normativos.map((c, i) => <li key={i}>
-        <strong>{c.operacion.toUpperCase()}</strong> · Fuente: {c.unidad_fuente} · {c.norma || 'Norma de este documento'} {c.unidad} · {c.alcance}
+        <strong>{c.operacion.toUpperCase()}</strong> · Fuente: {c.norma_causante || revision.norma}, {c.disposicion_fuente || c.unidad_fuente} · {c.norma || 'Norma de este documento'} {c.unidad} · {c.alcance}
+        {c.destino_catalogo && <p role="note">{c.destino_catalogo.mensaje}</p>}
         <blockquote>{c.cita}</blockquote>
         {c.origen === 'nota_editorial' && <p>Nota histórica: {c.causante} · {c.fecha_causante}</p>}
-      </li>)}</ul><p>Solo se registrarán efectos contenidos en las unidades elegidas.</p>
+      </li>)}</ul><p>Solo se registrarán efectos contenidos en las unidades elegidas. Cargar el PDF no confirma derogaciones ni abrogaciones; si el destino existe, podrás confirmarlas en Verificar afectaciones normativas.</p>
     </details>}
     {!completa && <div className={styles.submitRow}>
       <button type="button" className={styles.btnSecondary} onClick={() => onSeleccion(revision.articulos.map((a) => a.numero))}>Seleccionar todos</button>

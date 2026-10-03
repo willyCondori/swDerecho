@@ -166,3 +166,32 @@ puntuales, no un tiempo garantizado para todos los PDFs.
 Validación: 270 tests de backend y 108 de frontend aprobados; tras el ajuste de
 avisos temporales se aprobaron 82 tests de lectura, revisión, vigencia y endpoints
 (incluidas dos pruebas nuevas). Compilación frontend correcta y lint sin errores.
+
+
+## Flujo de derogación y abrogación por confirmación
+
+1. Al revisar un PDF se muestran la norma causante, su fecha, la disposición
+   de origen (por ejemplo, disposición final tercera o disposición derogatoria
+   única), la norma o artículo afectado, el alcance y la cita literal.
+2. Si la norma y, cuando corresponda, el artículo están cargados y coinciden
+   inequívocamente, el aviso indica que el destino fue encontrado. Subir el PDF
+   registra la detección pendiente; no confirma el cambio jurídico.
+3. En **Catálogo → Normas → Verificar afectaciones normativas**, el usuario con
+   permiso de revisión (actualmente Administrador) verifica fechas y fundamento
+   y pulsa **Confirmar derogación** o **Confirmar abrogación**. Una afectación
+   parcial exige identificar el fragmento exacto. Los permisos existentes se
+   mantienen.
+4. Si el destino no está cargado o es ambiguo, se muestra **Solo aviso**, sin
+   botón para aplicar el cambio. El backend también rechaza cualquier intento
+   de forzar otro destino. Si se carga después el destino citado, se podrá
+   revisar y confirmar la detección pendiente.
+
+Los serializers exponen `estado_vigencia` separado del `estado` administrativo.
+Solo una confirmación con efecto alcanzado marca una norma como `abrogada` o un
+artículo como `derogado`/`derogado_parcialmente`. Antes de confirmar, y para
+efectos futuros, aparece `sin_derogacion_confirmada`: no es una certificación de
+vigencia exhaustiva. Los textos y PDFs históricos se conservan. No hay nuevas
+migraciones para este ajuste.
+
+Validación de este flujo: 66 pruebas de backend y ocho de interfaz aprobadas;
+compilación correcta y lint sin errores nuevos.

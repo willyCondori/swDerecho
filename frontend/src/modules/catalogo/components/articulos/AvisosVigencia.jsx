@@ -14,8 +14,9 @@ export default function AvisosVigencia({ avisos = [] }) {
   }
   return <div className={styles.avisos} aria-label="Avisos de vigencia normativa">
     {avisos.map((a) => <aside key={a.id} role="note" className={styles.aviso}>
-      <strong>{a.estado === 'confirmado' ? 'Afectación verificada' : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
+      <strong>{a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
       <p>{a.mensaje}</p>
+      {a.disposicion_fuente && <p>Disposición de origen: {a.disposicion_fuente}</p>}
       {a.parte_afectada?.tipo === 'parcial' && <div>
         <p><strong>Parte afectada: {a.parte_afectada.descripcion}</strong></p>
         {a.parte_afectada.partes?.map((p, i) => <div key={i}>

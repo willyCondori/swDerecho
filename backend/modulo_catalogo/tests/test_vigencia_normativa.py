@@ -131,3 +131,78 @@ class VigenciaNormativaTests(TestCase):
         parte = self.articulo.avisos_vigencia[0]['parte_afectada']
         self.assertEqual(parte['tipo'], 'parcial')
         self.assertEqual(parte['partes'][0]['fragmento'], 'Fragmento afectado.')
+
+
+    def test_destino_presente_avisa_pero_solo_marca_abrogada_despues_de_confirmar(self):
+        from modulo_catalogo.views.vigencia_view import CambioSerializer
+        from modulo_catalogo.serializers.catalogo_serializer import NormaListSerializer
+        c = self.registrar()
+        self.base.refresh_from_db()
+        self.assertEqual(NormaListSerializer(self.base).data['estado_vigencia'], 'sin_derogacion_confirmada')
+        data = CambioSerializer(c).data
+        self.assertTrue(data['destino_catalogo']['encontrado'])
+        self.assertIn('disposición final tercera', data['aviso']['mensaje'])
+        self.assertEqual(data['disposicion_fuente'], 'disposición final tercera')
+        confirmar(c, self.datos_revision(), self.usuario)
+        self.base.refresh_from_db()
+        self.assertEqual(NormaListSerializer(self.base).data['estado_vigencia'], 'abrogada')
+
+    def test_norma_ausente_es_solo_aviso_y_no_permite_forzar_otro_destino(self):
+        from modulo_catalogo.views.vigencia_view import CambioSerializer
+        c = self.registrar(norma='Ley 99999')
+        data = CambioSerializer(c).data
+        self.assertFalse(data['destino_catalogo']['encontrado'])
+        self.assertIn('Solo aviso', data['destino_catalogo']['mensaje'])
+        self.assertIn('Ley 99999', data['aviso']['mensaje'])
+        with self.assertRaisesMessage(ValueError, 'Solo aviso'):
+            confirmar(c, self.datos_revision(norma_afectada_id=self.base.pk), self.usuario)
+        c.refresh_from_db()
+        self.assertEqual(c.estado_revision, 'pendiente')
+
+    def test_articulo_ausente_no_puede_confirmarse_como_otro_articulo(self):
+        c = self.registrar(operacion='deroga', unidad='999')
+        with self.assertRaisesMessage(ValueError, 'Solo aviso'):
+            confirmar(c, self.datos_revision(norma_afectada_id=self.base.pk,
+                      articulo_afectado_id=self.articulo.pk), self.usuario)
+        self.articulo.refresh_from_db()
+        self.assertEqual(self.articulo.avisos_vigencia, [])
+
+    def test_derogacion_parcial_confirmada_no_marca_articulo_completo(self):
+        self.articulo.contenido = 'I. Texto conservado.\nII. Texto derogado.'
+        self.articulo.save()
+        c = self.registrar(operacion='deroga', unidad='25', alcance='Parágrafo II',
+                          cita='Queda derogado el Parágrafo II del Artículo 25.')
+        confirmar(c, self.datos_revision(), self.usuario)
+        self.articulo.refresh_from_db()
+        self.assertEqual(ArticuloListSerializer(self.articulo).data['estado_vigencia'], 'derogado_parcialmente')
+        self.assertIn('I. Texto conservado.', self.articulo.contenido)
+
+    def test_aviso_sin_destino_se_puede_confirmar_cuando_se_carga_la_norma(self):
+        c = self.registrar(norma='Ley 99999')
+        destino = Norma.objects.create(nombre='Ley 99999', tipo_norma='Ley', numero_norma='99999',
+                                       fecha_norma=date(1990, 1, 1), jerarquia=self.ley)
+        Articulo.objects.create(norma=destino, rama=self.rama, numero_articulo='1', contenido='Texto cargado')
+        confirmar(c, self.datos_revision(), self.usuario)
+        c.refresh_from_db()
+        self.assertEqual(c.norma_afectada, destino)
+        self.assertEqual(c.estado_revision, 'confirmado')
+
+    def test_fecha_futura_no_marca_abrogada_antes_de_entrar_en_efecto(self):
+        from modulo_catalogo.serializers.catalogo_serializer import NormaListSerializer
+        c = self.registrar()
+        confirmar(c, self.datos_revision(fecha_efecto='2099-01-01'), self.usuario)
+        self.base.refresh_from_db()
+        self.assertEqual(NormaListSerializer(self.base).data['estado_vigencia'], 'sin_derogacion_confirmada')
+
+    def test_revision_previa_identifica_causa_y_existencia_sin_modificar_catalogo(self):
+        from modulo_catalogo.services.vigencia_service import preparar_avisos_revision
+        cambios = [{'operacion': 'abroga', 'norma': 'Decreto Ley 11080', 'unidad': '',
+                    'origen': 'clausula', 'unidad_fuente': 'DF TERCERA'},
+                   {'operacion': 'deroga', 'norma': 'Decreto Ley 11080', 'unidad': '999',
+                    'origen': 'clausula', 'unidad_fuente': 'DD ÚNICA'}]
+        avisos = preparar_avisos_revision(cambios, self.metadatos)
+        self.assertTrue(avisos[0]['destino_catalogo']['encontrado'])
+        self.assertFalse(avisos[1]['destino_catalogo']['encontrado'])
+        self.assertEqual(avisos[0]['norma_causante'], 'Ley 2298')
+        self.assertEqual(avisos[0]['disposicion_fuente'], 'disposición final tercera')
+        self.assertEqual(CambioNormativo.objects.count(), 0)

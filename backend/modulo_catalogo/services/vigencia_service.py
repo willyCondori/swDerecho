@@ -51,6 +51,43 @@ def resolver_unidad(norma, numero):
     return filas[0] if len(filas) == 1 else None
 
 
+def describir_unidad_fuente(numero):
+    prefijos = {'DF': 'disposición final', 'DT': 'disposición transitoria',
+                'DD': 'disposición derogatoria', 'DA': 'disposición abrogatoria',
+                'DAD': 'disposición adicional'}
+    partes = str(numero or '').split(maxsplit=1)
+    if partes and partes[0] in prefijos:
+        return prefijos[partes[0]] + (' ' + partes[1].lower() if len(partes) > 1 else '')
+    return 'artículo ' + str(numero) if numero else 'unidad por verificar'
+
+
+def evaluar_destino(cambio, norma_fuente=None):
+    """Solo aplicar a un destino inequívoco cuyo contenido esté en el catálogo."""
+    norma = (norma_fuente if cambio.get('origen') == 'nota_editorial' and not cambio.get('norma')
+             else resolver_norma(cambio.get('norma', '')))
+    numero = cambio.get('unidad', '')
+    articulo = resolver_unidad(norma, numero)
+    concreto = cambio.get('operacion') not in ['general', 'temporal']
+    encontrado = bool(concreto and norma and (articulo if numero else
+                      (norma.articulos.exists() or norma.documentos.exists())))
+    return {'encontrado': encontrado,
+            'norma_id': norma.pk if encontrado else None,
+            'articulo_id': articulo.pk if encontrado and articulo else None,
+            'mensaje': ('Destino encontrado en el sistema. El cambio requiere confirmación del usuario.'
+                        if encontrado else 'Solo aviso: no se encontró una norma o artículo cargado que coincida inequívocamente. No se aplicará ningún cambio.')}
+
+
+def preparar_avisos_revision(cambios, metadatos, norma_fuente=None, nombre_fuente=''):
+    causante = f"{metadatos.get('tipo_norma', '')} {metadatos.get('numero_norma', '')}".strip() or nombre_fuente
+    resultado = []
+    for cambio in cambios:
+        fuente = cambio.get('causante') if cambio.get('origen') == 'nota_editorial' else causante
+        resultado.append({**cambio, 'norma_causante': fuente,
+                          'disposicion_fuente': describir_unidad_fuente(cambio.get('unidad_fuente')),
+                          'destino_catalogo': evaluar_destino(cambio, norma_fuente)})
+    return resultado
+
+
 def conservar_version(articulo):
     digest = hashlib.sha256((str(articulo.documento_norma_id) + '\n' +
                             (articulo.titulo or '') + '\n' + articulo.contenido).encode()).hexdigest()
@@ -64,6 +101,8 @@ def aviso(cambio):
     sujeto = 'Esta norma' if not cambio.articulo_afectado_id else (
         f"Esta disposición ({cambio.articulo_afectado.numero_articulo})"
         if cambio.articulo_afectado.tipo_unidad != 'articulo' else 'Este artículo')
+    if not cambio.norma_afectada_id:
+        sujeto = f"Artículo o disposición {ref.get('unidad')} de {ref.get('norma') or 'la norma del documento'}" if ref.get('unidad') else f"La norma {ref.get('norma') or 'referida en la fuente'}"
     verbos = {'abroga': 'abrogada', 'deroga': 'derogado', 'modifica': 'modificado', 'incorpora': 'ampliado'}
     causante = cambio.norma_causante or cambio.fuente.norma.nombre
     fecha_norma = cambio.fecha_norma_causante
@@ -75,6 +114,7 @@ def aviso(cambio):
     descripcion = f"{sujeto}: {verbo} por {causante}"
     if parcial and clave(parcial) not in ['total', 'completo', 'articulo completo', 'norma completa']:
         descripcion += f'. Alcance: {parcial}'
+    descripcion += f". Fuente: {describir_unidad_fuente(cambio.unidad_fuente)}"
     descripcion += f". Fecha de la norma: {fecha_norma.strftime('%d/%m/%Y') if fecha_norma else 'por verificar'}."
     if cambio.estado_revision != 'confirmado':
         descripcion = 'Afectación detectada, pendiente de verificación. ' + descripcion
@@ -82,6 +122,7 @@ def aviso(cambio):
         descripcion += ' Consulte la fuente modificatoria; el texto mostrado puede requerir consolidación.'
     return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision,
             'mensaje': descripcion, 'norma_causante': causante,
+            'unidad_fuente': cambio.unidad_fuente, 'disposicion_fuente': describir_unidad_fuente(cambio.unidad_fuente),
             'fecha': fecha_norma.isoformat() if fecha_norma else None,
             'fecha_efecto': cambio.fecha_efecto.isoformat() if cambio.fecha_efecto else None,
             'alcance': parcial, 'parte_afectada': ref.get('parte_afectada', {}), 'cita': cambio.cita,
@@ -168,6 +209,20 @@ def confirmar(cambio, datos, usuario):
     if datos.get('descartar'):
         cambio.estado_revision = 'descartado'
     else:
+        if cambio.operacion not in ['general', 'temporal']:
+            destino_actual = evaluar_destino({**cambio.referencia, 'operacion': cambio.operacion,
+                                              'origen': cambio.origen}, cambio.fuente.norma)
+            if not destino_actual['encontrado']:
+                raise ValueError(destino_actual['mensaje'])
+            if datos.get('norma_afectada_id') and datos['norma_afectada_id'] != destino_actual['norma_id']:
+                raise ValueError('La norma seleccionada no coincide con la referencia de la disposición.')
+            if datos.get('articulo_afectado_id') and datos['articulo_afectado_id'] != destino_actual['articulo_id']:
+                raise ValueError('El artículo seleccionado no coincide con la referencia de la disposición.')
+            cambio.norma_afectada_id = destino_actual['norma_id']
+            cambio.articulo_afectado_id = destino_actual['articulo_id']
+            # Vaciar las relaciones cacheadas al actualizar sus IDs.
+            cambio._state.fields_cache.pop('norma_afectada', None)
+            cambio._state.fields_cache.pop('articulo_afectado', None)
         if datos.get('fecha_norma_causante'):
             cambio.fecha_norma_causante = fecha(datos['fecha_norma_causante'])
         if datos.get('norma_afectada_id'):
@@ -242,3 +297,17 @@ def avisos_visibles(avisos):
             dato['estado'] = 'futuro'
         resultado.append(dato)
     return resultado
+
+
+def estado_vigencia(avisos, es_articulo=False):
+    """Estado jurídico confirmado, separado del estado administrativo del catálogo."""
+    confirmados = [a for a in avisos_visibles(avisos) if a.get('estado') == 'confirmado']
+    totales = [a for a in confirmados if a.get('parte_afectada', {}).get('tipo') != 'parcial'
+               and clave(a.get('alcance', '')) in ['total', 'completo', 'articulo completo', 'norma completa']]
+    if any(a.get('operacion') == 'abroga' for a in totales):
+        return 'abrogado' if es_articulo else 'abrogada'
+    if any(a.get('operacion') == 'deroga' for a in totales):
+        return 'derogado' if es_articulo else 'derogada'
+    if any(a.get('operacion') in ['deroga', 'abroga'] for a in confirmados):
+        return 'derogado_parcialmente' if es_articulo else 'derogada_parcialmente'
+    return 'sin_derogacion_confirmada'
