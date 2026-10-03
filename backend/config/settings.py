@@ -318,3 +318,17 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "core.pagination.standard_pagination.StandardResultsPagination",
     "PAGE_SIZE": 25,
 }
+
+
+# Lectura normativa local. La interfaz propone Qwen; el extractor clásico
+# permanece disponible para instalaciones sin Ollama y clientes anteriores.
+LECTURA_NORMATIVA_MOTOR = config('LECTURA_NORMATIVA_MOTOR', default='clasico')
+OLLAMA_NORMATIVO_URL = config('OLLAMA_NORMATIVO_URL', default='http://127.0.0.1:11434')
+OLLAMA_NORMATIVO_MODELO = config('OLLAMA_NORMATIVO_MODELO', default='qwen3.5:2b')
+OLLAMA_NORMATIVO_CONTEXTO = config('OLLAMA_NORMATIVO_CONTEXTO', default=4096, cast=int)
+OLLAMA_NORMATIVO_TIMEOUT = config('OLLAMA_NORMATIVO_TIMEOUT', default=180, cast=int)
+OLLAMA_NORMATIVO_KEEP_ALIVE = config('OLLAMA_NORMATIVO_KEEP_ALIVE', default='0')
+GACETA_BASE_URL = config('GACETA_BASE_URL', default='http://www.gacetaoficialdebolivia.gob.bo')
+GACETA_PAUSA_SEGUNDOS = config('GACETA_PAUSA_SEGUNDOS', default=0.5, cast=float)
+
+EMBEDDING_DEVICE = config('EMBEDDING_DEVICE', default='cpu')

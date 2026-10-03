@@ -22,8 +22,18 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
       {contar('actualizar')} por actualizar · {contar('nuevo')} nuevos · {contar('sin_cambios')} sin cambios de texto
       {completa && ` · ${revision.sobrantes.length} retirados del catálogo activo`}
     </p>
-    <p>Una ausencia en el PDF no significa derogación. Las indicaciones de derogación o abrogación se muestran
-      solo cuando aparecen en la cabecera del propio artículo.</p>
+    <p>Una ausencia en el PDF no significa derogación. Los cambios detectados se registrarán para verificación, con el texto de respaldo.</p>
+    {revision.motor === 'clasico' && <p className={styles.reviewWarning}>La lectura clásica no analiza efectos jurídicos con IA. Verifica las disposiciones manualmente o vuelve al formulario y elige Qwen.</p>}
+    {revision.advertencias_lectura?.map((aviso, i) => <p key={i} role="note" className={styles.reviewWarning}>{aviso}</p>)}
+    {revision.metadatos && <p>Norma principal: {revision.metadatos.tipo_norma} {revision.metadatos.numero_norma} · Fecha: {revision.metadatos.fecha_norma || 'por verificar'}.</p>}
+    {Boolean(revision.cambios_normativos?.length) && <details open>
+      <summary>{revision.cambios_normativos.length} efectos normativos detectados</summary>
+      <ul>{revision.cambios_normativos.map((c, i) => <li key={i}>
+        <strong>{c.operacion.toUpperCase()}</strong> · Fuente: {c.unidad_fuente} · {c.norma || 'Norma de este documento'} {c.unidad} · {c.alcance}
+        <blockquote>{c.cita}</blockquote>
+        {c.origen === 'nota_editorial' && <p>Nota histórica: {c.causante} · {c.fecha_causante}</p>}
+      </li>)}</ul><p>Solo se registrarán efectos contenidos en las unidades elegidas.</p>
+    </details>}
     {!completa && <div className={styles.submitRow}>
       <button type="button" className={styles.btnSecondary} onClick={() => onSeleccion(revision.articulos.map((a) => a.numero))}>Seleccionar todos</button>
       <button type="button" className={styles.btnSecondary} onClick={() => onSeleccion([])}>Quitar selección</button>
@@ -32,7 +42,7 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
       {revision.articulos.map((a) => <div key={a.numero} className={styles.reviewArticle}>
         <label>{!completa && <input type="checkbox" checked={seleccion.includes(a.numero)} onChange={() => toggle(a.numero)}
           aria-label={`Seleccionar artículo ${a.numero}`} />}
-          <strong>Art. {a.numero}</strong> · {a.titulo} <span>{ACCIONES[a.accion]}</span></label>
+          <strong>{a.tipo_unidad && a.tipo_unidad !== 'articulo' ? 'Disp. ' : 'Art. '}{a.numero}</strong> · {a.titulo} <span>{ACCIONES[a.accion]}</span></label>
         {a.derogado_en_pdf && <p className={styles.reviewWarning}>El PDF indica derogación o abrogación de este artículo.</p>}
         <details><summary>Comparar texto</summary>
           {a.texto_anterior && <p><strong>Anterior (fragmento):</strong> {a.texto_anterior}</p>}

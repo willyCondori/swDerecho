@@ -31,6 +31,7 @@ const catalogoApi = {
   // Normas: solo se listan, se eliminan (borrado lógico) y se restauran.
   // Se crean al cargar un PDF de artículos.
   listarNormasCompleto:    (params = {}) => api.get('/api/catalogo/normas/', { params }),
+  actualizarNorma: (id, datos) => api.patch(`/api/catalogo/normas/${id}/`, datos),
   eliminarNorma:            (id)          => api.delete(`/api/catalogo/normas/${id}/`),
   activarNorma:             (id)          => api.post(`/api/catalogo/normas/${id}/activar/`),
 

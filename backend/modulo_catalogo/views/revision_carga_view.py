@@ -19,7 +19,9 @@ def datos_destino(data):
     return {'norma_id': data['norma'].pk if data.get('norma') else None,
             'rama_id': data['rama'].pk,
             'nombre': data.get('nombre_documento', ''), 'sigla': data.get('sigla', ''),
-            'jerarquia_id': data['jerarquia'].pk if data.get('jerarquia') else None}
+            'jerarquia_id': data['jerarquia'].pk if data.get('jerarquia') else None,
+            'motor': data.get('motor_lectura', ''), 'metadatos': data.get('metadatos', {}),
+            'documento_oficial_id': data.get('documento_oficial_id')}
 
 
 def validar_revision(data, usuario_id):
@@ -56,7 +58,28 @@ class RevisionCargaPDFView(APIView):
         contenido = archivo.read()
         archivo.seek(0)
         try:
-            articulos = dividir_por_articulos(extraer_texto_pdf_bytes(contenido))
+            from django.conf import settings
+            from modulo_catalogo.services.lectura_normativa_service import extraer_unidades, detectar_cambios, extraer_metadatos
+            motor = data.get('motor_lectura', settings.LECTURA_NORMATIVA_MOTOR)
+            from modulo_catalogo.services.pdf_normativo_service import leer_pdf
+            texto, advertencias = leer_pdf(contenido, motor, extraer_texto_pdf_bytes)
+            progreso = getattr(request, 'progreso_normativo', None)
+            articulos = extraer_unidades(texto, motor, advertencias, progreso)
+            cambios = detectar_cambios(articulos, progreso) if motor == 'qwen' else []
+            metadatos = {**(extraer_metadatos(texto) if motor == 'qwen' else {}), **data.get('metadatos', {})}
+            oficial_id = data.get('documento_oficial_id')
+            if oficial_id:
+                from modulo_catalogo.models import DocumentoOficial
+                oficial = DocumentoOficial.objects.filter(pk=oficial_id, estado_descarga='descargado').first()
+                if not oficial or oficial.hash_pdf != hashlib.sha256(contenido).hexdigest():
+                    raise ValueError('El PDF no coincide con el archivo oficial seleccionado.')
+                metadatos.update({'url_fuente': oficial.url_fuente, 'tipo_norma': oficial.tipo,
+                                 'numero_norma': oficial.numero})
+                if oficial.fecha_publicacion:
+                    metadatos['fecha_publicacion'] = oficial.fecha_publicacion.isoformat()
+            destino = data.get('norma')
+            if destino and destino.numero_norma and metadatos.get('numero_norma') and destino.numero_norma != metadatos['numero_norma']:
+                raise ValueError('Este PDF pertenece a otra norma. Cárgalo como norma nueva; sus efectos se vincularán a la norma afectada.')
         except (ValueError, RuntimeError) as exc:
             raise ValidationError({'archivo': str(exc)})
         if not articulos:
@@ -67,6 +90,8 @@ class RevisionCargaPDFView(APIView):
         token = str(uuid.uuid4())
         cache.set(PREFIJO + token, {'usuario_id': request.user.pk, 'sha': hashlib.sha256(contenido).hexdigest(),
                                   'destino': datos_destino(data), 'huella': huella_catalogo(filas),
-                                  'articulos': articulos}, timeout=1800)
+                                  'articulos': articulos, 'cambios': cambios, 'metadatos': metadatos,
+                                  'motor': motor, 'documento_oficial_id': data.get('documento_oficial_id')}, timeout=7200)
         return Response({'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
+                         'motor': motor, 'cambios_normativos': cambios, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
                          **comparar_articulos(articulos, filas)})

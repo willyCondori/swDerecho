@@ -16,7 +16,13 @@ from .views.carga_articulos_view import (
     EstadoCargaPDFView,
 )
 
+from .views.vigencia_view import CambioNormativoViewSet, DocumentoOficialViewSet, VersionArticuloViewSet
+from .views.tareas_normativas_view import RevisionAsincronaView, SincronizarGacetaView, EstadoNormativoView
+
 router = DefaultRouter()
+router.register('cambios-normativos', CambioNormativoViewSet, basename='cambios-normativos')
+router.register('gaceta-documentos', DocumentoOficialViewSet, basename='gaceta-documentos')
+router.register('versiones-articulos', VersionArticuloViewSet, basename='versiones-articulos')
 
 router.register(r"ramas", RamaDerechoViewSet, basename="ramas")
 router.register(r"jerarquias", JerarquiaViewSet, basename="jerarquias")
@@ -26,6 +32,9 @@ router.register(r"articulos", ArticuloViewSet, basename="articulos")
 router.register(r"documentos-norma", DocumentoNormaViewSet, basename="documentos-norma")
 
 urlpatterns = [
+    path('cargar-articulos/revisar-iniciar/', RevisionAsincronaView.as_view()),
+    path('gaceta/sincronizar/', SincronizarGacetaView.as_view()),
+    path('tareas-normativas/<str:task_id>/', EstadoNormativoView.as_view()),
     path("", include(router.urls)),
     path("cargar-articulos/", CargaArticulosView.as_view()),
     path("cargar-articulos/revisar/", RevisionCargaPDFView.as_view()),

@@ -799,6 +799,11 @@ def cargar_articulos_desde_bytes(
     except RamaDerecho.DoesNotExist:
         raise ValueError(f"No existe la rama con ID {rama_id}.")
 
+    if sobrescribir and not modo_actualizacion:
+        from modulo_catalogo.models import VersionArticulo, CambioNormativo
+        if VersionArticulo.objects.filter(articulo__norma=norma, articulo__rama=rama).exists() or CambioNormativo.objects.filter(norma_afectada=norma).exists():
+            raise ValueError('Esta norma tiene historial o avisos de vigencia. Usa la carga revisada para conservarlos.')
+
     if modo_actualizacion:
         from .revision_carga_service import aplicar_carga_revisada
         if not revision:

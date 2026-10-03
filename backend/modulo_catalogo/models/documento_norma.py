@@ -40,6 +40,9 @@ class DocumentoNorma(models.Model):
                           null=True,
                           blank=True,
                       )
+    url_fuente = models.URLField(max_length=1000, blank=True)
+    metadatos = models.JSONField(default=dict, blank=True)
+    analisis_normativo = models.JSONField(default=dict, blank=True)
     vigente         = models.BooleanField(
                           default=True,
                           help_text=(

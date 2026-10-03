@@ -1,4 +1,6 @@
 import { useId, useState } from 'react'
+import TextoVigencia from './TextoVigencia'
+import AvisosVigencia from './AvisosVigencia'
 import catalogoApi from '../../../../api/catalogoApi'
 import { getRamaKey } from '../../utils/rama'
 import JerarquiaNivel from './JerarquiaNivel'
@@ -57,7 +59,7 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
 
   return <>
     <tr className={styles.tr}>
-      <td className={styles.td}><span className={styles.numPill}>Art. {articulo.numero_articulo}</span></td>
+      <td className={styles.td}><span className={styles.numPill}>{articulo.tipo_unidad && articulo.tipo_unidad !== 'articulo' ? 'Disp. ' : 'Art. '}{articulo.numero_articulo}</span></td>
       <td className={styles.td}><h2 className={styles.articleTitle}><TextoResaltado texto={titulo} busqueda={busqueda} /></h2>
         {derogado && <span className={styles.legalStatus}>El PDF indica derogación o abrogación</span>}</td>
       <td className={styles.td}><span className={`${styles.ramaBadge} ${styles[getRamaKey(rama)]}`}>{rama}</span></td>
@@ -66,9 +68,10 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
         nombre={articulo.norma?.jerarquia?.nombre ?? articulo.jerarquia_nombre} /></td>
     </tr>
     <tr className={styles.articleBodyRow}><td colSpan={5}>
+      <AvisosVigencia avisos={articulo.avisos_vigencia} />
       <div id={textoId} hidden={!expandido}>
       <div hidden={!expandido} className={styles.articleText}>
-        {expandido && <TextoResaltado texto={contenido || 'Sin texto disponible.'} busqueda={busqueda} />}
+        {expandido && <TextoVigencia texto={contenido || 'Sin texto disponible.'} avisos={articulo.avisos_vigencia} busqueda={busqueda} />}
       </div>
       {expandido && <>
       <div className={styles.articleActions}>

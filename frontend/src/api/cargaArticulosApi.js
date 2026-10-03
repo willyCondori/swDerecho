@@ -6,6 +6,9 @@ const BASE = '/api/catalogo/cargar-articulos'
 function formulario(payload) {
   const fd = new FormData()
   fd.append('archivo', payload.archivo)
+  if (payload.motorLectura) fd.append('motor_lectura', payload.motorLectura)
+  if (payload.metadatos) fd.append('metadatos', JSON.stringify(payload.metadatos))
+  if (payload.documentoOficialId) fd.append('documento_oficial_id', payload.documentoOficialId)
   if (payload.normaId) fd.append('norma_id', payload.normaId)
   else {
     fd.append('nombre_documento', payload.nombreDocumento)
@@ -25,6 +28,18 @@ const cargaArticulosApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   }),
+  revisarConIA: async (payload, sigueVigente = () => true) => {
+    const inicio = await api.post(`${BASE}/revisar-iniciar/`, formulario(payload), {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    while (sigueVigente()) {
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const { data } = await api.get(`/api/catalogo/tareas-normativas/${inicio.data.task_id}/`)
+      if (data.estado === 'SUCCESS') return { data: data.resultado }
+      if (data.estado === 'FAILURE') throw new Error(data.error || 'La lectura normativa falló.')
+    }
+    throw new Error('La revisión fue cancelada en esta pantalla.')
+  },
   cargar: (payload) => {
     return api.post(`${BASE}/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },

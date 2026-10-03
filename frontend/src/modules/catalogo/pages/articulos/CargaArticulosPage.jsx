@@ -1,6 +1,7 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
 import { useEffect, useRef, useState } from 'react'
 import cargaArticulosApi from '../../../../api/cargaArticulosApi'
+import GacetaPanel from '../../components/articulos/GacetaPanel'
 import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
 import { useArchivoPdf } from '../../hooks/useArchivoPdf'
@@ -25,6 +26,7 @@ const FORM_INICIAL = {
   modo: 'nueva', // 'nueva' | 'existente'
   normaId: '',
   nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '',
+  motorLectura: 'qwen', tipoNorma: '', numeroNorma: '', fechaNorma: '', fechaPublicacion: '', urlFuente: '', documentoOficialId: null,
 }
 
 export default function CargaArticulosPage() {
@@ -84,21 +86,39 @@ export default function CargaArticulosPage() {
       sigla: modoExistente ? '' : form.sigla.trim(),
       jerarquiaId: modoExistente ? '' : form.jerarquiaId,
       ramaId: form.ramaId,
+      motorLectura: form.motorLectura,
+      documentoOficialId: form.documentoOficialId,
+      metadatos: Object.fromEntries(Object.entries({ tipo_norma: form.tipoNorma, numero_norma: form.numeroNorma,
+        fecha_norma: form.fechaNorma, fecha_publicacion: form.fechaPublicacion, url_fuente: form.urlFuente }).filter(([, v]) => v)),
     }
     setRevisando(true)
     setErrorRevision('')
     const solicitud = ++revisionActual.current
     try {
-      const { data } = await cargaArticulosApi.revisar(payload)
+      const { data } = await (payload.motorLectura === 'qwen'
+        ? cargaArticulosApi.revisarConIA(payload, () => solicitud === revisionActual.current)
+        : cargaArticulosApi.revisar(payload))
       if (solicitud !== revisionActual.current) return
       setRevision({ ...data, payload })
       setSeleccion(data.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero))
     } catch (err) {
       if (solicitud !== revisionActual.current) return
       const datos = err.response?.data
-      const mensaje = datos?.detail || (datos && Object.values(datos).flat()[0])
+      const mensaje = datos?.detail || (datos && Object.values(datos).flat()[0]) || err.message
       setErrorRevision(typeof mensaje === 'string' ? mensaje : 'No se pudo revisar el PDF. Vuelve a intentarlo.')
     } finally { if (solicitud === revisionActual.current) setRevisando(false) }
+  }
+
+  const elegirOficial = (documento, pdf) => {
+    seleccionar(pdf)
+    setForm({ ...FORM_INICIAL, nombreDocumento: documento.titulo, tipoNorma: documento.tipo,
+      numeroNorma: documento.numero, fechaPublicacion: documento.fecha_publicacion || '',
+      urlFuente: documento.url_fuente, documentoOficialId: documento.id,
+      ramaId: ramas.find((r) => /penal/i.test(r.nombre))?.id || '',
+      jerarquiaId: jerarquias.find((j) => j.nombre.toLowerCase() === documento.tipo.toLowerCase())?.id || '',
+    })
+    setFieldErrors({}); setRevision(null)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleReiniciar = () => {
@@ -116,10 +136,9 @@ export default function CargaArticulosPage() {
         <p className={styles.subtitle}>
           Sube el PDF de cualquier norma boliviana (Código Civil, Penal,
           Laboral, de Procedimiento Penal, la CPE, o cualquier otra).
-          Indica la rama de derecho, el tipo de norma y el nombre del
-          documento; el sistema extrae automáticamente cada artículo, lo
-          guarda en el catálogo y genera su embedding semántico para el
-          motor de búsqueda.
+          Revisa sus artículos y disposiciones antes de incorporarlos al catálogo.
+          Los cambios normativos detectados se mostrarán con su alcance,
+          fecha y documento de respaldo.
         </p>
       </header>
 
@@ -239,6 +258,19 @@ export default function CargaArticulosPage() {
               />
             </div>
 
+            <fieldset className={styles.modeOptions}>
+              <legend>Lectura y datos de la publicación</legend>
+              <FormSelectField id="motorLectura" label="Lectura del documento" value={form.motorLectura} onChange={handleInputChange}
+                options={[{ value: 'qwen', label: 'Qwen local: artículos, disposiciones y cambios normativos' }, { value: 'clasico', label: 'Lectura clásica: requiere verificar manualmente las afectaciones' }]} />
+              <p>Qwen identifica la fecha y la norma principal. Completa los datos cuando el PDF no los indique claramente.</p>
+              <div className={styles.formGrid}>
+                <FormTextField id="tipoNorma" label="Tipo legal (opcional)" value={form.tipoNorma} onChange={handleInputChange} placeholder="Ley, Decreto Supremo, Resolución…" />
+                <FormTextField id="numeroNorma" label="Número legal (opcional)" value={form.numeroNorma} onChange={handleInputChange} />
+                <FormTextField id="fechaNorma" label="Fecha de promulgación (YYYY-MM-DD)" value={form.fechaNorma} onChange={handleInputChange} />
+                <FormTextField id="fechaPublicacion" label="Fecha de publicación (YYYY-MM-DD)" value={form.fechaPublicacion} onChange={handleInputChange} />
+                <FormTextField id="urlFuente" label="Enlace de la publicación oficial (opcional)" value={form.urlFuente} onChange={handleInputChange} fullWidth />
+              </div>
+            </fieldset>
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
 
             <div className={styles.submitRow}>
@@ -282,6 +314,7 @@ export default function CargaArticulosPage() {
 
       {error && !procesando && <ErrorPanel mensaje={error} onReintentar={handleReiniciar} />}
 
+      {mostrandoFormulario && !revision && <GacetaPanel onElegir={elegirOficial} />}
       {!resumen && !error && <WarningsList advertencias={advertencias} />}
     </div>
   )

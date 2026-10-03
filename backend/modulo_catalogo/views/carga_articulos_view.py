@@ -105,7 +105,8 @@ class CargaArticulosView(APIView):
         # GUARDAR PDF
         # ─────────────────────────────
         try:
-            carpeta_norma = (norma.sigla or norma.nombre).lower().replace(" ", "_")
+            from django.utils.text import slugify
+            carpeta_norma = f'{norma.pk}-' + (slugify(norma.sigla or norma.nombre) or 'norma')
 
             ruta_carpeta = os.path.join(
                 settings.MEDIA_ROOT,
@@ -143,6 +144,9 @@ class CargaArticulosView(APIView):
                 tamano=archivo.size,
                 subido_por=usuario,
                 vigente=not bool(revision),
+                metadatos=revision.get('metadatos', {}) if revision else data.get('metadatos', {}),
+                analisis_normativo={'cambios': revision.get('cambios', []), 'motor': revision.get('motor')} if revision else {},
+                url_fuente=(revision.get('metadatos', {}) if revision else data.get('metadatos', {})).get('url_fuente', ''),
             )
 
         except Exception as e:
@@ -159,6 +163,9 @@ class CargaArticulosView(APIView):
             with open(ruta_archivo, "rb") as f:
                 contenido = f.read()
 
+            if revision and revision.get('documento_oficial_id'):
+                from modulo_catalogo.models import DocumentoOficial
+                DocumentoOficial.objects.filter(pk=revision['documento_oficial_id']).update(documento_catalogo=documento_norma)
             opciones_revision = ({
                 'modo_actualizacion': data['modo_actualizacion'], 'revision': revision,
                 'articulos_seleccionados': data.get('articulos_seleccionados', []),

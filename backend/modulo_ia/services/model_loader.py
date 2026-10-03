@@ -41,7 +41,7 @@ def obtener_modelo():
         import logging
         from sentence_transformers import SentenceTransformer
         logging.getLogger(__name__).info("Cargando modelo de embeddings: %s", ruta_modelo)
-        _modelo_cache[ruta_modelo] = SentenceTransformer(ruta_modelo)
+        _modelo_cache[ruta_modelo] = SentenceTransformer(ruta_modelo, device=settings.EMBEDDING_DEVICE)
     return _modelo_cache[ruta_modelo]
 
 

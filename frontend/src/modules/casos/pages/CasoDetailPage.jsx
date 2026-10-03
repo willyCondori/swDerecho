@@ -1,4 +1,6 @@
 // modules/casos/pages/CasoDetailPage.jsx
+import TextoVigencia from '../../catalogo/components/articulos/TextoVigencia'
+import AvisosVigencia from '../../catalogo/components/articulos/AvisosVigencia'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
@@ -210,7 +212,8 @@ export default function CasoDetailPage() {
                   {a.articulo?.titulo && (
                     <p className={styles.articuloTitulo}>{a.articulo.titulo}</p>
                   )}
-                  <p className={styles.articuloContenido}>{a.articulo?.contenido}</p>
+                  <AvisosVigencia avisos={a.articulo?.avisos_vigencia} />
+                  <p className={styles.articuloContenido}><TextoVigencia texto={a.articulo?.contenido} avisos={a.articulo?.avisos_vigencia} /></p>
                 </li>
               ))}
             </ol>

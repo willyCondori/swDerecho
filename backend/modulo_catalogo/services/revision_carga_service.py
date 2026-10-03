@@ -19,6 +19,8 @@ def indica_derogacion(articulo):
     texto = articulo['texto'].strip()
     cabecera = PATRON_CABECERA.match(texto)
     cuerpo = texto[cabecera.end():].lstrip() if cabecera else ''
+    if articulo.get('tipo_unidad', 'articulo') != 'articulo':
+        return bool(re.match(r'^\s*[^.\n]+[.\-–:\s]+\(?\s*(?:DEROGAD[OA]|ABROGAD[OA])\b', texto, re.I))
     return bool(re.match(r'\(?\s*(?:DEROGAD[OA]|ABROGAD[OA])\b', cuerpo, re.I))
 
 
@@ -42,6 +44,7 @@ def comparar_articulos(articulos, filas):
         igual = previo and previo['estado'] and previo['contenido'] == articulo['texto'] and previo['titulo'] == articulo['titulo']
         revision.append({
             'numero': articulo['numero'], 'titulo': articulo['titulo'],
+            'tipo_unidad': articulo.get('tipo_unidad', 'articulo'),
             'accion': 'sin_cambios' if igual else ('actualizar' if previo else 'nuevo'),
             'derogado_en_pdf': derogado,
             'texto_anterior': (previo['contenido'][:240] if previo else None),
@@ -85,6 +88,7 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
     resultado.total_encontrados = len(articulos)
     resultado.revision = {**comparar_articulos(elegidos, actuales)['conteos'], 'retirados': 0,
                           'derogados_indicados': sum(indica_derogacion(a) for a in elegidos)}
+    from .vigencia_service import conservar_version, registrar_cambios
     with transaction.atomic():
         # Las cargas revisadas de una misma norma se publican en serie.
         type(norma).objects.select_for_update().get(pk=norma.pk)
@@ -97,15 +101,18 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
         for articulo_pdf, vector in zip(elegidos, vectores):
             previo = existentes.get(numero_clave(articulo_pdf['numero']))
             campos = {'titulo': articulo_pdf['titulo'], 'contenido': articulo_pdf['texto'],
-                      'estado': True, 'documento_norma': fuente}
+                      'estado': True, 'documento_norma': fuente,
+                      'tipo_unidad': articulo_pdf.get('tipo_unidad', 'articulo')}
             if previo:
                 articulo = Articulo.objects.get(pk=previo['id'])
+                conservar_version(articulo)
                 for nombre, valor in campos.items():
                     setattr(articulo, nombre, valor)
                 articulo.save(update_fields=list(campos))
             else:
                 articulo = Articulo.objects.create(numero_articulo=articulo_pdf['numero'],
                                                     norma=norma, rama=rama, **campos)
+            conservar_version(articulo)
             # Ningún embedding de otra versión debe representar el texto anterior.
             EmbeddingArticulo.objects.filter(articulo=articulo).delete()
             EmbeddingArticulo.objects.create(articulo=articulo, modelo_version=version_activa(), vector=vector)
@@ -117,5 +124,9 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
             resultado.revision['retirados'] = Articulo.objects.filter(norma=norma, rama=rama, estado=True).exclude(
                 pk__in=ids_publicados).update(estado=False)
             DocumentoNorma.objects.filter(norma=norma, rama=rama, vigente=True).exclude(pk=fuente.pk).update(vigente=False)
+        analisis = fuente.analisis_normativo
+        cambios = [c for c in analisis.get('cambios', [])
+                   if numero_clave(c['unidad_fuente']) in {numero_clave(a['numero']) for a in elegidos}]
+        registrar_cambios(fuente, elegidos, cambios, fuente.metadatos)
         _update_task(task, 98, 'Publicando la versión revisada...')
     return resultado

@@ -1,0 +1,15 @@
+.panel { margin: 1rem 0; padding: 1.25rem; border: 1px solid #8696ab55; border-radius: 12px; background: var(--bg-card, transparent); }
+.panel h2 { margin-top: 0; font-size: 1.15rem; }
+.controles { display: flex; flex-wrap: wrap; gap: .9rem; align-items: end; margin: 1rem 0; }
+.controles label { display: grid; gap: .3rem; }
+.controles input, .controles select, .panel textarea { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: inherit; background: transparent; }
+.panel button, .avisos button { padding: .45rem .75rem; margin: .35rem .4rem .35rem 0; border: 1px solid #8696ab; border-radius: 6px; cursor: pointer; color: inherit; background: transparent; }
+.panel button:disabled { opacity: .55; cursor: wait; }
+.lista { list-style: none; padding: 0; }
+.lista > li { border-top: 1px solid #8696ab55; padding: .8rem 0; }
+.avisos { margin: .7rem 0; }
+.aviso { border-left: 4px solid #ce942a; background: #ce942a15; padding: .7rem 1rem; margin: .5rem 0; border-radius: 5px; }
+.aviso p { margin: .35rem 0; }
+.aviso blockquote { margin: .7rem 0; white-space: pre-wrap; }
+.error { color: #dc5e53; }
+.panel textarea { width: 100%; box-sizing: border-box; min-height: 75px; }
