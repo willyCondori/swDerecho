@@ -33,7 +33,7 @@ def cita_del_destino(cita, unidad):
     Si una cláusula no permite asociar el alcance a un único destino,
     conservarla como ambigua para impedir una confirmación automática.
     """
-    patron = (r'\bArt[ií]culos?\s+(?P<art>\d+(?:\s+bis)?)\b|'
+    patron = (r'\bArt[ií]culos?\s+(?P<art>\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?)\b|'
               r'\bDisposici[oó]n\s+(?P<tipo>Transitoria|Final|Derogatoria|Abrogatoria)'
               r'\s+(?P<ordinal>\w+)\b')
     referencias = list(re.finditer(patron, cita, re.I))
@@ -46,7 +46,7 @@ def cita_del_destino(cita, unidad):
     if len(matches) != 1:
         return cita, True
     match = matches[0]
-    limites = list(re.finditer(r'[,;]', cita))
+    limites = list(re.finditer(r'[,;]|\n\s*\d+[.)]\s*|(?<!\w)\d+[.)]\s+(?=(?:El|La|Los|Las)\b)', cita, re.I))
     inicio = max([m.end() for m in limites if m.end() <= match.start()] or [0])
     fin = min([m.start() for m in limites if m.start() >= match.end()] or [len(cita)])
     segmento = cita[inicio:fin]

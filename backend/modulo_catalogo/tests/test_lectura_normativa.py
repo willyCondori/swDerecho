@@ -92,7 +92,7 @@ class LecturaNormativaTests(SimpleTestCase):
     def test_respuesta_incompleta_no_se_publica(self, post):
         cache.clear()
         post.return_value.json.return_value = {'done': True, 'done_reason': 'length', 'message': {'content': '{}'}}
-        with self.assertRaisesMessage(ValueError, 'incompleta'):
+        with self.assertRaisesMessage(ValueError, 'límite de respuesta'):
             consultar('Prueba', 'texto', {'type': 'object'})
 
 
@@ -191,3 +191,144 @@ class DestinosConAlcanceDistintoTests(SimpleTestCase):
         parte = identificar_parte('Se deroga el Parágrafo II del Artículo 25 y del Artículo 26.', 'parcial', SimpleNamespace(numero_articulo='25', contenido='I. Antes\nII. Afectado\nIII. Después'))
         self.assertEqual(parte['tipo'], 'parcial')
         self.assertFalse(parte['localizado'])
+
+
+class RespuestasLargasTests(SimpleTestCase):
+    def test_citas_se_adjuntan_sin_repetirlas_en_salida_del_modelo(self):
+        texto = 'ÚNICA. Se derogan el Parágrafo III del Artículo 323 Bis, y el Artículo 281 Quater del Código Penal.'
+        datos = [candidato('', operacion='deroga', norma='Código Penal', unidad=unidad, alcance=alcance)
+                 for unidad, alcance in [('323 Bis', 'Parágrafo III'), ('281 Quater', 'total')]]
+        for dato in datos: del dato['cita']
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': datos}) as consulta:
+            resultados = detectar_cambios([{'numero': 'DD ÚNICA', 'texto': texto}])
+        esquema = consulta.call_args.args[2]['properties']['cambios']['items']
+        self.assertNotIn('cita', esquema['properties'])
+        self.assertNotIn('cita', esquema['required'])
+        self.assertEqual([c['cita'] for c in resultados], [texto, texto])
+
+    def test_truncamiento_divide_bloque_y_conserva_indices_globales(self):
+        from modulo_catalogo.services.lectura_normativa_service import consultar_fragmentado, ESTRUCTURA
+        from modulo_catalogo.services.ollama_normativo import RespuestaIncompleta
+        texto = '123: ARTÍCULO 5. ' + 'texto ' * 90 + '\n124: ARTÍCULO 6. ' + 'otro ' * 100
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', side_effect=[RespuestaIncompleta(), {'unidades': [{'linea': 123}]}, {'unidades': [{'linea': 124}]}]) as consulta:
+            datos = consultar_fragmentado('Estructura', texto, ESTRUCTURA, 'unidades')
+        self.assertEqual(datos, [{'linea': 123}, {'linea': 124}])
+        self.assertTrue(consulta.call_args_list[1].args[1].startswith('123:'))
+        self.assertTrue(consulta.call_args_list[2].args[1].startswith('124:'))
+
+    def test_error_de_conexion_no_se_reintenta_como_truncamiento(self):
+        from modulo_catalogo.services.lectura_normativa_service import consultar_fragmentado, ESTRUCTURA
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', side_effect=ValueError('Sin conexión')) as consulta:
+            with self.assertRaisesMessage(ValueError, 'Sin conexión'):
+                consultar_fragmentado('Estructura', 'Texto ' * 200, ESTRUCTURA, 'unidades')
+        self.assertEqual(consulta.call_count, 1)
+
+    def test_reintentos_agotados_no_publican_respuesta_parcial(self):
+        from modulo_catalogo.services.lectura_normativa_service import consultar_fragmentado, ESTRUCTURA
+        from modulo_catalogo.services.ollama_normativo import RespuestaIncompleta
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', side_effect=RespuestaIncompleta()):
+            with self.assertRaisesMessage(RespuestaIncompleta, 'no se guardó'):
+                consultar_fragmentado('Estructura', 'Texto. ' * 1200, ESTRUCTURA, 'unidades')
+
+
+class DerogatoriaLey1636Tests(SimpleTestCase):
+    def test_lista_numerada_separa_paragrafo_323_bis_y_articulo_281_quater(self):
+        from types import SimpleNamespace
+        from modulo_catalogo.services.alcance_normativo_service import identificar_parte
+        texto = 'ÚNICA. Se derogan expresamente las siguientes disposiciones del Código Penal:\n1. El Parágrafo III del Artículo 323 Bis,\n2. El Artículo 281 Quater. (Pornografía y espectáculos obscenos).'
+        for numero, tipo in [('323 Bis', 'parcial'), ('281 Quater', 'total')]:
+            with self.subTest(numero=numero):
+                parte = identificar_parte(texto, 'Parágrafo III', SimpleNamespace(numero_articulo=numero, contenido='I. Conservado\nII. Conservado\nIII. Afectado'))
+                self.assertEqual(parte['tipo'], tipo)
+                if tipo == 'parcial':
+                    self.assertEqual(parte['partes'][0]['fragmento'], 'III. Afectado')
+                    self.assertTrue(parte['localizado'])
+
+    def test_sufijo_quater_no_se_pierde_en_destino_literal(self):
+        texto = 'ÚNICA. Se deroga el Artículo 281 Quater del Código Penal.'
+        cambio = ajustar_cambio_literal(candidato(texto, operacion='deroga', unidad='281'), {'numero': 'DD ÚNICA', 'texto': texto})
+        self.assertEqual(cambio['unidad'], '281 Quater')
+
+
+class ComillasInconsistentesTests(SimpleTestCase):
+    def test_comilla_omitida_no_oculta_siguiente_articulo_principal(self):
+        texto = 'ARTÍCULO 5. Se incorporan los Artículos 312 Quinquies, 312 Sexies y Artículo 323 Quater de la Ley 1768, con el siguiente texto:\n“ ARTÍCULO 312 Quinquies. Uno\nARTÍCULO 312 Sexies. Dos\nARTÍCULO 323 Quater. Tres\nARTÍCULO 6. Se modifica el Artículo 323 Bis de la Ley 1768, con el siguiente texto:\n“ ARTÍCULO 323 Bis. Nuevo texto.”\nARTÍCULO 7. Otro objeto.'
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}):
+            unidades = extraer_unidades(texto, 'qwen')
+        self.assertEqual([u['numero'] for u in unidades], ['5', '6', '7'])
+        self.assertIn('ARTÍCULO 323 Quater', unidades[0]['texto'])
+
+    def test_articulo_citado_sin_comilla_de_apertura_no_se_convierte_en_principal(self):
+        texto = 'ARTÍCULO 9. Se modifican los Artículos 168, 169 y 170 de la Ley 548, con el siguiente texto:\n“ARTÍCULO 168. Uno\nARTÍCULO 169. Dos.”\nARTÍCULO 170. Tres.”\nARTÍCULO 10. Continúa la Ley.'
+        datos = {'unidades': [{'linea': 3, 'tipo': 'articulo', 'numero': '170'}]}
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value=datos):
+            unidades = extraer_unidades(texto, 'qwen')
+        self.assertEqual([u['numero'] for u in unidades], ['9', '10'])
+
+    def test_definicion_numerada_no_es_transitoria_sin_encabezado(self):
+        texto = 'ARTÍCULO 4. Definiciones.\n6. Acoso sexual: definición extensa.\nARTÍCULO 5. Objeto posterior.'
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': [{'linea': 1, 'tipo': 'transitoria', 'numero': '6'}]}):
+            unidades = extraer_unidades(texto, 'qwen')
+        self.assertEqual([u['numero'] for u in unidades], ['4', '5'])
+
+    def test_incorporacion_plural_excluye_cuerpo_sustitutivo(self):
+        from modulo_catalogo.services.lectura_normativa_service import texto_operativo
+        prefijo = 'ARTÍCULO 5. Se incorporan los Artículos 312 Sexies y 323 Ter de la Ley 1768, con el siguiente texto:'
+        self.assertEqual(texto_operativo(prefijo + '\n“ARTÍCULO 312 Sexies. Se sanciona...\nARTÍCULO 323 Ter. Otro delito.”'), prefijo)
+
+
+class MencionesSinEfectoTests(SimpleTestCase):
+    def test_publicaciones_en_redes_y_titulo_de_capitulo_no_generan_reformas(self):
+        texto = 'ARTÍCULO 4. Acoso sexual: mensajes y publicaciones en redes sociales.\nCAPÍTULO II\nINCORPORACIONES Y MODIFICACIONES AL CÓDIGO PENAL'
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar') as consulta:
+            self.assertEqual(detectar_cambios([{'numero': '4', 'texto': texto}]), [])
+        consulta.assert_not_called()
+
+
+class DestinosLiterales1636Tests(SimpleTestCase):
+    def test_derogatoria_corrige_prefijos_norma_y_nota_editorial_inventada(self):
+        texto = 'ÚNICA. En el marco de la entrada en vigencia de la presente Ley, se derogan expresamente las siguientes disposiciones del Código Penal:\n1. El Parágrafo III del Artículo 323 Bis,\n2. El Artículo 281 Quater.'
+        dato = candidato('', operacion='deroga', norma='El Parágrafo III del Artículo 323 Bis', unidad='ARTÍCULO 323 BIS', origen='nota_editorial', causante='Ley X')
+        del dato['cita']
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': [dato]}):
+            cambios = detectar_cambios([{'numero': 'DD ÚNICA', 'texto': texto}])
+        self.assertEqual({c['unidad']: c['alcance'] for c in cambios}, {'323 BIS': 'Parágrafo III', '281 QUATER': 'total'})
+        for c in cambios:
+            self.assertEqual(c['norma'], 'Código Penal')
+            self.assertEqual(c['origen'], 'clausula')
+            self.assertEqual(c['causante'], '')
+
+    def test_incorporaciones_no_confunden_articulo_fuente_con_cinco_destinos(self):
+        texto = 'ARTÍCULO 5. Se incorporan a la Ley N° 1768, de 10 de marzo de 1997 “Código Penal”, los Artículos 312 Quinquies, 312 Sexies, Artículo 318 Bis, Artículo 323 Ter y Artículo 323 Quater, con el siguiente texto:'
+        dato = candidato('', operacion='incorpora', norma='Ley 1768', unidad='5')
+        del dato['cita']
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': [dato]}):
+            cambios = detectar_cambios([{'numero': '5', 'texto': texto}])
+        self.assertEqual({c['unidad'] for c in cambios}, {'312 QUINQUIES', '312 SEXIES', '318 BIS', '323 TER', '323 QUATER'})
+
+    def test_ley_modificatoria_historica_no_es_el_destino_actual(self):
+        texto = 'ARTÍCULO 7. Se modifica el Artículo 389 Bis de la Ley N° 1970, de 25 de marzo de 1999 “Código de Procedimiento Penal”, modificada por la Ley N° 1173 de 3 de mayo de 2019, con el siguiente texto:'
+        dato = candidato('', operacion='modifica', norma=texto, unidad='ARTÍCULO 7')
+        del dato['cita']
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': [dato]}):
+            cambios = detectar_cambios([{'numero': '7', 'texto': texto}])
+        self.assertEqual([(c['norma'], c['unidad']) for c in cambios], [('Código de Procedimiento Penal', '389 BIS')])
+
+
+class OperacionesMezcladasTests(SimpleTestCase):
+    def test_lista_de_referencias_no_asigna_modificacion_a_articulo_derogado(self):
+        texto = 'ARTÍCULO 1. Se modifica el Artículo 25 del Código Penal y se deroga el Artículo 26 del mismo Código.'
+        dato = candidato('', operacion='modifica', norma='Código Penal', unidad='25')
+        del dato['cita']
+        with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'cambios': [dato]}):
+            cambios = detectar_cambios([{'numero': '1', 'texto': texto}])
+        self.assertEqual([(c['operacion'], c['unidad']) for c in cambios], [('modifica', '25')])
+
+
+class ReferenciasEnReglasTemporalesTests(SimpleTestCase):
+    def test_mencionar_codigo_en_regla_temporal_no_lo_asigna_como_afectado(self):
+        texto = 'ARTÍCULO 1. Los procedimientos previstos en el Código de Procedimiento Penal entrarán en vigencia desde su publicación.'
+        c = ajustar_cambio_literal(candidato(texto, operacion='temporal'), {'numero': '1', 'texto': texto})
+        self.assertEqual(c['operacion'], 'temporal')
+        self.assertEqual(c['norma'], '')
+        self.assertEqual(c['unidad'], '')

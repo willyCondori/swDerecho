@@ -3,15 +3,15 @@ import re
 import unicodedata
 
 from django.conf import settings
-from .ollama_normativo import consultar
+from .ollama_normativo import consultar, RespuestaIncompleta
 
 TIPOS = ['articulo', 'transitoria', 'final', 'derogatoria', 'abrogatoria', 'adicional']
 ORDINALES = r'PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOVENA|D[EÉ]CIMA|[UÚ]NICA'
 SECCION = re.compile(r'^\s*DISPOSICI[OÓ]N(?:ES)?\s+(TRANSITORIA|FINAL|DEROGATORIA|ABROGATORIA|ADICIONAL)(?:S|ES)?\b', re.I)
 ORDINAL = re.compile(r'^\s*(' + ORDINALES + r')\s*(?:[.\-–:(]|$)', re.I)
-ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO|ART\.)\s+([UÚ]NICO|\d+(?:\s*(?:bis|ter|quater|quinquies))?)\s*(?:[°º.\-–:(]|$)', re.I)
+ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO|ART\.)\s+([UÚ]NICO|\d+(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?)\s*(?:[°º.\-–:(]|$)', re.I)
 ESTRUCTURA = {'type': 'object', 'additionalProperties': False, 'required': ['unidades'], 'properties': {
-    'unidades': {'type': 'array', 'items': {'type': 'object', 'additionalProperties': False,
+    'unidades': {'type': 'array', 'maxItems': 24, 'items': {'type': 'object', 'additionalProperties': False,
         'required': ['linea', 'tipo', 'numero'], 'properties': {
             'linea': {'type': 'integer', 'minimum': 0}, 'tipo': {'enum': TIPOS},
             'numero': {'type': 'string', 'maxLength': 35}}}}}}
@@ -21,7 +21,7 @@ def normalizar(texto):
     return ' '.join(unicodedata.normalize('NFKC', texto).split())
 
 
-def bloques_lineas(lineas, limite=4200):
+def bloques_lineas(lineas, limite=2400):
     bloque, largo = [], 0
     for numero, linea in enumerate(lineas):
         # El modelo solo localiza cabeceras: una línea muy larga se representa
@@ -36,12 +36,66 @@ def bloques_lineas(lineas, limite=4200):
         yield '\n'.join(bloque)
 
 
-def localizar_clasico(lineas):
+def consultar_fragmentado(instruccion, texto, esquema, campo, profundidad=0):
+    """Reintentar únicamente truncamientos, conservando índices y evidencia.
+
+    No ampliar el contexto ni la memoria del servidor; cada reintento es
+    serial y descarta por completo la respuesta incompleta anterior.
+    """
+    try:
+        return consultar(instruccion, texto, esquema)[campo]
+    except RespuestaIncompleta:
+        if profundidad >= 3 or len(texto) < 600:
+            raise RespuestaIncompleta('Qwen no logró completar este fragmento después de dividirlo. '
+                                     'La revisión no se guardó; vuelve a intentarlo.')
+        mitad = len(texto) // 2
+        patron_corte = r'\n' if campo == 'unidades' else r'\n|[.;]\s+'
+        limites = [m.end() for m in re.finditer(patron_corte, texto)
+                   if len(texto) // 4 <= m.end() <= 3 * len(texto) // 4]
+        if not limites:
+            # No cortar palabras o una línea de estructura por la mitad.
+            raise RespuestaIncompleta('Qwen no completó una línea indivisible. La revisión no se guardó.')
+        corte = min(limites, key=lambda pos: abs(pos - mitad))
+        resultados = []
+        for fragmento in (texto[:corte], texto[corte:]):
+            resultados.extend(consultar_fragmentado(instruccion, fragmento, esquema, campo, profundidad + 1))
+        return resultados
+
+
+def destinos_sustituidos(prefijo):
+    cabecera = ARTICULO.match(prefijo)
+    if cabecera: prefijo = prefijo[cabecera.end():]
+    prefijo = re.sub(r'(?m)^\s*\d+[.)]\s*(?=(?:El|La|Los|Las)\b)', '', prefijo, flags=re.I)
+    numero = r'\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?'
+    patron_lista = numero + r'(?:\s*(?:,\s*(?:y\s+)?|y\s+)(?:Art[ií]culos?\s+)?' + numero + r')*'
+    numeros = set()
+    for referencia in re.finditer(r'\bArt[ií]culos?\s+', prefijo, re.I):
+        lista = re.match(patron_lista, prefijo[referencia.end():], re.I)
+        if lista:
+            numeros.update(normalizar(m).upper() for m in re.findall(numero, lista.group(), re.I))
+    return numeros
+
+
+def localizar_clasico(lineas, excluidas=None):
     unidades, seccion, comillas = [], 'articulo', 0
+    objetivos, inicio_actual = set(), 0
     for i, linea in enumerate(lineas):
+        art = ARTICULO.match(linea)
+        if art and objetivos:
+            if normalizar(art.group(1)).upper() in objetivos:
+                if excluidas is not None: excluidas.add(i)
+                continue
+            # Un artículo principal distinto termina la sustitución incluso
+            # si el PDF omite la comilla de cierre (Ley 1636, artículo 5).
+            objetivos, comillas = set(), 0
+        if art and not comillas: inicio_actual = i
+        if re.search(r'siguiente(?:s)?\s+texto(?:s)?\s*:', linea, re.I):
+            objetivos = destinos_sustituidos('\n'.join(lineas[inicio_actual:i + 1]))
         citada = comillas > 0 or linea.lstrip().startswith(('“', '«', '"'))
         comillas = max(0, comillas + linea.count('“') + linea.count('«') - linea.count('”') - linea.count('»'))
-        if citada: continue
+        if citada:
+            if excluidas is not None: excluidas.add(i)
+            continue
         cabecera = SECCION.match(linea)
         if cabecera:
             seccion = cabecera.group(1).lower()
@@ -55,6 +109,7 @@ def localizar_clasico(lineas):
         ordinal = ORDINAL.match(linea) if seccion != 'articulo' else None
         if art:
             unidades.append({'linea': i, 'tipo': 'articulo', 'numero': art.group(1)})
+            inicio_actual = i
         elif ordinal:
             unidades.append({'linea': i, 'tipo': seccion, 'numero': ordinal.group(1)})
     return unidades
@@ -68,16 +123,17 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
         unidades = []
         for i, bloque in enumerate(bloques_lineas(lineas)):
             if progreso: progreso({'paso': f'Identificando unidades del PDF, bloque {i + 1}'})
-            unidades.extend(consultar(
+            unidades.extend(consultar_fragmentado(
                 'Localiza inicios de artículos y disposiciones de la norma PRINCIPAL. '
                 'Los números antes de : son índices de línea globales. '
                 'No incluyas referencias, índices ni artículos dentro de citas de modificaciones. '
                 'PRIMERA transitoria y PRIMERA final son unidades diferentes. '
                 'ARTÍCULO ÚNICO es un artículo. Devuelve el número literal, sin prefijos.',
-                bloque, ESTRUCTURA)['unidades'])
+                bloque, ESTRUCTURA, 'unidades'))
         # Los índices numéricos no son fiables en modelos pequeños. Las
         # cabeceras literales verificables completan el mapa sin generar texto.
-        conocidos = localizar_clasico(lineas)
+        excluidas = set()
+        conocidos = localizar_clasico(lineas, excluidas)
         mapa = {u['linea']: u for u in conocidos}
         corregidas = 0
         for u in unidades:
@@ -86,7 +142,7 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
                 if u != mapa[pos]: corregidas += 1
                 continue
             numero = re.sub(r'^(?:ART[IÍ]CULO|ART\.)\s*', '', u['numero'], flags=re.I).strip()
-            if not 0 <= pos < len(lineas) or SECCION.match(lineas[pos]):
+            if not 0 <= pos < len(lineas) or pos in excluidas or SECCION.match(lineas[pos]):
                 corregidas += 1
                 continue
             # Un inicio adicional tiene que ser una cabecera literal, no
@@ -96,6 +152,15 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
                 continue
             anteriores = '\n'.join(lineas[:pos])
             if anteriores.count('“') + anteriores.count('«') > anteriores.count('”') + anteriores.count('»'):
+                corregidas += 1
+                continue
+            if u['tipo'] != 'articulo':
+                encabezado = next((SECCION.match(l) for l in reversed(lineas[:pos]) if SECCION.match(l)), None)
+                if not encabezado or encabezado.group(1).lower() != u['tipo']:
+                    corregidas += 1
+                    continue
+            elif not ARTICULO.match(lineas[pos]) and not re.match(r'^\s*\d+\s*[.:-]\s*\(', lineas[pos]):
+                # Una definición numerada del cuerpo no es un artículo.
                 corregidas += 1
                 continue
             if u['tipo'] != 'articulo' and numero.isdigit():
@@ -171,7 +236,7 @@ CAMBIOS = {'type': 'object', 'additionalProperties': False, 'required': ['cambio
         }}}}}
 
 
-def bloques_efectos(texto, limite=4200):
+def bloques_efectos(texto, limite=1800):
     if len(texto) <= limite:
         return [texto]
     partes, inicio = [], 0
@@ -193,15 +258,20 @@ def detectar_cambios(unidades, progreso=None):
     cambios = []
     for i, u in enumerate(unidades):
         if progreso: progreso({'paso': f'Analizando efectos normativos: {i + 1}/{len(unidades)}'})
-        if not re.search(r'abrog|derog|modific|incorpor|sustit|vigencia|publicaci[oó]n|plazo', u['texto'], re.I):
+        if not re.search(r'\b(?:abrog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|derog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|'
+                         r'modific(?:a(?:da|do|das|dos|n)?|ar)|incorpor(?:a(?:da|do|das|dos|n)?|ar)|'
+                         r'sustituy\w*|vigencia|publicaci[oó]n|plazos?)\b', texto_operativo(u['texto']), re.I):
             continue
         # Evitar truncamiento silencioso de cláusulas que exceden el contexto.
         partes = bloques_efectos(texto_operativo(u['texto']))
         for parte in partes:
             import copy
             esquema = copy.deepcopy(CAMBIOS)
-            esquema['properties']['cambios']['items']['properties']['cita'] = {'type': 'string', 'enum': [parte]}
-            datos = consultar(
+            # La cita se añade desde el original. Hacerla generar una vez por
+            # destino agotaba la respuesta en listas de reformas/derogaciones.
+            del esquema['properties']['cambios']['items']['properties']['cita']
+            esquema['properties']['cambios']['items']['required'].remove('cita')
+            datos = consultar_fragmentado(
                 'Extrae todos los efectos normativos EXPRESOS. No interpretes incompatibilidades. '
                 'Todas las disposiciones contrarias = general, norma y unidad vacías. '
                 'Abrogación completa = norma afectada, unidad vacía, alcance total. '
@@ -210,11 +280,12 @@ def detectar_cambios(unidades, progreso=None):
                 'DEROGADO por Ley X en una cabecera = nota_editorial: causante Ley X y unidad afectada la actual. '
                 'Para esa nota, norma vacía significa la norma del documento. '
                 'Para cláusulas, causante y fecha_causante vacíos; provienen de los metadatos de la fuente. '
-                'Cita literal y completa del documento para cada efecto; nunca resumida. '
+                'Devuelve solo los campos del esquema. La cita la adjunta el sistema desde el original. '
                 'Cada artículo de una lista recibe su propio registro. '
                 'Unidad destino: número de artículo sin prefijo o DT TERCERA / DF TERCERA.',
-                f"Unidad actual: {u['numero']}\n{parte}", esquema)['cambios']
+                f"Unidad actual: {u['numero']}\n{parte}", esquema, 'cambios')
             for c in datos:
+                c = {**c, 'cita': c.get('cita', parte)}
                 prefijo = f"Unidad actual: {u['numero']}\n"
                 if c['cita'].startswith(prefijo):
                     c['cita'] = c['cita'][len(prefijo):]
@@ -225,8 +296,9 @@ def detectar_cambios(unidades, progreso=None):
                           'incorpora': r'incorpor|a[nñ]ad', 'general': r'contrari', 'temporal': r'vigencia|publicaci[oó]n|plazo'}
                 if not re.search(verbos[c['operacion']], c['cita'], re.I):
                     raise ValueError('La operación extraída carece de evidencia literal.')
-                c['unidad_fuente'] = u['numero']
-                cambios.append(c)
+                for destino in completar_destinos_literales(c, u):
+                    destino['unidad_fuente'] = u['numero']
+                    cambios.append(destino)
     vistos = set()
     unicos = []
     import json
@@ -298,6 +370,8 @@ def ajustar_cambio_literal(cambio, unidad):
     elif re.search(r'todas\s+las\s+disposiciones\s+contrarias', cita, re.I):
         c.update(operacion='general', norma='', unidad='', alcance='indeterminado', origen='clausula', causante='', fecha_causante='')
     else:
+        # La nota editorial exige una cabecera literal, nunca la etiqueta de IA.
+        c.update(origen='clausula', causante='', fecha_causante='')
         # Verbo expreso de afectación, separado de palabras como
         # «modificaciones» que forman parte del objeto de la abrogación.
         operaciones = []
@@ -311,10 +385,16 @@ def ajustar_cambio_literal(cambio, unidad):
             c.update(operacion='temporal', norma='', unidad='', alcance='Regla de vigencia o plazo; no implica derogación', origen='clausula')
         if c['origen'] == 'clausula':
             c.update(causante='', fecha_causante='')
-            identidades = identidades_literales(cita)
+            objetivo = cita_sin_cabecera(cita)
+            objetivo = re.split(r'\bmodificad[ao]\s+por\b', objetivo, maxsplit=1, flags=re.I)[0]
+            identidades = identidades_literales(objetivo)
+            codigos = list(dict.fromkeys('Código de Procedimiento Penal' if 'procedimiento' in m.lower() else 'Código Penal' for m in re.findall(
+                r'\bC[oó]digo\s+(?:de\s+Procedimiento\s+)?Penal\b', objetivo, re.I)))
             if len(identidades) == 1 and c['operacion'] in ['abroga', 'deroga', 'modifica', 'incorpora']:
                 c['norma'] = identidades[0]
-            articulos = list(dict.fromkeys(re.findall(r'\bArt[ií]culo\s+(\d+(?:\s+bis)?)\b', cita, re.I)))
+            if len(codigos) == 1 and len(identidades) <= 1 and c['operacion'] in ['abroga', 'deroga', 'modifica', 'incorpora']:
+                c['norma'] = 'Código de Procedimiento Penal' if 'procedimiento' in codigos[0].lower() else 'Código Penal'
+            articulos = list(dict.fromkeys(re.findall(r'\bArt[ií]culo\s+(\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?)\b', objetivo, re.I)))
             if len(articulos) == 1 and c['operacion'] in ['deroga', 'modifica', 'incorpora']:
                 c['unidad'] = articulos[0]
             if c['operacion'] == 'abroga' and not articulos:
@@ -328,21 +408,58 @@ def ajustar_cambio_literal(cambio, unidad):
 
 
 
+def cita_sin_cabecera(cita):
+    cabecera = ARTICULO.match(cita)
+    return cita[cabecera.end():] if cabecera else cita
+
+
+def completar_destinos_literales(cambio, unidad):
+    """Expandir listas expresas de un mismo destino normativo, sin inferir.
+
+    El 2B puede devolver el número de la unidad fuente o solo el primer
+    artículo de una lista. Las referencias del texto operativo lo corrigen.
+    Una lista con varias normas conserva la revisión individual pendiente.
+    """
+    if cambio['origen'] != 'clausula' or cambio['operacion'] not in ['deroga', 'modifica', 'incorpora']:
+        return [cambio]
+    cita = cambio['cita']
+    operaciones = [patron for patron in [r'\babrog(?:a(?:da|do|das|dos|n)?|ar)\b',
+        r'\bderog(?:a(?:da|do|das|dos|n)?|ar)\b',
+        r'\b(?:modific(?:a(?:da|do|das|dos|n)?|ar)|sustituy\w*)\b',
+        r'\b(?:incorpor(?:a(?:da|do|das|dos|n)?|ar)|a[nñ]ade\w*)\b'] if re.search(patron, cita, re.I)]
+    if len(operaciones) != 1:
+        return [cambio]
+    objetivo = re.split(r'\bmodificad[ao]\s+por\b', cita_sin_cabecera(cita), maxsplit=1, flags=re.I)[0]
+    if len(identidades_literales(objetivo)) > 1:
+        return [cambio]
+    destinos = destinos_sustituidos(objetivo)
+    if not destinos:
+        return [cambio]
+    from .alcance_normativo_service import identificar_parte
+    resultado = []
+    for numero in sorted(destinos):
+        c = {**cambio, 'unidad': numero}
+        parte = identificar_parte(cita, '', None, c['operacion'], numero)
+        c['alcance'] = parte['descripcion'] if parte['tipo'] == 'parcial' else 'total'
+        resultado.append(c)
+    return resultado
+
+
 def texto_operativo(texto):
     # En una reforma, «con el siguiente texto» introduce el contenido
     # sustitutivo citado. Las referencias dentro de ese contenido no son
     # otros destinos de la modificación de la norma principal.
-    introduccion = re.search(r'con\s+(?:el|los|la|las)\s+siguiente(?:s)?\s+(?:texto(?:s)?|redacci[oó]n)\s*:', texto, re.I)
+    introduccion = re.search(r'(?:con\s+)?(?:el|los|la|las)\s+siguiente(?:s)?\s+(?:texto(?:s)?|redacci[oó]n)\s*:', texto, re.I)
     if not introduccion: return texto
     apertura = re.search(r'[“«"]', texto[introduccion.end():])
     if not apertura: return texto
     inicio = introduccion.end() + apertura.start()
     antes = texto[:inicio].rstrip()
     # Solo reducir la cita cuando existe una instrucción de reforma.
-    if not re.search(r'\b(?:incorpora|modifica|sustituye)\b', antes, re.I): return texto
+    if not re.search(r'\b(?:incorporan?|modifican?|sustituy(?:e|en))\b', antes, re.I): return texto
     caracter = texto[inicio]
     cierre = {'“': '”', '«': '»', '"': '"'}[caracter]
-    final = texto.find(cierre, inicio + 1)
+    final = texto.rfind(cierre, inicio + 1)
     if final < 0: return antes
     despues = texto[final + 1:].strip()
     return antes + ('\n' + despues if despues else '')

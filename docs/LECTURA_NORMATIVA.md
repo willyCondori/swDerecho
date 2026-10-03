@@ -63,7 +63,13 @@ Abrogar la norma modificatoria tampoco restaura automáticamente el texto anteri
 
 El 2B requiere controles: puede omitir cabeceras o confundir operaciones.
 Se conservan cabeceras literales, se exige evidencia del texto fuente y se
-comprueba la parte afectada. Las fechas identificadas por IA son propuestas
+comprueba la parte afectada. Las citas se adjuntan desde el original, sin
+pedir al modelo que las repita por cada destino. Si la respuesta alcanza su
+límite, el bloque se divide y se reintenta en serie, hasta tres niveles;
+un fallo restante no publica una revisión parcial. Las listas expresas de
+artículos se contrastan con el texto operativo; no se toma el artículo fuente
+como destino ni una norma modificatoria histórica como nueva causante.
+Las fechas identificadas por IA son propuestas
 que deben contrastarse en la revisión. Una norma anterior o de menor jerarquía
 no confirma una derogación de otra posterior o superior. Las reglas judiciales
 de constitucionalidad no se interpretan como derogaciones legislativas automáticas.
