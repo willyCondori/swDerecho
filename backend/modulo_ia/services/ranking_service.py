@@ -126,36 +126,70 @@ class RankingService:
         )
 
     @staticmethod
-    def _score_semantico_articulo_especifico(articulo_id, vectores_chunks_caso):
+    def _scores_semanticos_articulos_especificos(articulo_ids, vectores_chunks_caso):
         """
-        Calcula la similitud semántica de UN artículo puntual contra los
-        chunks del caso, sin pasar por el CosineDistance/top-50 de
-        pgvector. Se usa para artículos "forzados" por regla (figuras
-        transversales) que pueden no aparecer entre los vecinos más
-        cercanos de ningún chunk, pero igual son relevantes.
+        Versión en lote de la similitud de artículos "forzados" por regla
+        (figuras transversales) contra los chunks del caso, sin pasar por
+        el CosineDistance/top-50 de pgvector: estos artículos pueden no
+        aparecer entre los vecinos más cercanos de ningún chunk, pero
+        igual son relevantes.
 
-        Devuelve (mejor_similitud, chunk_id_del_mejor_match) para poder
-        aplicar el mismo score_entidades "por chunk" que el flujo
-        normal (ver _score_semantico_por_articulo).
+        Devuelve {articulo_id: (mejor_similitud, chunk_id_del_mejor_match)}
+        para poder aplicar el mismo score_entidades "por chunk" que el flujo
+        normal (ver _score_semantico_por_articulo). Un artículo sin
+        embedding de la versión activa, o sin ninguna similitud positiva,
+        queda como (0.0, None).
+
+        Antes esto era UNA consulta por artículo (EmbeddingArticulo.first()
+        dentro de un bucle) y un producto punto sin normalizar por cada
+        par artículo-chunk. Ahora es UNA consulta para todos los artículos
+        y un único producto matricial, con similitud coseno de verdad
+        (vectores normalizados): np.dot crudo daba valores fuera de
+        [-1, 1] si los vectores no venían normalizados.
+
+        Filtra por la versión activa: sin eso se podría tomar el
+        EmbeddingArticulo de CUALQUIER versión (orden no garantizado),
+        potencialmente distinta a la de vectores_chunks_caso.
         """
-        # Igual que en _vectores_chunks_caso: sin filtrar por versión
-        # activa, .first() puede devolver el EmbeddingArticulo de
-        # CUALQUIER versión (orden no garantizado), potencialmente
-        # distinta a la de vectores_chunks_caso.
-        emb_articulo = EmbeddingArticulo.objects.filter(
-            articulo_id=articulo_id, modelo_version=version_activa()
-        ).first()
-        if emb_articulo is None or not vectores_chunks_caso:
-            return 0.0, None
-        vector_articulo = np.array(emb_articulo.vector)
-        mejor = 0.0
-        mejor_chunk_id = None
-        for chunk_id, vector_chunk in vectores_chunks_caso:
-            similitud = float(np.dot(vector_articulo, np.array(vector_chunk)))
-            if similitud > mejor:
-                mejor = similitud
-                mejor_chunk_id = chunk_id
-        return mejor, mejor_chunk_id
+        ids = list(dict.fromkeys(articulo_ids))
+        resultado = {articulo_id: (0.0, None) for articulo_id in ids}
+        if not ids or not vectores_chunks_caso:
+            return resultado
+
+        filas = list(
+            EmbeddingArticulo.objects
+            .filter(articulo_id__in=ids, modelo_version=version_activa())
+            .values_list("articulo_id", "vector")
+        )
+        if not filas:
+            return resultado
+
+        chunk_ids = [chunk_id for chunk_id, _ in vectores_chunks_caso]
+        matriz_chunks = np.array([vector for _, vector in vectores_chunks_caso], dtype=np.float64)
+        # Un artículo tiene a lo sumo un embedding por versión (constraint
+        # uq_embedding_articulo_version), así que no hay ids repetidos aquí.
+        ids_con_embedding = [articulo_id for articulo_id, _ in filas]
+        matriz_articulos = np.array([vector for _, vector in filas], dtype=np.float64)
+
+        def _normalizar(matriz):
+            normas = np.linalg.norm(matriz, axis=1, keepdims=True)
+            normas[normas == 0] = 1.0  # vector nulo: similitud 0, sin dividir por cero
+            return matriz / normas
+
+        similitudes = _normalizar(matriz_articulos) @ _normalizar(matriz_chunks).T
+        mejor_idx = similitudes.argmax(axis=1)  # primer máximo, igual que el bucle anterior
+        for fila, articulo_id in enumerate(ids_con_embedding):
+            mejor = float(similitudes[fila, mejor_idx[fila]])
+            if mejor > 0.0:
+                resultado[articulo_id] = (mejor, chunk_ids[mejor_idx[fila]])
+        return resultado
+
+    @classmethod
+    def _score_semantico_articulo_especifico(cls, articulo_id, vectores_chunks_caso):
+        """Un solo artículo: delega en la versión en lote (misma firma de antes)."""
+        return cls._scores_semanticos_articulos_especificos(
+            [articulo_id], vectores_chunks_caso
+        )[articulo_id]
 
     @staticmethod
     def _entidades_por_chunk(caso) -> dict:
@@ -321,13 +355,16 @@ class RankingService:
             )
             vectores_chunks_caso = cls._vectores_chunks_caso(caso)
 
+            articulos_figura = [a for a in articulos_figura if a.id not in ids_ya_incluidos]
+            # ya van a persistirse por el flujo normal los que se saltean arriba;
+            # el resto se puntúa en lote (1 consulta en vez de 1 por artículo).
+            scores_figura = cls._scores_semanticos_articulos_especificos(
+                [a.id for a in articulos_figura], vectores_chunks_caso
+            )
+
             candidatos_figura = []
             for articulo in articulos_figura:
-                if articulo.id in ids_ya_incluidos:
-                    continue  # ya va a persistirse por el flujo normal, no duplicar
-                score_semantico, chunk_id = cls._score_semantico_articulo_especifico(
-                    articulo.id, vectores_chunks_caso
-                )
+                score_semantico, chunk_id = scores_figura[articulo.id]
                 entidades_relevantes = entidades_por_chunk.get(chunk_id, set())
                 # score_delito se mantiene en 0 a propósito: estas figuras no
                 # son un "tipo de delito", su relevancia ya viene de la regla

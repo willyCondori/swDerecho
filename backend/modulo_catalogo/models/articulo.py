@@ -46,6 +46,14 @@ class Articulo(models.Model):
             models.Index(fields=["estado"],              name="idx_articulos_estado"),
             models.Index(fields=["-frecuencia_historica"],name="idx_articulos_frecuencia"),
             models.Index(fields=["numero_articulo"],     name="idx_articulos_numero"),
+            # Búsqueda de texto del catálogo (SearchFilter -> icontains): Django
+            # la traduce a UPPER(col) LIKE UPPER('%texto%'), que un índice
+            # normal no puede usar. La migración 0010_busqueda_trigramas_articulos
+            # crea a mano (SQL) tres índices GIN de trigramas (pg_trgm) sobre
+            # UPPER(numero_articulo), UPPER(titulo) y UPPER(contenido): Django
+            # 5.2 genera SQL inválido
+            # para GinIndex(OpClass(Upper(...))), igual que el HNSW de
+            # modulo_ia, no se declaran en Meta.indexes.
         ]
 
     def __str__(self):

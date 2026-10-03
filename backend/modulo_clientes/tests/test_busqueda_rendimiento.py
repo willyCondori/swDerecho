@@ -5,6 +5,7 @@ from rest_framework.test import APITestCase
 from core.encryption.aes_encryption import encrypt, safe_decrypt
 from modulo_clientes.models.cliente import Cliente
 from modulo_clientes.serializers.cliente_serializer import ClienteReadSerializer
+from modulo_clientes.services.busqueda_service import reindexar_cliente
 from modulo_usuarios.tests.factories import crear_rol, crear_usuario
 
 
@@ -12,17 +13,22 @@ class BusquedaRendimientoTests(APITestCase):
     @classmethod
     def setUpTestData(cls):
         cls.abogado = crear_usuario('abogado.busqueda', rol=crear_rol('Abogado'))
-        Cliente.objects.bulk_create([
+        clientes = Cliente.objects.bulk_create([
             Cliente(nombres=encrypt('Ana'), apellidos=encrypt('Quispe'), telefono=encrypt('71234567'))
             for _ in range(60)
         ])
+        # bulk_create no dispara las señales que mantienen el índice.
+        for cliente in clientes:
+            reindexar_cliente(cliente)
         Cliente.objects.create(nombres=encrypt('Ana'), apellidos=encrypt('Perez'), estado=False)
 
     def setUp(self):
         self.client.force_authenticate(self.abogado)
 
     def test_selector_limita_respuesta_y_detiene_descifrado(self):
-        with patch('modulo_clientes.views.cliente_view.safe_decrypt', wraps=safe_decrypt) as descifrar:
+        with self.assertNumQueries(1), patch(
+            'modulo_clientes.serializers.cliente_serializer.safe_decrypt', wraps=safe_decrypt,
+        ) as descifrar:
             respuesta = self.client.get('/api/clientes/buscar/', {
                 'q': 'ana', 'limit': 20, 'compacto': 'true',
             })

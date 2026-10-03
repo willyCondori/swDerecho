@@ -41,6 +41,8 @@ def numeros(texto):
 
 
 def articulo(texto, numero):
+    # "numero" es un identificador de texto ("5", "389 bis"), no un entero:
+    # ver dividir_por_articulos.
     return next(a for a in dividir_por_articulos(texto) if a["numero"] == str(numero))
 
 

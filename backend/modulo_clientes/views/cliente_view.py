@@ -1,6 +1,3 @@
-from itertools import islice
-from contextlib import closing
-
 from django.db.models import Count, F, Q
 from rest_framework import status
 from rest_framework.decorators import action
@@ -8,7 +5,6 @@ from rest_framework.filters import OrderingFilter
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
-from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import AuditoriaMixin, registrar_auditoria
 from core.permissions.roles_permission import EsAbogado, EsOperativo
 from modulo_clientes.models.cliente import Cliente
@@ -18,6 +14,7 @@ from modulo_clientes.serializers.cliente_serializer import (
     ClienteReadSerializer,
     ClienteWriteSerializer,
 )
+from modulo_clientes.services.busqueda_service import filtrar_por_busqueda
 from modulo_clientes.services.papelera_service import (
     ClienteConCasosActivosError,
     enviar_cliente_a_papelera,
@@ -41,7 +38,7 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     POST   /api/clientes/{id}/restaurar/ — restaura un cliente y los casos que se eliminaron con él [admin, abogado]
     GET    /api/clientes/lista/     — compacto para selects
     GET    /api/clientes/{id}/casos/— casos del cliente
-    GET    /api/clientes/buscar/    — búsqueda por nombre (descifrado)
+    GET    /api/clientes/buscar/    — búsqueda por prefijos indexados del nombre
     """
     queryset        = Cliente.objects.filter(estado=True).order_by("-created_at")
     filter_backends = [OrderingFilter]
@@ -132,8 +129,12 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
         query = request.query_params.get("search", "").strip().lower()
         filas = qs
         if len(query) >= MIN_CARACTERES_BUSQUEDA:
-            # Nombres cifrados: se filtra en Python (la papelera es chica).
-            filas = [c for c in qs if self._coincide_busqueda(c, query)]
+            # Nombres cifrados: se busca en el índice de prefijos (HMAC), no
+            # descifrando. Subconsulta por pk para no mezclar el JOIN de los
+            # tokens con el COUNT de casos de arriba.
+            filas = qs.filter(
+                pk__in=filtrar_por_busqueda(Cliente.objects.all(), query).values("pk")
+            )
 
         page = self.paginate_queryset(filas)
         serializer = ClientePapeleraSerializer(
@@ -184,17 +185,12 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     def buscar(self, request):
         """
         GET /api/clientes/buscar/?q=texto
-        Búsqueda por nombre descifrado (itera y compara en memoria).
+        Búsqueda por nombre y apellido sobre un índice de prefijos (HMAC)
+        que se mantiene al guardar cada cliente: no descifra la tabla.
 
-        No hay riesgo de inyección SQL: `query` nunca se concatena a
-        SQL, solo se compara como texto plano en Python contra los
-        valores ya descifrados.
-
-        Por defecto devuelve todas las coincidencias. El selector puede
-        pedir limit (máximo 50) y compacto=true (id y nombre completo).
-        Itera por bloques y se detiene al alcanzar el límite. Al estar
-        los nombres cifrados, una búsqueda sin coincidencias todavía
-        necesita recorrer todos los clientes activos.
+        Cada palabra de `q` (2+ letras) debe ser el comienzo de alguna
+        palabra del nombre o apellido, sin distinguir mayúsculas ni tildes.
+        El selector puede pedir limit (máximo 50) y compacto=true.
         """
         query = request.query_params.get("q", "").strip().lower()
         if len(query) < MIN_CARACTERES_BUSQUEDA:
@@ -213,14 +209,9 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 return Response({'limit': 'Debe ser un entero positivo.'}, status=status.HTTP_400_BAD_REQUEST)
             limite = min(limite, MAX_RESULTADOS_BUSQUEDA)
 
-        # Iterar por bloques evita cargar todos los clientes en memoria.
-        # El límite opcional del selector permite detener el descifrado
-        # al reunir suficientes coincidencias, sin truncar la búsqueda general.
-        with closing(self.get_queryset().iterator(chunk_size=500)) as clientes:
-            coincidencias = (
-                cliente for cliente in clientes if self._coincide_busqueda(cliente, query)
-            )
-            resultados = list(islice(coincidencias, limite)) if limite is not None else list(coincidencias)
+        resultados = filtrar_por_busqueda(self.get_queryset(), query)
+        if limite is not None:
+            resultados = resultados[:limite]
 
         serializer_class = (
             ClienteListSerializer if request.query_params.get('compacto', '').lower() in ('true', '1')
@@ -248,11 +239,6 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 request=self.request,
                 metadata=metadata,
             )
-
-    def _coincide_busqueda(self, cliente, query):
-        nombres   = safe_decrypt(cliente.nombres, fallback="").lower()
-        apellidos = safe_decrypt(cliente.apellidos, fallback="").lower()
-        return query in nombres or query in apellidos
 
     def _respuesta_paginada(self, qs, serializer_class, request):
         page = self.paginate_queryset(qs)
