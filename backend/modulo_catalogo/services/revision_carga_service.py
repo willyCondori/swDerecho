@@ -25,7 +25,7 @@ def indica_derogacion(articulo):
 
 
 def filas_actuales(norma_id, rama_id):
-    return list(Articulo.objects.filter(norma_id=norma_id, rama_id=rama_id)
+    return list(Articulo.objects.filter(norma_id=norma_id, rama_id=rama_id, tipo_unidad='articulo')
                 .order_by('pk').values('id', 'numero_articulo', 'titulo', 'contenido', 'estado',
                                        'documento_norma_id')) if norma_id else []
 
@@ -65,9 +65,11 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
     from modulo_ia.services.model_loader import version_activa
     from modulo_ia.models.embedding import EmbeddingArticulo
 
+    from .disposiciones_service import separar_unidades, guardar_disposiciones
+    articulos, disposiciones = separar_unidades(articulos)
     claves = {numero_clave(n) for n in seleccion or []}
     elegidos = articulos if modo == 'completo' else [a for a in articulos if numero_clave(a['numero']) in claves]
-    if not elegidos:
+    if not elegidos and not disposiciones:
         raise ValueError('Selecciona al menos un artículo para actualizar.')
     if modo not in ['completo', 'articulos']:
         raise ValueError('Modo de actualización inválido.')
@@ -80,7 +82,7 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
     # Preparar todos los vectores antes de modificar el catálogo. Un fallo
     # impide publicar una versión parcial o retirar artículos anteriores.
     _update_task(task, 18, 'Generando embeddings de los artículos seleccionados...')
-    modelo = _obtener_modelo()
+    modelo = _obtener_modelo() if elegidos else None
     vectores = vectorizar_textos([construir_texto_embedding(a['titulo'], a['texto']) for a in elegidos], modelo)
     entidades = ArticuloEntidadService.obtener_catalogo()
     resultado = ResultadoCarga(norma_nombre=norma.nombre, rama_nombre=rama.nombre,
@@ -124,9 +126,15 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
             resultado.revision['retirados'] = Articulo.objects.filter(norma=norma, rama=rama, estado=True).exclude(
                 pk__in=ids_publicados).update(estado=False)
             DocumentoNorma.objects.filter(norma=norma, rama=rama, vigente=True).exclude(pk=fuente.pk).update(vigente=False)
+        guardar_disposiciones(fuente, disposiciones)
         analisis = fuente.analisis_normativo
         cambios = [c for c in analisis.get('cambios', [])
-                   if numero_clave(c['unidad_fuente']) in {numero_clave(a['numero']) for a in elegidos}]
-        registrar_cambios(fuente, elegidos, cambios, fuente.metadatos)
+                   if numero_clave(c['unidad_fuente']) in {numero_clave(a['numero']) for a in elegidos + disposiciones}]
+        registrar_cambios(fuente, elegidos + disposiciones, cambios, fuente.metadatos)
+        resultado.revision['disposiciones'] = len(disposiciones)
+        resultado.revision['avisos_normativos'] = len(cambios)
+        from .vigencia_service import aviso
+        resultado.revision['avisos'] = [aviso(c) for c in fuente.cambios_detectados.select_related(
+            'fuente__norma', 'articulo_afectado').exclude(estado_revision='descartado')]
         _update_task(task, 98, 'Publicando la versión revisada...')
     return resultado

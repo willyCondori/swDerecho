@@ -13,3 +13,9 @@
 .aviso blockquote { margin: .7rem 0; white-space: pre-wrap; }
 .error { color: #dc5e53; }
 .panel textarea { width: 100%; box-sizing: border-box; min-height: 75px; }
+
+.tabla { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.tabla th, .tabla td { padding: .75rem; border-bottom: 1px solid #8696ab55; text-align: left; vertical-align: top; }
+.tabla th { font-weight: 600; }
+.tabla details { min-width: 12rem; max-width: 55rem; }
+.tablaContenedor { overflow-x: auto; }

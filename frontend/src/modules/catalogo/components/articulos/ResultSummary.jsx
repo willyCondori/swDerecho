@@ -1,4 +1,5 @@
 // modules/catalogo/components/articulos/ResultSummary.jsx
+import AvisosVigencia from './AvisosVigencia'
 import { useNavigate } from 'react-router-dom'
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
@@ -24,6 +25,8 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         {' '}{resumen.revision.retirados} retirados del catálogo activo ·
         {' '}{resumen.revision.derogados_indicados} con indicación de derogación o abrogación en el PDF.
       </p>}
+      {resumen.revision?.disposiciones > 0 && <p>{resumen.revision.disposiciones} disposiciones guardadas en su tabla propia.</p>}
+      <AvisosVigencia avisos={resumen.revision?.avisos || []} />
       <div className={styles.statsGrid}>
         <div className={styles.statBox}>
           <p className={styles.statValue}>{resumen.total_encontrados}</p>

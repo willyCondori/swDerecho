@@ -4,7 +4,7 @@ from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from core.permissions.roles_permission import EsAdmin, EsOperativo
-from modulo_catalogo.models import CambioNormativo, DocumentoOficial, VersionArticulo, Norma
+from modulo_catalogo.models import CambioNormativo, DocumentoOficial, VersionArticulo, Norma, DisposicionNormativa
 from modulo_catalogo.services.vigencia_service import confirmar, evaluar_destino, describir_unidad_fuente, aviso
 
 class CambioSerializer(serializers.ModelSerializer):
@@ -33,7 +33,7 @@ class CambioNormativoViewSet(viewsets.ReadOnlyModelViewSet):
     def get_permissions(self):
         return [EsAdmin()] if self.action == 'revisar' else [EsOperativo()]
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().exclude(unidad_fuente__startswith='DT ')
         for campo in ['estado_revision', 'norma_afectada', 'fuente']:
             valor = self.request.query_params.get(campo)
             if valor:
@@ -94,3 +94,32 @@ class VersionArticuloViewSet(viewsets.ReadOnlyModelViewSet):
         qs = super().get_queryset()
         articulo = self.request.query_params.get('articulo')
         return qs.filter(articulo_id=articulo) if articulo else qs.none()
+
+
+class DisposicionSerializer(serializers.ModelSerializer):
+    norma_nombre = serializers.CharField(source='documento.norma.nombre', read_only=True)
+    norma_id = serializers.IntegerField(source='documento.norma_id', read_only=True)
+    avisos = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DisposicionNormativa
+        fields = ['id', 'documento', 'norma_id', 'norma_nombre', 'numero', 'tipo', 'titulo', 'contenido', 'avisos']
+
+    def get_avisos(self, obj):
+        return [aviso(c) for c in obj.documento.cambios_detectados.all()
+                if c.unidad_fuente == obj.numero and c.estado_revision != 'descartado']
+
+
+class DisposicionViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = DisposicionSerializer
+    permission_classes = [EsOperativo]
+    queryset = DisposicionNormativa.objects.filter(documento__vigente=True, documento__norma__estado=True).select_related(
+        'documento__norma').prefetch_related('documento__cambios_detectados__articulo_afectado')
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.request.query_params.get('norma_id'):
+            qs = qs.filter(documento__norma_id=self.request.query_params['norma_id'])
+        if self.request.query_params.get('rama_id'):
+            qs = qs.filter(documento__rama_id=self.request.query_params['rama_id'])
+        return qs

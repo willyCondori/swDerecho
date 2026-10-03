@@ -67,6 +67,8 @@ def destinos_sustituidos(prefijo):
     cabecera = ARTICULO.match(prefijo)
     if cabecera: prefijo = prefijo[cabecera.end():]
     prefijo = re.sub(r'(?m)^\s*\d+[.)]\s*(?=(?:El|La|Los|Las)\b)', '', prefijo, flags=re.I)
+    # Algunos PDF juntan el numeral siguiente con la coma de la referencia anterior.
+    prefijo = re.sub(r'([,;]\s*)\d+[.)]\s*(?=(?:El|La|Los|Las)\b)', r'\1', prefijo, flags=re.I)
     numero = r'\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?'
     patron_lista = numero + r'(?:\s*(?:,\s*(?:y\s+)?|y\s+)(?:Art[ií]culos?\s+)?' + numero + r')*'
     numeros = set()
@@ -227,7 +229,7 @@ def reconstruir(unidades, lineas, extraer_titulo):
         if not 0 <= pos < len(lineas) or pos in posiciones or not numero:
             raise ValueError('Qwen devolvió una ubicación duplicada o inexistente.')
         # Validar la identidad contra la cabecera, no contra cualquier cifra del cuerpo.
-        cabecera = normalizar(lineas[pos]).upper()
+        cabecera = normalizar(re.sub(r'[°º]', ' ', lineas[pos])).upper()
         if not re.search(r'(?<!\w)' + re.escape(normalizar(numero).upper()) + r'(?!\w)', cabecera):
             raise ValueError('El número extraído no coincide con la cabecera original.')
         posiciones.add(pos)
@@ -280,10 +282,49 @@ def bloques_efectos(texto, limite=1800):
     return partes
 
 
+def detectar_derogaciones_expresas(unidades):
+    """Respaldo literal para disposiciones con un único verbo y destino normativo.
+
+    No infiere incompatibilidades ni efectos por ausencia; si la cláusula
+    mezcla normas u operaciones se deja al análisis de IA y revisión humana.
+    """
+    cambios = []
+    for unidad in unidades:
+        if unidad.get('tipo_unidad') not in ['final', 'derogatoria', 'abrogatoria']:
+            continue
+        cita = texto_operativo(unidad['texto'])
+        deroga = bool(re.search(r'\bderog(?:a(?:da|do|das|dos|n)?|ar)\b', cita, re.I))
+        abroga = bool(re.search(r'\babrog(?:a(?:da|do|das|dos|n)?|ar)\b', cita, re.I))
+        if deroga == abroga or re.search(r'\b(?:modifican?|incorporan?|sustituy\w*)\b', cita, re.I):
+            continue
+        if re.search(r'todas\s+las\s+disposiciones\s+contrarias', cita, re.I):
+            continue
+        codigos = list(dict.fromkeys('Código de Procedimiento Penal' if 'procedimiento' in m.lower() else 'Código Penal'
+            for m in re.findall(r'\bC[oó]digo\s+(?:de\s+Procedimiento\s+)?Penal\b', cita, re.I)))
+        identidades = identidades_literales(cita)
+        destinos = list(dict.fromkeys(codigos + identidades))
+        if len(destinos) != 1:
+            continue
+        numeros = destinos_sustituidos(cita)
+        if deroga and not numeros:
+            continue
+        if abroga and numeros:
+            continue
+        dato = {'operacion': 'deroga' if deroga else 'abroga', 'norma': destinos[0],
+                'unidad': '', 'alcance': 'total', 'cita': cita, 'origen': 'clausula',
+                'causante': '', 'fecha_causante': '', 'unidad_fuente': unidad['numero']}
+        cambios.extend(completar_destinos_literales(dato, unidad) if deroga else [dato])
+    return cambios
+
+
 def detectar_cambios(unidades, progreso=None):
     cambios = []
     for i, u in enumerate(unidades):
         if progreso: progreso({'paso': f'Analizando efectos normativos: {i + 1}/{len(unidades)}'})
+        expresos = detectar_derogaciones_expresas([u])
+        if expresos:
+            cambios.extend(expresos)
+            continue
         operativo = texto_operativo(u['texto'])
         reforma = re.search(r'\b(?:abrog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|derog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|'
                             r'modific(?:a(?:da|do|das|dos|n)?|ar)|incorpor(?:a(?:da|do|das|dos|n)?|ar)|'

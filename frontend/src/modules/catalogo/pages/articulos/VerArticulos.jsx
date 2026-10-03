@@ -5,6 +5,7 @@ import { useCatalogoArticulos } from '../../hooks/useCatalogoArticulos'
 import CatalogoHeader from '../../components/articulos/CatalogoHeader'
 import StatsRow from '../../components/articulos/StatsRow'
 import FiltersBar from '../../components/articulos/FiltersBar'
+import DisposicionesTable from '../../components/articulos/DisposicionesTable'
 import ArticulosTable from '../../components/articulos/ArticulosTable'
 import Pagination from '../../components/articulos/Pagination'
 import styles from './VerArticulos.module.css'
@@ -89,6 +90,7 @@ export default function VerArticulos() {
           />
         )}
       </div>
+      <DisposicionesTable normaId={normaId} ramaId={ramaId} />
     </div>
   )
 }

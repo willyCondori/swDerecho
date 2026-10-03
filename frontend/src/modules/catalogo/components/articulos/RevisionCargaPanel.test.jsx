@@ -45,3 +45,17 @@ it('muestra la norma causante, la disposición exacta y el aviso de destino ause
   expect(screen.getByText('Solo aviso: la norma no está cargada.')).toBeTruthy()
   expect(screen.getByText(/Cargar el PDF no confirma derogaciones ni abrogaciones/)).toBeTruthy()
 })
+
+
+it('separa las disposiciones en tabla y permite cargarlas sin seleccionar artículos', () => {
+  const datos = { ...revision, disposiciones: [{ numero: 'DD ÚNICA', tipo_unidad: 'derogatoria',
+    texto: 'Se derogan el Parágrafo III del Artículo 323 Bis y el Artículo 281 Quater.' }],
+    cambios_normativos: [{ operacion: 'deroga', norma: 'Código Penal', unidad: '323 BIS', alcance: 'Parágrafo III',
+      norma_causante: 'Ley 1636', disposicion_fuente: 'disposición derogatoria única', cita: 'Se deroga el Parágrafo III.' }] }
+  render(<RevisionCargaPanel revision={datos} modo="articulos" seleccion={[]} onModo={vi.fn()}
+    onSeleccion={vi.fn()} onConfirmar={vi.fn()} onCancelar={vi.fn()} />)
+  expect(screen.getByRole('table')).toBeTruthy()
+  expect(screen.getByRole('alert', { name: 'Afectaciones normativas detectadas' }).textContent).toContain('Parágrafo III')
+  expect(screen.queryByRole('checkbox', { name: 'Seleccionar artículo DD ÚNICA' })).toBeNull()
+  expect(screen.getByRole('button', { name: 'Confirmar 0 artículos y 1 disposiciones' }).disabled).toBe(false)
+})

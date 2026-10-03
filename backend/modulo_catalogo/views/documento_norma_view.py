@@ -50,7 +50,7 @@ class DocumentoNormaViewSet(AuditoriaMixin, ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Elimina registro y archivo físico. No toca los artículos ya extraídos."""
         instance      = self.get_object()
-        if instance.cambios_detectados.exists() or instance.versionarticulo_set.exists():
+        if instance.cambios_detectados.exists() or instance.versionarticulo_set.exists() or instance.disposiciones.exists():
             return Response({'detail': 'Este PDF respalda avisos o versiones históricas y debe conservarse.'}, status=409)
         ruta_absoluta = os.path.join(settings.MEDIA_ROOT, instance.ruta_archivo)
         if os.path.exists(ruta_absoluta):

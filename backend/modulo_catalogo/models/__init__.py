@@ -6,4 +6,6 @@ from .documento_norma import DocumentoNorma
 
 from .vigencia import CambioNormativo, VersionArticulo, DocumentoOficial
 
-__all__ = ["RamaDerecho", "Norma", "EntidadJuridica", "Articulo", "ArticuloEntidad", "DocumentoNorma"]
+__all__ = ["RamaDerecho", "Norma", "EntidadJuridica", "Articulo", "ArticuloEntidad", "DocumentoNorma", "DisposicionNormativa"]
+
+from .disposicion import DisposicionNormativa

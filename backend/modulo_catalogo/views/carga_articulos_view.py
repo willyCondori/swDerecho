@@ -170,7 +170,7 @@ class CargaArticulosView(APIView):
                 'modo_actualizacion': data['modo_actualizacion'], 'revision': revision,
                 'articulos_seleccionados': data.get('articulos_seleccionados', []),
                 'documento_id': documento_norma.pk,
-            } if revision else {})
+            } if revision else {'documento_id': documento_norma.pk})
             task_id = lanzar_carga_en_background(
                 contenido_pdf=contenido,
                 norma_id=norma.id,

@@ -40,7 +40,7 @@ def validar_revision(data, usuario_id):
     seleccion = data.get('articulos_seleccionados', [])
     numeros = {numero_clave(a['numero']) for a in revision['articulos']}
     if data.get('modo_actualizacion') == 'articulos' and (
-            not isinstance(seleccion, list) or not seleccion
+            not isinstance(seleccion, list) or (not seleccion and not any(a.get('tipo_unidad') in ['final', 'derogatoria', 'abrogatoria'] for a in revision['articulos']))
             or any(not isinstance(n, str) or numero_clave(n) not in numeros for n in seleccion)):
         raise ValidationError({'articulos_seleccionados': 'Selecciona artículos presentes en el PDF revisado.'})
     return revision
@@ -65,7 +65,11 @@ class RevisionCargaPDFView(APIView):
             texto, advertencias = leer_pdf(contenido, motor, extraer_texto_pdf_bytes)
             progreso = getattr(request, 'progreso_normativo', None)
             articulos = extraer_unidades(texto, motor, advertencias, progreso)
-            cambios = detectar_cambios(articulos, progreso) if motor == 'qwen' else []
+            from modulo_catalogo.services.disposiciones_service import separar_unidades
+            from modulo_catalogo.services.lectura_normativa_service import detectar_derogaciones_expresas
+            articulos, disposiciones = separar_unidades(articulos)
+            unidades_importadas = articulos + disposiciones
+            cambios = detectar_cambios(unidades_importadas, progreso) if motor == 'qwen' else detectar_derogaciones_expresas(disposiciones)
             metadatos = {**(extraer_metadatos(texto) if motor == 'qwen' else {}), **data.get('metadatos', {})}
             oficial_id = data.get('documento_oficial_id')
             if oficial_id:
@@ -82,7 +86,7 @@ class RevisionCargaPDFView(APIView):
                 raise ValueError('Este PDF pertenece a otra norma. Cárgalo como norma nueva; sus efectos se vincularán a la norma afectada.')
         except (ValueError, RuntimeError) as exc:
             raise ValidationError({'archivo': str(exc)})
-        if not articulos:
+        if not articulos and not disposiciones:
             raise ValidationError({'archivo': 'No se encontraron artículos. Revisa la capa de texto del PDF.'})
         filas = filas_actuales(data['norma'].pk if data.get('norma') else None, data['rama'].pk)
         if len({numero_clave(a['numero_articulo']) for a in filas}) != len(filas):
@@ -90,11 +94,11 @@ class RevisionCargaPDFView(APIView):
         token = str(uuid.uuid4())
         cache.set(PREFIJO + token, {'usuario_id': request.user.pk, 'sha': hashlib.sha256(contenido).hexdigest(),
                                   'destino': datos_destino(data), 'huella': huella_catalogo(filas),
-                                  'articulos': articulos, 'cambios': cambios, 'metadatos': metadatos,
+                                  'articulos': unidades_importadas, 'cambios': cambios, 'metadatos': metadatos,
                                   'motor': motor, 'documento_oficial_id': data.get('documento_oficial_id')}, timeout=7200)
         from modulo_catalogo.services.vigencia_service import preparar_avisos_revision
         avisos_revision = preparar_avisos_revision(cambios, metadatos, data.get('norma'),
             data['norma'].nombre if data.get('norma') else data['nombre_documento'])
         return Response({'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
-                         'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
+                         'disposiciones': disposiciones, 'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
                          **comparar_articulos(articulos, filas)})

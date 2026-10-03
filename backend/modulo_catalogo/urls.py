@@ -16,10 +16,11 @@ from .views.carga_articulos_view import (
     EstadoCargaPDFView,
 )
 
-from .views.vigencia_view import CambioNormativoViewSet, DocumentoOficialViewSet, VersionArticuloViewSet
+from .views.vigencia_view import DisposicionViewSet, CambioNormativoViewSet, DocumentoOficialViewSet, VersionArticuloViewSet
 from .views.tareas_normativas_view import RevisionAsincronaView, SincronizarGacetaView, EstadoNormativoView
 
 router = DefaultRouter()
+router.register('disposiciones', DisposicionViewSet, basename='disposiciones')
 router.register('cambios-normativos', CambioNormativoViewSet, basename='cambios-normativos')
 router.register('gaceta-documentos', DocumentoOficialViewSet, basename='gaceta-documentos')
 router.register('versiones-articulos', VersionArticuloViewSet, basename='versiones-articulos')

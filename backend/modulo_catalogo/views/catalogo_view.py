@@ -547,7 +547,7 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     queryset        = (
         anotar_numero_orden(
             Articulo.objects
-            .filter(estado=True, norma__estado=True)
+            .filter(estado=True, norma__estado=True, tipo_unidad='articulo')
             .select_related("norma", "norma__jerarquia", "rama")
         )
         .order_by("norma", *orden_natural_articulo())

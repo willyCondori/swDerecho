@@ -50,14 +50,16 @@ para distribuir tareas hace falta una cola durable y una caché compartida.
 ## Uso
 
 En **Cargar artículos**, elige Qwen local, la norma y el PDF. Revisa la lista
-de artículos y disposiciones transitorias, finales, derogatorias y abrogatorias.
+de artículos y, en una tabla aparte, disposiciones finales, derogatorias y abrogatorias.
+Las transitorias y adicionales no se importan.
 El texto de PDFs digitales se reconstruye desde el original; páginas escaneadas
 se transcriben una por una y muestran un aviso para contrastarlas con el PDF.
 Cada documento debe corresponder a una norma principal; separa las compilaciones.
 
-Los efectos de las unidades seleccionadas se guardan como detecciones pendientes.
+Los efectos de los artículos seleccionados y de todas las disposiciones importadas
+se guardan como detecciones pendientes.
 No se modifica automáticamente el texto del artículo afectado. En **Normas →
-Verificar afectaciones**, el administrador identifica destinos ambiguos, comprueba
+Verificar afectaciones**, el administrador revisa los destinos encontrados, comprueba
 fechas y fuente, y confirma o descarta. Los artículos y los resultados de casos
 muestran avisos previos con la norma causante, fecha, alcance y PDF de respaldo.
 
@@ -67,8 +69,7 @@ solo el fragmento inequívoco confirmado se resalta como derogado. Si no se
 puede localizar, hay que indicar el fragmento exacto antes de confirmar.
 El resto del artículo se conserva. Las versiones anteriores siguen registradas.
 
-Ejemplos admitidos: la transitoria tercera derogada por Ley 2446 de
-19/03/2003; la final tercera que abroga el Decreto Ley 11080; una ley que
+Ejemplos admitidos: la final tercera que abroga el Decreto Ley 11080; una ley que
 incorpora el parágrafo VI del artículo 25 de la Ley 260. Incorporar un parágrafo
 no deroga el artículo. «Todas las disposiciones contrarias» queda como cláusula
 general sin asignar derogaciones concretas. Vencer un plazo no deroga una norma.
@@ -195,3 +196,44 @@ migraciones para este ajuste.
 
 Validación de este flujo: 66 pruebas de backend y ocho de interfaz aprobadas;
 compilación correcta y lint sin errores nuevos.
+
+
+## Disposiciones en su propia tabla
+
+Las disposiciones finales, derogatorias y abrogatorias se guardan en
+`disposiciones_normativas`, asociadas a su PDF. No se guardan como artículos,
+no generan embeddings y no participan en el ranking de artículos. Las
+transitorias y adicionales no se importan. El catálogo y la revisión del PDF
+muestran una tabla propia de disposiciones.
+
+La migración 0015 crea la tabla. La 0016 copia las disposiciones antiguas con
+fuente disponible y retira todas las unidades que no son artículos del catálogo
+activo; conserva sus registros originales por el historial y las referencias.
+Ambas migraciones ya se aplicaron en la base local. En otro servidor ejecuta
+`python manage.py migrate` y después, para documentos existentes,
+`python manage.py recuperar_disposiciones`.
+
+El aviso se muestra antes y después de cargar el documento y en la disposición
+del catálogo. Los efectos de las disposiciones se registran aunque no se
+seleccionen artículos. Las derogaciones y abrogaciones expresas con una norma
+inequívoca se detectan por su evidencia literal también en el motor clásico;
+la lectura de Qwen sigue disponible para otras cláusulas.
+
+Comprobación del PDF real de la Ley 1636 ya cargado: dos disposiciones (DF ÚNICA
+y DD ÚNICA) y dos avisos pendientes de derogación: Parágrafo III del Artículo
+323 Bis y todo el Artículo 281 Quater. El numeral 2 de la lista no se interpreta
+como Artículo 2. Los avisos pendientes duplicados o producidos por ese error
+se retiraron de la vista, conservando su evidencia. No se cambió ninguna
+confirmación ni se aplicaron automáticamente derogaciones.
+
+En la base local existen los artículos 323 y 281, pero no los destinos exactos
+323 Bis y 281 Quater: quedan como avisos hasta cargar esos artículos. No se
+aplica el efecto a artículos con números o sufijos diferentes.
+
+La recuperación también procesó los PDFs disponibles de las normas anteriores;
+cinco registros apuntan a PDFs que ya no están físicamente en `media`. Esos
+documentos requieren recuperar el archivo o subirlo nuevamente para reanalizarlos.
+
+Validación: 288 pruebas de backend y 112 de frontend aprobadas. Compilación
+correcta y lint sin errores nuevos. La recuperación incluye una prueba de
+repetición para evitar avisos duplicados.

@@ -829,6 +829,10 @@ def cargar_articulos_desde_bytes(
     resultado.total_encontrados = len(lista_articulos)
 
     if not lista_articulos:
+        if documento_id:
+            from modulo_catalogo.models import DocumentoNorma
+            from .disposiciones_service import importar_disposiciones_expresas
+            resultado.revision = importar_disposiciones_expresas(DocumentoNorma.objects.get(pk=documento_id), texto)
         logger.warning("PDF no produjo artículos. norma=%s", norma)
         return resultado
 
@@ -948,6 +952,10 @@ def cargar_articulos_desde_bytes(
 
             resultado.guardados += 1
 
+    if documento_id:
+        from modulo_catalogo.models import DocumentoNorma
+        from .disposiciones_service import importar_disposiciones_expresas
+        resultado.revision = importar_disposiciones_expresas(DocumentoNorma.objects.get(pk=documento_id), texto)
     _update_task(task, 100, "Carga completada.")
     logger.info(
         "Carga finalizada. Norma=%s Guardados=%s Duplicados=%s Errores=%s",
