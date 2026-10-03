@@ -45,3 +45,26 @@ class ArticulosListadoNormaTests(APITestCase):
 
         self.assertEqual(fila["norma_nombre"], "Norma sin sigla del listado")
         self.assertFalse(fila["norma_sigla"])
+
+    def test_listado_compacto_no_trae_texto_completo_ni_consulta_entidades(self):
+        norma = Norma.objects.create(nombre="Norma preview")
+        articulo = self._articulo_de(norma)
+        articulo.contenido = "Texto legal extenso. " * 200
+        articulo.save(update_fields=["contenido"])
+        with self.assertNumQueries(2):
+            resp = self.client.get("/api/catalogo/articulos/", {"norma_id": norma.pk, "compacto": "true"})
+        fila = resp.data["results"][0]
+        self.assertNotIn("contenido", fila)
+        self.assertEqual(fila["contenido_preview"], articulo.contenido[:360])
+        detalle = self.client.get(f"/api/catalogo/articulos/{articulo.pk}/")
+        self.assertEqual(detalle.data["contenido"], articulo.contenido)
+
+    def test_filtros_por_norma_y_rama_son_paginados(self):
+        norma = Norma.objects.create(nombre="Norma paginada")
+        for numero in range(4):
+            Articulo.objects.create(numero_articulo=str(numero), contenido="Contenido.", norma=norma, rama=self.rama)
+        for accion, filtro in [("por_norma", {"norma_id": norma.pk}), ("por_rama", {"rama_id": self.rama.pk})]:
+            resp = self.client.get(f"/api/catalogo/articulos/{accion}/", {**filtro, "page_size": 2})
+            self.assertEqual(resp.data["count"], 4)
+            self.assertEqual(len(resp.data["results"]), 2)
+            self.assertIsNotNone(resp.data["next"])

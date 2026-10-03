@@ -3,7 +3,7 @@ import numpy as np
 from collections import defaultdict
 from decimal import Decimal, ROUND_HALF_UP
 
-from pgvector.django import CosineDistance
+from django.db import connection
 
 from modulo_ia.models.embedding import EmbeddingArticulo, EmbeddingChunk
 from modulo_ia.models.embedding import EntidadDetectadaCaso
@@ -46,7 +46,7 @@ MAX_FIGURAS_TRANSVERSALES_FORZADAS = 3
 class RankingService:
     """
     Compara los embeddings de los chunks de un caso contra los
-    embeddings de los artículos usando pgvector + índice HNSW, combina
+    embeddings de los artículos usando pgvector con búsqueda exacta, combina
     el resultado con los otros 4 sub-scores según la fórmula ponderada
     de ResultadoArticulo, y usa una cola de prioridad (heap) de tamaño
     fijo para quedarse con los TOP_N_ARTICULOS sin ordenar todo el
@@ -78,37 +78,30 @@ class RankingService:
 
         version = version_activa()
 
-        embeddings_chunk = (
-            EmbeddingChunk.objects
-            .filter(chunk__caso=caso, modelo_version=version)
-            .select_related("chunk")
-        )
-        if not embeddings_chunk.exists():
+        # Una sola ida a PostgreSQL para todos los chunks. Los vectores
+        # permanecen en la BD; solo regresan IDs y distancias.
+        with connection.cursor() as cursor:
+            cursor.execute(
+                "SELECT chunk_id, articulo_id, distancia "
+                "FROM buscar_articulos_caso(%s, %s, %s, %s)",
+                [caso.pk, version, caso.rama_detectada_id, CANDIDATOS_POR_CHUNK],
+            )
+            filas = cursor.fetchall()
+        if not filas:
             raise ValueError(
                 "El caso no tiene chunks con embeddings de la versión de modelo activa "
                 f'("{version}") para comparar. Si se cambió recientemente de modelo, '
                 "hay que reanalizar el caso."
             )
 
-        candidatos_qs = EmbeddingArticulo.objects.filter(
-            articulo__estado=True, articulo__norma__estado=True, modelo_version=version,
-        )
-
-        if caso.rama_detectada_id:
-            candidatos_qs = candidatos_qs.filter(articulo__rama_id=caso.rama_detectada_id)
-
-        for emb_chunk in embeddings_chunk:
-            candidatos = (
-                candidatos_qs
-                .annotate(distancia=CosineDistance("vector", emb_chunk.vector))
-                .order_by("distancia")[:CANDIDATOS_POR_CHUNK]
-            )
-            for candidato in candidatos:
-                similitud = 1 - candidato.distancia
-                articulo_id = candidato.articulo_id
-                if similitud > scores[articulo_id]:
-                    scores[articulo_id] = similitud
-                    mejor_chunk_por_articulo[articulo_id] = emb_chunk.chunk_id
+        for chunk_id, articulo_id, distancia in filas:
+            # LEFT JOIN conserva los chunks aunque no haya artículos activos.
+            if articulo_id is None:
+                continue
+            similitud = 1 - distancia
+            if similitud > scores[articulo_id]:
+                scores[articulo_id] = similitud
+                mejor_chunk_por_articulo[articulo_id] = chunk_id
 
         return scores, mejor_chunk_por_articulo
 
@@ -189,7 +182,7 @@ class RankingService:
             return 0.0
         nombres_articulo = {
             nombre.strip().lower()
-            for nombre in articulo.entidades.values_list("nombre", flat=True)
+            for nombre in (entidad.nombre for entidad in articulo.entidades.all())
         }
         if not nombres_articulo:
             return 0.0
@@ -300,12 +293,6 @@ class RankingService:
             candidatos.append(
                 cls._armar_candidato(articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia)
             )
-        import logging
-        _log = logging.getLogger(__name__)
-        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:10]
-        _log.warning("PRE-UMBRAL: total=%s | top scores=%s", len(candidatos), [round(c[0], 3) for c in _top])
-        _top = sorted(candidatos, key=lambda c: c[0], reverse=True)[:15]
-        _log.warning("PRE-UMBRAL: %s", [(round(c[0], 3), c[1]) for c in _top])
         # Filtrar por umbral mínimo DESPUÉS de construir todos los candidatos,
         # para no forzar TOP_N_ARTICULOS completos cuando no hay suficientes
         # artículos realmente relevantes (evita relleno tipo "Fijación de la

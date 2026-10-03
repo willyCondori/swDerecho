@@ -56,6 +56,8 @@ from dataclasses import dataclass, field
 
 from django.conf import settings
 from django.db import transaction
+from modulo_documentos.services.extraccion_texto_service import ExtraccionTextoService
+from modulo_ia.services.vectorizacion_service import vectorizar_textos
 
 
 logger = logging.getLogger(__name__)
@@ -66,7 +68,7 @@ logger = logging.getLogger(__name__)
 # y regenerar_embeddings_articulos.py (ver modulo_ia/services/model_loader.py).
 # ---------------------------------------------------------------------------
 
-from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
+from modulo_ia.services.model_loader import obtener_modelo as _obtener_modelo, version_activa  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -193,35 +195,19 @@ def quitar_encabezados_y_pies(paginas: list[str]) -> list[str]:
     return limpias
 
 
-def _texto_desde_reader(reader) -> str:
-    paginas = []
-    for page in reader.pages:
-        texto = page.extract_text()
-        if texto:
-            paginas.append(texto)
-    return "\n".join(quitar_encabezados_y_pies(paginas))
-
-
 def extraer_texto_pdf(ruta: str) -> str:
     """Extrae texto de todas las páginas de un PDF (desde archivo en disco)."""
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
-
-    return _texto_desde_reader(PdfReader(ruta))
+    with open(ruta, "rb") as archivo:
+        paginas = ExtraccionTextoService.paginas(archivo)
+    return "\n".join(quitar_encabezados_y_pies([p for p in paginas if p]))
 
 
 def extraer_texto_pdf_bytes(contenido: bytes) -> str:
     """Extrae texto directamente desde bytes (archivo en memoria)."""
     import io
 
-    try:
-        from pypdf import PdfReader
-    except ImportError:
-        raise ImportError("Instala pypdf: pip install pypdf --break-system-packages")
-
-    return _texto_desde_reader(PdfReader(io.BytesIO(contenido)))
+    paginas = ExtraccionTextoService.paginas(io.BytesIO(contenido))
+    return "\n".join(quitar_encabezados_y_pies([p for p in paginas if p]))
 
 
 # ---------------------------------------------------------------------------
@@ -771,6 +757,33 @@ def cargar_articulos_desde_bytes(
 
     total = len(lista_articulos)
 
+    numeros_existentes = set() if sobrescribir else set(
+        Articulo.objects.filter(norma=norma, rama=rama).values_list("numero_articulo", flat=True)
+    )
+    pendientes = [
+        (idx, art) for idx, art in enumerate(lista_articulos)
+        if str(art["numero"]) not in numeros_existentes
+        and art["texto"] and len(art["texto"].strip()) >= 20
+    ]
+    vectores = {}
+    errores_embedding = {}
+    # Solo el cálculo costoso ocurre aquí; el reemplazo de artículos
+    # sigue publicándose atómicamente abajo.
+    for inicio in range(0, len(pendientes), settings.EMBEDDING_BATCH_SIZE):
+        lote = pendientes[inicio:inicio + settings.EMBEDDING_BATCH_SIZE]
+        textos = [construir_texto_embedding(art["titulo"], art["texto"]) for _, art in lote]
+        try:
+            vectores.update(zip((idx for idx, _ in lote), vectorizar_textos(textos, modelo)))
+        except Exception:
+            # Un texto que falle no impide vectorizar los demás artículos.
+            for (idx, _), texto_embed in zip(lote, textos):
+                try:
+                    vectores[idx] = vectorizar_textos([texto_embed], modelo)[0]
+                except Exception as exc:
+                    errores_embedding[idx] = str(exc)
+        pct = int(18 + ((inicio + len(lote)) / max(1, len(pendientes))) * 52)
+        _update_task(task, pct, "Generando embeddings por lotes...")
+
     # ------------------------------------------------------------------
     # Todo lo que escribe en la base de datos (borrado por "sobrescribir",
     # creación de artículos, embeddings y vínculos con entidades) queda
@@ -796,12 +809,10 @@ def cargar_articulos_desde_bytes(
             texto_articulo = art_dict["texto"]
 
             if idx % 10 == 0 or idx == total:
-                pct = int(18 + (idx / total) * 80)
+                pct = int(70 + (idx / total) * 28)
                 _update_task(task, pct, f"Procesando artículo {idx}/{total}...")
 
-            if Articulo.objects.filter(
-                norma=norma, rama=rama, numero_articulo=str(numero)
-            ).exists():
+            if str(numero) in numeros_existentes:
                 resultado.duplicados += 1
                 continue
 
@@ -824,6 +835,7 @@ def cargar_articulos_desde_bytes(
                         frecuencia_historica=0,
                         estado=True,
                     )
+                numeros_existentes.add(str(numero))
             except Exception as e:
                 resultado.errores += 1
                 resultado.errores_detalle.append(f"Art. {numero}: error al guardar — {e}")
@@ -831,20 +843,14 @@ def cargar_articulos_desde_bytes(
                 continue
 
             try:
-                texto_embed = construir_texto_embedding(titulo, texto_articulo)
-                vector = modelo.encode(texto_embed, normalize_embeddings=True).tolist()
-
-                if len(vector) != DIMENSION_VECTOR:
-                    raise ValueError(
-                        f"El embedding del Art. {numero} tiene {len(vector)} "
-                        f"dimensiones; se esperaban {DIMENSION_VECTOR}."
+                if idx - 1 in errores_embedding:
+                    raise ValueError(errores_embedding[idx - 1])
+                with transaction.atomic():
+                    EmbeddingArticulo.objects.create(
+                        articulo=articulo,
+                        modelo_version=version_activa(),
+                        vector=vectores[idx - 1],
                     )
-
-                EmbeddingArticulo.objects.update_or_create(
-                    articulo=articulo,
-                    modelo_version=version_activa(),
-                    defaults={"vector": vector},
-                )
             except Exception as e:
                 resultado.errores_detalle.append(f"Art. {numero}: error en embedding — {e}")
                 logger.error("Error generando embedding Art.%s: %s", numero, e, exc_info=True)
@@ -852,7 +858,8 @@ def cargar_articulos_desde_bytes(
                 # cuenta dos veces como error total del artículo.
 
             try:
-                ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
+                with transaction.atomic():
+                    ArticuloEntidadService.vincular(articulo, catalogo=catalogo_entidades)
             except Exception as e:
                 resultado.errores_detalle.append(f"Art. {numero}: error vinculando entidades — {e}")
                 logger.error("Error vinculando entidades Art.%s: %s", numero, e, exc_info=True)

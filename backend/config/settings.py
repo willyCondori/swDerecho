@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',
     #modulos
     'modulo_auditoria',
     'modulo_casos',
@@ -269,6 +270,8 @@ SENTENCE_TRANSFORMER_MODEL = _modelo_cfg
 
 # Etiqueta corta guardada en EmbeddingArticulo/EmbeddingChunk.modelo_version.
 # Path(...).name funciona tanto con rutas locales como con ids de HuggingFace.
+EMBEDDING_BATCH_SIZE = max(1, config('EMBEDDING_BATCH_SIZE', default=16, cast=int))
+
 EMBEDDING_MODEL_VERSION = config(
     'EMBEDDING_MODEL_VERSION',
     default=Path(SENTENCE_TRANSFORMER_MODEL).name

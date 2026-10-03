@@ -1,4 +1,5 @@
-from urllib import request
+from itertools import islice
+from contextlib import closing
 
 from django.db.models import Count, F, Q
 from rest_framework import status
@@ -24,6 +25,7 @@ from modulo_clientes.services.papelera_service import (
 )
 
 MIN_CARACTERES_BUSQUEDA = 2
+MAX_RESULTADOS_BUSQUEDA = 50
 
 
 class ClienteViewSet(AuditoriaMixin, ModelViewSet):
@@ -172,9 +174,10 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
     def casos(self, request, pk=None):
         """GET /api/clientes/{id}/casos/ — casos asociados al cliente."""
         from modulo_casos.serializers.caso_serializer import CasoListSerializer
+        from modulo_casos.services.listado_service import preparar_listado_casos
 
         cliente = self.get_object()
-        casos = cliente.casos.filter(estado=True).order_by("-created_at")
+        casos = preparar_listado_casos(cliente.casos.filter(estado=True).order_by('-created_at'))
         return self._respuesta_paginada(casos, CasoListSerializer, request)
 
     @action(detail=False, methods=["get"], url_path="buscar")
@@ -187,12 +190,11 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
         SQL, solo se compara como texto plano en Python contra los
         valores ya descifrados.
 
-        Nota de rendimiento: al estar los nombres cifrados no se
-        puede filtrar en la base de datos, así que esto descifra
-        TODOS los clientes activos en cada búsqueda. Con volumen
-        alto de registros, considerar un índice de hash/búsqueda
-        invertida (ej. HMAC determinístico del nombre normalizado)
-        para no hacer O(n) descifrados por request.
+        Por defecto devuelve todas las coincidencias. El selector puede
+        pedir limit (máximo 50) y compacto=true (id y nombre completo).
+        Itera por bloques y se detiene al alcanzar el límite. Al estar
+        los nombres cifrados, una búsqueda sin coincidencias todavía
+        necesita recorrer todos los clientes activos.
         """
         query = request.query_params.get("q", "").strip().lower()
         if len(query) < MIN_CARACTERES_BUSQUEDA:
@@ -201,13 +203,30 @@ class ClienteViewSet(AuditoriaMixin, ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        resultados = [
-            cliente
-            for cliente in self.get_queryset()
-            if self._coincide_busqueda(cliente, query)
-        ]
+        limite = request.query_params.get('limit')
+        if limite is not None:
+            try:
+                limite = int(limite)
+                if limite < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                return Response({'limit': 'Debe ser un entero positivo.'}, status=status.HTTP_400_BAD_REQUEST)
+            limite = min(limite, MAX_RESULTADOS_BUSQUEDA)
 
-        serializer = ClienteReadSerializer(
+        # Iterar por bloques evita cargar todos los clientes en memoria.
+        # El límite opcional del selector permite detener el descifrado
+        # al reunir suficientes coincidencias, sin truncar la búsqueda general.
+        with closing(self.get_queryset().iterator(chunk_size=500)) as clientes:
+            coincidencias = (
+                cliente for cliente in clientes if self._coincide_busqueda(cliente, query)
+            )
+            resultados = list(islice(coincidencias, limite)) if limite is not None else list(coincidencias)
+
+        serializer_class = (
+            ClienteListSerializer if request.query_params.get('compacto', '').lower() in ('true', '1')
+            else ClienteReadSerializer
+        )
+        serializer = serializer_class(
             resultados, many=True, context={"request": request}
         )
         return Response(serializer.data)

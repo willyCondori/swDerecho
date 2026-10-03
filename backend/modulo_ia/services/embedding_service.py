@@ -1,5 +1,6 @@
 from modulo_ia.models.embedding import EmbeddingChunk
-from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo, version_activa
+from modulo_ia.services.model_loader import DIMENSION_VECTOR, version_activa
+from modulo_ia.services.vectorizacion_service import vectorizar_textos
 
 
 class EmbeddingService:
@@ -10,11 +11,14 @@ class EmbeddingService:
 
     @staticmethod
     def _obtener_vector(texto: str) -> list:
-        modelo = obtener_modelo()
-        return modelo.encode(texto, normalize_embeddings=True).tolist()
+        return vectorizar_textos([texto])[0]
 
     @classmethod
-    def generar_para_caso(cls, chunks):
+    def preparar_vectores(cls, chunks):
+        return vectorizar_textos([chunk.contenido for chunk in chunks])
+
+    @classmethod
+    def generar_para_caso(cls, chunks, vectores=None):
         """
         Genera el embedding de cada chunk, con la versión de modelo
         activa, y lo persiste. update_or_create está keyed por
@@ -24,18 +28,19 @@ class EmbeddingService:
         sin tocar la de la versión anterior.
         """
         version = version_activa()
+        chunks = list(chunks)
+        vectores = cls.preparar_vectores(chunks) if vectores is None else vectores
+        if len(vectores) != len(chunks):
+            raise ValueError("Cada chunk debe tener exactamente un embedding.")
         embeddings = []
-        for chunk in chunks:
-            vector = cls._obtener_vector(chunk.contenido)
+        for chunk, vector in zip(chunks, vectores):
             if len(vector) != DIMENSION_VECTOR:
                 raise ValueError(
                     f"El embedding generado tiene {len(vector)} dimensiones, "
                     f"se esperaban {DIMENSION_VECTOR}."
                 )
-            embedding, _ = EmbeddingChunk.objects.update_or_create(
-                chunk=chunk,
-                modelo_version=version,
-                defaults={"vector": vector},
-            )
-            embeddings.append(embedding)
-        return embeddings
+            embeddings.append(EmbeddingChunk(chunk=chunk, modelo_version=version, vector=vector))
+        return EmbeddingChunk.objects.bulk_create(
+            embeddings, update_conflicts=True, update_fields=["vector"],
+            unique_fields=["chunk", "modelo_version"],
+        )

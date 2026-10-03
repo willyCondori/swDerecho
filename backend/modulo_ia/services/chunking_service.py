@@ -1,5 +1,7 @@
 import re
 
+from django.db import transaction
+
 from modulo_ia.models.chunk import ChunkCaso
 
 TAMANO_CHUNK = 300     # caracteres aprox. por chunk
@@ -7,24 +9,10 @@ SOLAPAMIENTO = 50     # caracteres compartidos entre chunk y chunk
 
 
 def extraer_texto_pdf(documento) -> str:
-    """
-    Extrae el texto de un Documento cuyo archivo es un PDF.
+    """Lee ruta_archivo mediante el storage y reutiliza la extracción por hash."""
+    from modulo_documentos.services.extraccion_texto_service import ExtraccionTextoService
 
-    Requiere la librería `pypdf` (pip install pypdf --break-system-packages).
-    Asume que Documento tiene un campo `archivo` (FileField/FileField
-    de Django) — ajusta el nombre si en tu modelo es distinto.
-    """
-    from pypdf import PdfReader
-
-    documento.archivo.open("rb")
-    try:
-        reader = PdfReader(documento.archivo)
-        paginas = [pagina.extract_text() or "" for pagina in reader.pages]
-    finally:
-        documento.archivo.close()
-
-    texto = "\n\n".join(p.strip() for p in paginas if p.strip())
-    return texto.strip()
+    return ExtraccionTextoService.extraer_documento(documento)
 
 
 class ChunkingService:
@@ -79,13 +67,10 @@ class ChunkingService:
         return fragmentos
 
     @classmethod
-    def crear_chunks(cls, caso):
+    def preparar_chunks(cls, caso):
         """
-        Genera y persiste los ChunkCaso del caso. Si ya existían chunks
-        de un análisis previo, los reemplaza (para poder reanalizar).
+        Extrae y fragmenta sin reemplazar todavía el análisis anterior.
         """
-        ChunkCaso.objects.filter(caso=caso).delete()
-
         texto, tipo = cls._obtener_texto_y_tipo(caso)
         if not texto.strip():
             raise ValueError(
@@ -96,8 +81,18 @@ class ChunkingService:
 
         fragmentos = cls._partir_en_fragmentos(texto)
 
-        chunks = ChunkCaso.objects.bulk_create([
+        return [
             ChunkCaso(caso=caso, orden=i, contenido=fragmento, tipo=tipo)
             for i, fragmento in enumerate(fragmentos)
-        ])
-        return chunks
+        ]
+
+    @staticmethod
+    def persistir_chunks(caso, chunks):
+        ChunkCaso.objects.filter(caso=caso).delete()
+        return ChunkCaso.objects.bulk_create(chunks)
+
+    @classmethod
+    def crear_chunks(cls, caso):
+        chunks = cls.preparar_chunks(caso)
+        with transaction.atomic():
+            return cls.persistir_chunks(caso, chunks)

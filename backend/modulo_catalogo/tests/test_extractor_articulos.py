@@ -41,7 +41,7 @@ def numeros(texto):
 
 
 def articulo(texto, numero):
-    return next(a for a in dividir_por_articulos(texto) if a["numero"] == numero)
+    return next(a for a in dividir_por_articulos(texto) if a["numero"] == str(numero))
 
 
 CUERPOS = [
@@ -138,13 +138,13 @@ class QuitarEncabezadosYPiesTests(SimpleTestCase):
         art3 = articulo(texto, 3)
         self.assertNotIn("Caja de herramientas", art3["texto"])
         self.assertIn("obligatorio.\nIII. Las Entidades", art3["texto"])
-        self.assertEqual(numeros(texto), [1, 2, 3, 4])
+        self.assertEqual(numeros(texto), ["1", "2", "3", "4"])
 
 
 class DivisionPorArticulosTests(SimpleTestCase):
     def test_texto_plano_de_la_ley_348_detecta_los_articulos_y_sus_titulos(self):
         arts = dividir_por_articulos(LEY_348_PLANO)
-        self.assertEqual([a["numero"] for a in arts], [1, 2, 3, 4])
+        self.assertEqual([a["numero"] for a in arts], ["1", "2", "3", "4"])
         self.assertEqual(
             [a["titulo"] for a in arts],
             [
@@ -179,16 +179,16 @@ class DivisionPorArticulosTests(SimpleTestCase):
             + self.BASE6
         )
         self.assertTrue(articulo(texto, 5)["texto"].endswith("medidas de prevención."))
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
 
     def test_encabezado_con_minusculas_en_texto_plano_se_quita_y_no_se_pierde_el_siguiente(self):
         texto = self.BASE5 + "Capítulo II Derechos de las mujeres " + self.BASE6
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
         self.assertTrue(articulo(texto, 5)["texto"].endswith("medidas de prevención."))
 
     def test_encabezado_con_minusculas_con_salto_de_linea(self):
         texto = self.BASE5.strip() + "\nCapítulo II Derechos de las mujeres\n" + self.BASE6
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
         self.assertTrue(articulo(texto, 5)["texto"].endswith("medidas de prevención."))
 
     def test_encabezado_con_ordinal_o_arabigo(self):
@@ -203,28 +203,28 @@ class DivisionPorArticulosTests(SimpleTestCase):
 
     def test_articulo_precedido_por_minuscula_sin_punto_no_se_pierde_en_texto_plano(self):
         texto = "ARTÍCULO 5. (X). Texto del artículo cinco con más palabras para validar sin punto final ARTÍCULO 6. (Y). Texto del seis con más palabras."
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
 
     def test_referencia_en_mayusculas_tras_un_conector_no_divide_el_articulo(self):
         texto = self.BASE5 + "Se aplicará lo dispuesto según el ARTÍCULO 9. Además, se adoptarán otras medidas. " + self.BASE6
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
         self.assertIn("Además, se adoptarán otras medidas.", articulo(texto, 5)["texto"])
 
     def test_referencia_al_inicio_de_una_oracion_no_trunca_el_articulo(self):
         texto = self.BASE5 + "Se aplicará. Artículo 5 de la presente Ley se aplica de forma supletoria. Además, se adoptarán otras medidas. " + self.BASE6
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
         self.assertTrue(articulo(texto, 5)["texto"].endswith("otras medidas."))
 
     def test_referencia_titulada_a_mitad_de_oracion_no_divide(self):
         texto = self.BASE5 + "Lo señalado en el Artículo 5 de la presente Ley se mantiene. " + self.BASE6
-        self.assertEqual(numeros(texto), [5, 6])
+        self.assertEqual(numeros(texto), ["5", "6"])
 
     def test_encabezado_real_con_espacio_y_mayuscula_sigue_detectandose(self):
         texto = "Artículo 7 Los derechos de las mujeres son irrenunciables y exigibles.\nArtículo 8 El Estado garantiza la aplicación de esta norma."
-        self.assertEqual(numeros(texto), [7, 8])
+        self.assertEqual(numeros(texto), ["7", "8"])
 
     def test_numeracion_repetida_no_pisa_el_primer_articulo(self):
         texto = self.BASE5 + self.BASE6 + " ARTÍCULO 5. (OTRO). Texto de una disposición transitoria distinta."
         arts = dividir_por_articulos(texto)
-        self.assertEqual([a["numero"] for a in arts], [5, 6])
+        self.assertEqual([a["numero"] for a in arts], ["5", "6"])
         self.assertEqual(arts[0]["titulo"], "Art. 5 - PREVENCIÓN")

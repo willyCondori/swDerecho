@@ -1,5 +1,6 @@
 from django.db import transaction
 from django.db.models import F, Q
+from django.db.models.functions import Substr
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import action
@@ -23,6 +24,7 @@ from modulo_catalogo.ordenamiento import (
 )
 from modulo_catalogo.serializers.catalogo_serializer import (
     ArticuloListSerializer,
+    ArticuloPreviewSerializer,
     ArticuloReadSerializer,
     ArticuloWriteSerializer,
     EntidadJuridicaListSerializer,
@@ -547,7 +549,6 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
             Articulo.objects
             .filter(estado=True, norma__estado=True)
             .select_related("norma", "norma__jerarquia", "rama")
-            .prefetch_related("entidades")
         )
         .order_by("norma", *orden_natural_articulo())
     )
@@ -561,7 +562,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return ArticuloWriteSerializer
-        if self.action == "list":
+        if self.action in ["list", "por_norma", "por_rama"]:
+            if self.request.query_params.get("compacto") == "true":
+                return ArticuloPreviewSerializer
             return ArticuloListSerializer
         return ArticuloReadSerializer
 
@@ -578,6 +581,11 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
             qs  = qs.filter(norma_id=norma)
         if rama:
             qs  = qs.filter(rama_id=rama)
+        if self.action in ["list", "por_norma", "por_rama"]:
+            if self.request.query_params.get("compacto") == "true":
+                qs = qs.annotate(contenido_preview=Substr("contenido", 1, 360)).defer("contenido")
+        elif self.action == "retrieve":
+            qs = qs.prefetch_related("entidades")
         return qs
 
     def destroy(self, request, *args, **kwargs):
@@ -597,8 +605,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         qs         = self.get_queryset().filter(norma_id=norma_id)
-        serializer = ArticuloListSerializer(qs, many=True)
-        return Response(serializer.data)
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page if page is not None else qs, many=True)
+        return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
     @action(detail=False, methods=["get"], url_path="por_rama")
     def por_rama(self, request):
@@ -610,8 +619,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         qs         = self.get_queryset().filter(rama_id=rama_id)
-        serializer = ArticuloListSerializer(qs, many=True)
-        return Response(serializer.data)
+        page = self.paginate_queryset(qs)
+        serializer = self.get_serializer(page if page is not None else qs, many=True)
+        return self.get_paginated_response(serializer.data) if page is not None else Response(serializer.data)
 
     @action(detail=True, methods=["get"], url_path="entidades")
     def entidades(self, request, pk=None):

@@ -27,15 +27,23 @@ class ClienteNombreMixin:
     el compacto, evitando repetir el mismo try/except en cada uno.
     """
 
+    def _nombre_descifrado(self, obj):
+        # La caché pertenece a esta serialización, nunca es global. La clave
+        # incluye los cifrados para invalidarla si cambia el nombre del cliente.
+        cache = self.__dict__.setdefault('_nombres_descifrados', {})
+        clave = (obj.pk, obj.nombres, obj.apellidos)
+        if clave not in cache:
+            cache[clave] = (safe_decrypt(obj.nombres), safe_decrypt(obj.apellidos))
+        return cache[clave]
+
     def get_nombres(self, obj):
-        return safe_decrypt(obj.nombres)
+        return self._nombre_descifrado(obj)[0]
 
     def get_apellidos(self, obj):
-        return safe_decrypt(obj.apellidos)
+        return self._nombre_descifrado(obj)[1]
 
     def get_nombre_completo(self, obj):
-        nombres = safe_decrypt(obj.nombres)
-        apellidos = safe_decrypt(obj.apellidos)
+        nombres, apellidos = self._nombre_descifrado(obj)
         if nombres == "[cifrado]" or apellidos == "[cifrado]":
             return f"Cliente #{obj.id}"
         return f"{nombres} {apellidos}".strip()

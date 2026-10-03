@@ -2,31 +2,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCrearCaso from '../hooks/useCrearCaso'
+import useBuscarClientes from '../hooks/useBuscarClientes'
 import catalogoApi from '../../../api/catalogoApi'
-import clientesApi from '../../../api/clientesApi'
 import { soloLetrasEspacios, sanearTextoLibre } from '../../../utils/validators'
 import styles from './NuevoCasoPage.module.css'
 
 function BuscadorCliente({ clienteExistenteId, clienteExistenteNombre, onSeleccionar, error }) {
   const [query, setQuery] = useState('')
-  const [resultados, setResultados] = useState([])
-  const [buscando, setBuscando] = useState(false)
+  const { resultados, buscando, error: errorBusqueda } = useBuscarClientes(clienteExistenteId ? '' : query)
   const [mostrarLista, setMostrarLista] = useState(false)
-
-  useEffect(() => {
-    if (query.trim().length < 2) {
-      setResultados([])
-      return
-    }
-    const timeoutId = setTimeout(() => {
-      setBuscando(true)
-      clientesApi.buscar(query.trim())
-        .then(({ data }) => setResultados(data))
-        .catch((e) => console.error('Error buscando clientes:', e))
-        .finally(() => setBuscando(false))
-    }, 350)
-    return () => clearTimeout(timeoutId)
-  }, [query])
 
   if (clienteExistenteId) {
     return (
@@ -57,7 +41,8 @@ function BuscadorCliente({ clienteExistenteId, clienteExistenteNombre, onSelecci
       {mostrarLista && query.trim().length >= 2 && (
         <div className={styles.dropdownResultados}>
           {buscando && <div className={styles.dropdownItem}>Buscando...</div>}
-          {!buscando && resultados.length === 0 && (
+          {errorBusqueda && <div className={styles.dropdownItem} role="alert">{errorBusqueda}</div>}
+          {!buscando && !errorBusqueda && resultados.length === 0 && (
             <div className={styles.dropdownItem}>Sin resultados.</div>
           )}
           {!buscando && resultados.map((c) => (

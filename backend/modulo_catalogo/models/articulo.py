@@ -1,4 +1,6 @@
 from django.db import models
+from django.contrib.postgres.indexes import GinIndex, OpClass
+from django.db.models.functions import Upper
 from .norma import Norma
 from .rama import RamaDerecho
 from .entidad import EntidadJuridica
@@ -36,6 +38,9 @@ class Articulo(models.Model):
         db_table = "articulos"
         ordering = ["norma", "numero_articulo"]
         indexes  = [
+            GinIndex(OpClass(Upper("titulo"), name="gin_trgm_ops"), name="idx_art_titulo_trgm"),
+            GinIndex(OpClass(Upper("contenido"), name="gin_trgm_ops"), name="idx_art_contenido_trgm"),
+            GinIndex(OpClass(Upper("numero_articulo"), name="gin_trgm_ops"), name="idx_art_numero_trgm"),
             models.Index(fields=["norma"],               name="idx_articulos_norma"),
             models.Index(fields=["rama"],                name="idx_articulos_rama"),
             models.Index(fields=["estado"],              name="idx_articulos_estado"),

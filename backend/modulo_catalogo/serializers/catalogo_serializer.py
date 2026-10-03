@@ -273,3 +273,11 @@ class ArticuloListSerializer(serializers.ModelSerializer):
 
     def get_jerarquia_nombre(self, obj):
         return obj.norma.jerarquia.nombre if obj.norma.jerarquia_id else None
+
+
+class ArticuloPreviewSerializer(ArticuloListSerializer):
+    """El texto completo se obtiene desde el endpoint de detalle."""
+    contenido_preview = serializers.CharField(read_only=True)
+
+    class Meta(ArticuloListSerializer.Meta):
+        fields = [f for f in ArticuloListSerializer.Meta.fields if f != "contenido"] + ["contenido_preview"]
