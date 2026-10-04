@@ -8,7 +8,7 @@ let usuario = 0
 beforeEach(() => { vi.clearAllMocks(); useAuthStore.setState({ user: { id: ++usuario } }) })
 afterEach(cleanup)
 
-it('retoma revisión, progreso y PDF al salir y entrar sin iniciar otra lectura', async () => {
+it.each(['clasico', 'qwen'])('retoma revisión, progreso y PDF con %s al salir y entrar sin iniciar otra lectura', async (motorLectura) => {
   let terminar, progreso
   cargaArticulosApi.revisarAsincrono.mockImplementation((payload, vigente, avance) => {
     progreso = avance
@@ -17,14 +17,14 @@ it('retoma revisión, progreso y PDF al salir y entrar sin iniciar otra lectura'
   const archivo = new File(['pdf'], 'ley.pdf')
   const primera = renderHook(() => useRevisionPdf())
   let promesa
-  act(() => { promesa = primera.result.current.revisarPdf({ archivo, motorLectura: 'qwen' }) })
+  act(() => { promesa = primera.result.current.revisarPdf({ archivo, motorLectura }) })
   primera.unmount()
   act(() => { progreso({ paso: 'Analizando disposiciones' }) })
   const segunda = renderHook(() => useRevisionPdf())
   expect(segunda.result.current.revisando).toBe(true)
   expect(segunda.result.current.pasoRevision).toBe('Analizando disposiciones')
   await act(async () => {
-    await segunda.result.current.revisarPdf({ archivo, motorLectura: 'qwen' })
+    await segunda.result.current.revisarPdf({ archivo, motorLectura })
     terminar({ data: { articulos: [], revision_token: 'token' } })
     await promesa
   })
