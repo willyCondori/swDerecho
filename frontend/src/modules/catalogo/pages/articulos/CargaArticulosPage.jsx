@@ -25,6 +25,7 @@ import styles from './CargaArticulosPage.module.css'
 // nombre que escribas (ej. "Código de Procedimiento Penal") crea o
 // reutiliza la Norma automáticamente en el backend.
 const FORM_INICIAL = {
+  incluirAnexos: true,
   modo: 'nueva', // 'nueva' | 'existente'
   normaId: '',
   nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '',
@@ -95,7 +96,7 @@ export default function CargaArticulosPage() {
       return
     }
     const payload = {
-      archivo,
+      archivo, incluirAnexos: form.incluirAnexos,
       normaId: modoExistente ? form.normaId : null,
       nombreDocumento: modoExistente ? '' : form.nombreDocumento.trim(),
       sigla: modoExistente ? '' : form.sigla.trim(),
@@ -265,6 +266,7 @@ export default function CargaArticulosPage() {
               <legend>Lectura y datos de la publicación</legend>
               <FormSelectField id="motorLectura" label="Lectura del documento" value={form.motorLectura} onChange={handleInputChange}
                 options={[{ value: 'clasico', label: 'Algoritmos locales: lectura y efectos expresos, sin Qwen' }, { value: 'qwen', label: 'Qwen opcional: lectura asistida por IA' }]} />
+              <label><input type="checkbox" name="incluirAnexos" checked={form.incluirAnexos} onChange={handleInputChange} />Detectar y guardar también las otras normas del PDF, por separado</label>
               <p>Los algoritmos conservan el texto original y detectan efectos expresos. Qwen es opcional y consume más recursos. Verifica los datos de la norma antes de confirmar.</p>
               <div className={styles.formGrid}>
                 <FormTextField id="tipoNorma" label="Tipo legal (opcional)" value={form.tipoNorma} onChange={handleInputChange} placeholder="Ley, Decreto Supremo, Resolución…" />
@@ -317,6 +319,12 @@ export default function CargaArticulosPage() {
           await revisarPdf({ ...revision.payload, normaId: destino?.id || null, nombreDocumento: nombre.trim(), sigla: '', documentoOficialId: null,
             jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
             metadatos: { ...revision.payload.metadatos, tipo_norma: 'Ley', numero_norma: numero.trim(), fecha_norma: fecha } })
+        }} onIdentidadSeccion={async (id, identidad) => {
+          await revisarPdf({ ...revision.payload, identidadesSecciones: { ...revision.payload.identidadesSecciones,
+            [id]: { nombre: identidad.nombre.trim(), tipo_norma: 'Ley', numero_norma: identidad.numero.trim(), fecha_norma: identidad.fecha } } })
+        }} onAlternativaSeccion={async (seccionId, clave, id) => {
+          await revisarPdf({ ...revision.payload, variantesSecciones: { ...revision.payload.variantesSecciones,
+            [seccionId]: { ...revision.payload.variantesSecciones?.[seccionId], [clave]: id } } })
         }} onAlternativa={async (clave, id) => {
           await revisarPdf({ ...revision.payload, variantesUnidades: { ...revision.payload.variantesUnidades, [clave]: id } })
         }} onConfirmar={async () => {

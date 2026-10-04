@@ -808,6 +808,9 @@ def cargar_articulos_desde_bytes(
         from .revision_carga_service import aplicar_carga_revisada
         if not revision:
             raise ValueError('Debes revisar el PDF antes de actualizar.')
+        if revision.get('anexos'):
+            from .carga_compilacion_service import aplicar_compilacion
+            return aplicar_compilacion(norma, rama, revision, modo_actualizacion, articulos_seleccionados, documento_id, task)
         return aplicar_carga_revisada(norma, rama, revision['articulos'], modo_actualizacion,
                                       articulos_seleccionados, revision['huella'], documento_id, task)
 

@@ -53,7 +53,7 @@ class DocumentoNormaViewSet(AuditoriaMixin, ModelViewSet):
         if instance.cambios_detectados.exists() or instance.versionarticulo_set.exists() or instance.disposiciones.exists():
             return Response({'detail': 'Este PDF respalda avisos o versiones históricas y debe conservarse.'}, status=409)
         ruta_absoluta = os.path.join(settings.MEDIA_ROOT, instance.ruta_archivo)
-        if os.path.exists(ruta_absoluta):
+        if os.path.exists(ruta_absoluta) and not DocumentoNorma.objects.filter(ruta_archivo=instance.ruta_archivo).exclude(pk=instance.pk).exists():
             os.remove(ruta_absoluta)
         pk = instance.pk
         instance.delete()

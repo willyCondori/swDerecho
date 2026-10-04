@@ -6,6 +6,9 @@ const BASE = '/api/catalogo/cargar-articulos'
 function formulario(payload) {
   const fd = new FormData()
   fd.append('archivo', payload.archivo)
+  fd.append('incluir_anexos', payload.incluirAnexos ? 'true' : 'false')
+  if (payload.identidadesSecciones) fd.append('identidades_secciones', JSON.stringify(payload.identidadesSecciones))
+  if (payload.variantesSecciones) fd.append('variantes_secciones', JSON.stringify(payload.variantesSecciones))
   if (payload.seccionDocumento != null) fd.append('seccion_documento', payload.seccionDocumento)
   if (payload.variantesUnidades) fd.append('variantes_unidades', JSON.stringify(payload.variantesUnidades))
   if (payload.motorLectura) fd.append('motor_lectura', payload.motorLectura)

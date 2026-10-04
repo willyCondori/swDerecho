@@ -195,6 +195,18 @@ class DocumentoNormaEliminarTests(APITestCase):
             self.assertFalse(DocumentoNorma.objects.filter(pk=documento.pk).exists())
             self.assertFalse(os.path.exists(ruta_absoluta))
 
+    def test_eliminar_un_registro_no_borra_pdf_compartido_por_otra_norma(self):
+        with override_settings(MEDIA_ROOT=self.media):
+            ruta = os.path.join(self.media, 'compartido.pdf')
+            with open(ruta, 'wb') as f:
+                f.write(b'contenido')
+            primero = _crear_documento_norma(self.norma, ruta_archivo='compartido.pdf')
+            segunda = Norma.objects.create(nombre='Otra norma del PDF')
+            otro = _crear_documento_norma(segunda, ruta_archivo='compartido.pdf')
+            self.assertEqual(self.client.delete(f'{URL_LISTAR}{primero.pk}/').status_code, 204)
+            self.assertTrue(os.path.exists(ruta))
+            self.assertTrue(DocumentoNorma.objects.filter(pk=otro.pk).exists())
+
     def test_eliminar_no_falla_si_el_archivo_ya_no_esta_en_disco(self):
         with override_settings(MEDIA_ROOT=self.media):
             documento = _crear_documento_norma(self.norma, ruta_archivo="nunca_existio.pdf")

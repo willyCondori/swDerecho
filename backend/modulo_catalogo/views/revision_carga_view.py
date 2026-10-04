@@ -23,7 +23,8 @@ def datos_destino(data):
             'jerarquia_id': data['jerarquia'].pk if data.get('jerarquia') else None,
             'seccion_documento': data.get('seccion_documento'), 'variantes_unidades': data.get('variantes_unidades', {}),
             'motor': data.get('motor_lectura', ''), 'metadatos': data.get('metadatos', {}),
-            'documento_oficial_id': data.get('documento_oficial_id')}
+            'documento_oficial_id': data.get('documento_oficial_id'), 'incluir_anexos': data.get('incluir_anexos', False),
+            'identidades_secciones': data.get('identidades_secciones', {}), 'variantes_secciones': data.get('variantes_secciones', {})}
 
 
 def validar_revision(data, usuario_id):
@@ -51,6 +52,9 @@ def validar_revision(data, usuario_id):
             not isinstance(seleccion, list) or (not seleccion and not any(a.get('tipo_unidad') in ['final', 'derogatoria', 'abrogatoria'] for a in revision['articulos']))
             or any(not isinstance(n, str) or numero_clave(n) not in numeros for n in seleccion)):
         raise ValidationError({'articulos_seleccionados': 'Selecciona artículos presentes en el PDF revisado.'})
+    if revision.get('anexos'):
+        from modulo_catalogo.services.carga_compilacion_service import validar_anexos
+        validar_anexos(revision['anexos'], data['rama'])
     return revision
 
 
@@ -70,13 +74,19 @@ class RevisionCargaPDFView(APIView):
             from modulo_catalogo.services.lectura_normativa_service import extraer_unidades, detectar_cambios, extraer_metadatos
             motor = data.get('motor_lectura', settings.LECTURA_NORMATIVA_MOTOR)
             from modulo_catalogo.services.pdf_normativo_service import leer_pdf
-            texto, advertencias = leer_pdf(contenido, motor, extraer_texto_pdf_bytes)
             progreso = getattr(request, 'progreso_normativo', None)
             from modulo_catalogo.services.compilaciones_service import segmentar_normas, elegir_seccion, resolver_alternativas
-            secciones = segmentar_normas(texto, progreso, motor)
+            contexto = getattr(request, '_compilacion_normativa', None)
+            if contexto:
+                texto, secciones, originales = contexto
+                advertencias = list(originales)
+            else:
+                texto, advertencias = leer_pdf(contenido, motor, extraer_texto_pdf_bytes)
+                secciones = segmentar_normas(texto, progreso, motor)
+                request._compilacion_normativa = (texto, secciones, tuple(advertencias))
             texto, seccion = elegir_seccion(texto, secciones, data.get('seccion_documento'), data.get('norma'))
             if len(secciones) > 1:
-                advertencias.append(f'El PDF contiene {len(secciones)} normas o secciones normativas. Solo se cargará {seccion["titulo"]}. Los anexos conservan su identidad y se pueden revisar por separado.')
+                advertencias.append(f'El PDF contiene {len(secciones)} secciones normativas. Se revisarán y guardarán aparte sus normas independientes.' if data.get('incluir_anexos') else f'El PDF contiene {len(secciones)} secciones normativas; se cargará solamente {seccion["titulo"]}.')
             articulos = extraer_unidades(texto, motor, advertencias, progreso)
             articulos = [u for u in articulos if u.get('tipo_unidad', 'articulo') in {'articulo', 'final', 'derogatoria', 'abrogatoria'}]
             articulos, ambiguas = resolver_alternativas(articulos, data.get('variantes_unidades'))
@@ -107,7 +117,7 @@ class RevisionCargaPDFView(APIView):
                 if oficial.fecha_publicacion:
                     metadatos['fecha_publicacion'] = oficial.fecha_publicacion.isoformat()
             destino = data.get('norma')
-            if destino and destino.numero_norma and metadatos.get('numero_norma') and (destino.numero_norma != metadatos['numero_norma'] or
+            if destino and destino.numero_norma and metadatos.get('numero_norma') and (destino.numero_norma.lstrip('0') != metadatos['numero_norma'].lstrip('0') or
                     destino.tipo_norma and metadatos.get('tipo_norma') and destino.tipo_norma.casefold() != metadatos['tipo_norma'].casefold()):
                 raise ValueError('Este PDF pertenece a otra norma. Cárgalo como norma nueva; sus efectos se vincularán a la norma afectada.')
         except (ValueError, RuntimeError) as exc:
@@ -127,7 +137,16 @@ class RevisionCargaPDFView(APIView):
         from modulo_catalogo.services.vigencia_service import preparar_avisos_revision
         avisos_revision = preparar_avisos_revision(cambios, metadatos, data.get('norma'),
             data['norma'].nombre if data.get('norma') else data['nombre_documento'])
-        return Response({'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
+        respuesta = {'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
                          'secciones_documento': secciones, 'seccion_activa': seccion['id'], 'fragmento_normativo': fragmento, 'identidad_por_verificar': identidad_por_verificar, 'unidades_ambiguas': ambiguas,
                          'disposiciones': disposiciones, 'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
-                         **comparar_articulos(articulos, filas)})
+                         **comparar_articulos(articulos, filas)}
+
+        if data.get('incluir_anexos') and len(secciones) > 1:
+            from modulo_catalogo.services.carga_compilacion_service import revisar_anexos
+            anexos, planes = revisar_anexos(request, data, contenido, respuesta, secciones)
+            plan = cache.get(PREFIJO + token)
+            plan['anexos'] = planes
+            cache.set(PREFIJO + token, plan, timeout=7200)
+            respuesta['anexos'] = anexos
+        return Response(respuesta)

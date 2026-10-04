@@ -96,3 +96,11 @@ it('permite identificar el destinatario de un extracto sin habilitar reemplazo c
   fireEvent.click(screen.getByRole('button', { name: 'Revisar extracto con esta identidad' }))
   expect(onIdentidad).toHaveBeenCalledWith({ nombre: 'Ley de Pensiones', numero: '065', fecha: '2010-12-10' })
 })
+
+it('revisa anexos con destino separado y bloquea la carga conjunta hasta resolver su identidad', () => {
+  const anexo = { ...revision, norma: 'Ley 1582', seccion_activa: '2', identidad_por_verificar: true, fragmento_normativo: true }
+  render(<RevisionCargaPanel revision={{ ...revision, anexos: [anexo] }} modo="articulos" seleccion={['1']} />)
+  expect(screen.getByRole('button', { name: 'Confirmar carga de 2 normas' }).disabled).toBe(true)
+  expect(screen.getByText('Revisar cambios · Ley 1582')).toBeTruthy()
+  expect(screen.getAllByRole('button', { name: /Confirmar/ })).toHaveLength(1)
+})

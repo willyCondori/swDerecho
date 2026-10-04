@@ -287,8 +287,8 @@ inmediatamente después del título. Todo efecto continúa requiriendo confirmac
 La revisión distingue la norma principal de las normas anexas y conserva el PDF
 original. El SEGIP de prueba contiene seis secciones: Código Penal, Ley 1333,
 el bloque titulado Ley 1582 (pensiones), Ley 1008, Ley 026 y Ley 2492.
-Los anexos contienen extractos; se cargan como normas independientes por
-confirmación del usuario, una sección por carga, con actualización selectiva.
+Los anexos contienen extractos; se revisan como normas independientes y se
+guardan juntos con una confirmación, mediante actualización selectiva.
 Un extracto no puede retirar los artículos ausentes de la norma completa.
 
 El bloque de pensiones tiene un encabezado modificatorio: hay que verificar la
@@ -346,3 +346,31 @@ La copia de análisis reconoce «25 marzo de 1999», «juliio» y «2021Ley»,
 conservando la cita original. Un año truncado («202») no se completa ni se
 confirma automáticamente. El resumen incluye el contador de artículos sin
 cambios de texto para distinguir guardados de nuevos/actualizados.
+
+
+### Carga conjunta de compilaciones
+
+El formulario activa por defecto «Detectar y guardar también las otras normas
+del PDF, por separado». La revisión muestra la norma principal y los anexos
+identificados por cabeceras independientes; una cita «Incorporado por Ley…»
+dentro de un artículo no crea otra norma. Las normas conocidas se reutilizan
+por nombre o tipo/número legal, sin duplicarlas por ceros iniciales.
+
+Cada anexo muestra sus artículos, disposiciones y alternativas. Una identidad
+modificatoria dudosa se verifica en el panel. La carga conjunta no comienza
+hasta resolver las identidades y las alternativas pendientes. Los extractos
+actualizan sus artículos sin retirar unidades ausentes. El modo de reemplazo
+completo, si se selecciona, se aplica solo a la norma principal completa.
+
+La publicación se realiza en una transacción: un fallo en un anexo revierte
+los artículos y normas nuevos de todo el lote. Cada norma tiene su propio
+registro del PDF fuente y su sección de origen; el archivo original se conserva
+y su eliminación comprueba que no lo comparta otro registro.
+El progreso identifica la norma procesada y acumula el avance del lote.
+El resultado cuenta todas las normas publicadas y lista las creadas/reutilizadas.
+
+En el SEGIP de prueba se identifican seis secciones. El bloque titulado Ley 1582
+requiere verificar la norma destinataria y el anexo Ley 2492 tiene dos versiones
+de su artículo 177. Resueltas ambas revisiones, una carga completa del lote
+muestra seis de seis normas procesadas. La revisión reutiliza la extracción del
+texto original entre anexos; no necesita leer seis veces el mismo PDF.

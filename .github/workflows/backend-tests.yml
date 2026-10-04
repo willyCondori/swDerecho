@@ -141,7 +141,7 @@ jobs:
             modulo_catalogo.tests.test_extractor_articulos \
             modulo_catalogo.tests.test_extractor_normas_reales \
             modulo_catalogo.tests.test_indices_busqueda \
-            modulo_catalogo.tests.test_revision_carga \
+            modulo_catalogo.tests.test_carga_compilacion modulo_catalogo.tests.test_revision_carga \
             modulo_catalogo.tests.test_vigencia_normativa \
             modulo_catalogo.tests.test_lectura_normativa \
             modulo_catalogo.tests.test_algoritmos_normativos \
