@@ -1,9 +1,14 @@
+import { useState } from 'react'
 import normativaStyles from './Normativa.module.css'
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
 const ACCIONES = { nuevo: 'Nuevo', actualizar: 'Se actualizará', sin_cambios: 'Sin cambios de texto' }
 
 export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, onSeleccion, onConfirmar, onCancelar, enviando, onSeccion, onAlternativa }) {
+  const [vistaEfectos, setVistaEfectos] = useState({ revision: null, cantidad: 0 })
+  const efectos = revision.cambios_normativos || []
+  const visibles = vistaEfectos.revision === revision ? Math.min(vistaEfectos.cantidad, efectos.length) : 0
+  const mostrarEfectos = (cantidad) => setVistaEfectos({ revision, cantidad })
   const disposiciones = revision.disposiciones || []
   const completa = modo === 'completo'
   const pendientes = (revision.unidades_ambiguas || []).filter((u) => !u.seleccionada)
@@ -47,7 +52,13 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     {revision.metadatos && <p>Norma principal: {revision.metadatos.tipo_norma} {revision.metadatos.numero_norma} · Fecha: {revision.metadatos.fecha_norma || 'por verificar'}.</p>}
     {Boolean(revision.cambios_normativos?.length) && <section role="alert" aria-label="Afectaciones normativas detectadas">
       <h3>{revision.cambios_normativos.length} efectos normativos detectados</h3>
-      <ul>{revision.cambios_normativos.map((c, i) => <li key={i}>
+      <div className={styles.submitRow}>
+        {visibles < efectos.length && <button type="button" className={styles.btnSecondary} aria-expanded={visibles > 0} aria-controls="lista-efectos-normativos" onClick={() => mostrarEfectos(Math.min(visibles + 10, efectos.length))}>Ver más</button>}
+        {visibles < efectos.length && <button type="button" className={styles.btnSecondary} aria-controls="lista-efectos-normativos" onClick={() => mostrarEfectos(efectos.length)}>Ver todo</button>}
+        {visibles > 0 && <button type="button" className={styles.btnSecondary} aria-controls="lista-efectos-normativos" onClick={() => mostrarEfectos(0)}>Ocultar</button>}
+      </div>
+      {visibles > 0 && <p>Mostrando {visibles} de {efectos.length} efectos normativos.</p>}
+      <ul id="lista-efectos-normativos" hidden={visibles === 0}>{efectos.slice(0, visibles).map((c, i) => <li key={i}>
         <strong>{c.operacion.toUpperCase()}</strong> · Fuente: {c.norma_causante || revision.norma}, {c.disposicion_fuente || c.unidad_fuente} · {c.norma || 'Norma de este documento'} {c.unidad} · {c.alcance}
         {c.destino_catalogo && <p role="note">{c.destino_catalogo.mensaje}</p>}
         <blockquote>{c.cita}</blockquote>
