@@ -9,6 +9,9 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
   const efectos = revision.cambios_normativos || []
   const visibles = vistaEfectos.revision === revision ? Math.min(vistaEfectos.cantidad, efectos.length) : 0
   const mostrarEfectos = (cantidad) => setVistaEfectos({ revision, cantidad })
+  const [vistaArticulos, setVistaArticulos] = useState({ revision: null, cantidad: 0 })
+  const articulosVisibles = vistaArticulos.revision === revision ? Math.min(vistaArticulos.cantidad, revision.articulos.length) : 0
+  const mostrarArticulos = (cantidad) => setVistaArticulos({ revision, cantidad })
   const disposiciones = revision.disposiciones || []
   const completa = modo === 'completo'
   const pendientes = (revision.unidades_ambiguas || []).filter((u) => !u.seleccionada)
@@ -73,12 +76,21 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
           <td><details><summary>Ver disposición</summary><p style={{ whiteSpace: 'pre-wrap' }}>{d.texto}</p></details></td></tr>)}</tbody>
       </table></div>
     </section>}
+    <section aria-labelledby="comparacion-articulos-titulo">
+      <h3 id="comparacion-articulos-titulo">Comparación de artículos anteriores y nuevos</h3>
+      <p>{revision.articulos.length} artículos para revisar.</p>
+      <div className={styles.submitRow}>
+        {articulosVisibles < revision.articulos.length && <button type="button" className={styles.btnSecondary} aria-expanded={articulosVisibles > 0} aria-controls="lista-comparacion-articulos" onClick={() => mostrarArticulos(Math.min(articulosVisibles + 10, revision.articulos.length))}>Ver más</button>}
+        {articulosVisibles < revision.articulos.length && <button type="button" className={styles.btnSecondary} aria-controls="lista-comparacion-articulos" onClick={() => mostrarArticulos(revision.articulos.length)}>Ver todo</button>}
+        {articulosVisibles > 0 && <button type="button" className={styles.btnSecondary} aria-controls="lista-comparacion-articulos" onClick={() => mostrarArticulos(0)}>Ocultar</button>}
+      </div>
+      {articulosVisibles > 0 && <p>Mostrando {articulosVisibles} de {revision.articulos.length} artículos.</p>}
     {!completa && <div className={styles.submitRow}>
       <button type="button" className={styles.btnSecondary} onClick={() => onSeleccion(revision.articulos.map((a) => a.numero))}>Seleccionar todos</button>
       <button type="button" className={styles.btnSecondary} onClick={() => onSeleccion([])}>Quitar selección</button>
     </div>}
-    <div className={styles.reviewList}>
-      {revision.articulos.map((a) => <div key={a.numero} className={styles.reviewArticle}>
+    <div id="lista-comparacion-articulos" className={styles.reviewList} hidden={articulosVisibles === 0}>
+      {revision.articulos.slice(0, articulosVisibles).map((a) => <div key={a.numero} className={styles.reviewArticle}>
         <label>{!completa && <input type="checkbox" checked={seleccion.includes(a.numero)} onChange={() => toggle(a.numero)}
           aria-label={`Seleccionar artículo ${a.numero}`} />}
           <strong>{a.tipo_unidad && a.tipo_unidad !== 'articulo' ? 'Disp. ' : 'Art. '}{a.numero}</strong> · {a.titulo} <span>{ACCIONES[a.accion]}</span></label>
@@ -89,6 +101,7 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
         </details>
       </div>)}
     </div>
+    </section>
     {revision.sobrantes.length > 0 && <details className={styles.reviewMissing}>
       <summary>{revision.sobrantes.length} artículos anteriores ausentes del PDF · {completa ? 'se retirarán' : 'se conservarán'}</summary>
       <ul>{revision.sobrantes.map((a) => <li key={a.numero}>Art. {a.numero} · {a.titulo || 'Sin epígrafe'}</li>)}</ul>

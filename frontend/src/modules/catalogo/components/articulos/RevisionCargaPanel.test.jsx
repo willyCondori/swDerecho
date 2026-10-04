@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, cleanup } from '@testing-library/react'
+import { fireEvent, render, screen, cleanup, within } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import RevisionCargaPanel from './RevisionCargaPanel'
 
@@ -16,6 +16,7 @@ it('distingue retirar del catálogo de derogar y permite elegir el modo completo
   expect(screen.getByText(/Una ausencia en el PDF no significa derogación/)).toBeTruthy()
   fireEvent.click(screen.getByRole('radio', { name: /Reemplazar archivo completo/ }))
   expect(onModo).toHaveBeenCalledWith('completo')
+  fireEvent.click(within(screen.getByRole('region', { name: 'Comparación de artículos anteriores y nuevos' })).getByRole('button', { name: 'Ver todo' }))
   expect(screen.getByRole('checkbox', { name: 'Seleccionar artículo 1' }).checked).toBe(true)
   expect(screen.getByRole('checkbox', { name: 'Seleccionar artículo 2' }).checked).toBe(false)
 })
@@ -41,6 +42,7 @@ it('muestra la norma causante, la disposición exacta y el aviso de destino ause
     disposicion_fuente: 'disposición final tercera', cita: 'Queda abrogada la Ley 11080.',
     destino_catalogo: { encontrado: false, mensaje: 'Solo aviso: la norma no está cargada.' } }] }}
     modo="articulos" onModo={vi.fn()} seleccion={['1']} onSeleccion={vi.fn()} onConfirmar={vi.fn()} onCancelar={vi.fn()} />)
+  fireEvent.click(within(screen.getByRole('alert', { name: 'Afectaciones normativas detectadas' })).getByRole('button', { name: 'Ver todo' }))
   expect(screen.getByText(/Fuente: Ley 2298, disposición final tercera/)).toBeTruthy()
   expect(screen.getByText('Solo aviso: la norma no está cargada.')).toBeTruthy()
   expect(screen.getByText(/Cargar el PDF no confirma derogaciones ni abrogaciones/)).toBeTruthy()
@@ -55,6 +57,7 @@ it('separa las disposiciones en tabla y permite cargarlas sin seleccionar artíc
   render(<RevisionCargaPanel revision={datos} modo="articulos" seleccion={[]} onModo={vi.fn()}
     onSeleccion={vi.fn()} onConfirmar={vi.fn()} onCancelar={vi.fn()} />)
   expect(screen.getByRole('table')).toBeTruthy()
+  fireEvent.click(within(screen.getByRole('alert', { name: 'Afectaciones normativas detectadas' })).getByRole('button', { name: 'Ver todo' }))
   expect(screen.getByRole('alert', { name: 'Afectaciones normativas detectadas' }).textContent).toContain('Parágrafo III')
   expect(screen.queryByRole('checkbox', { name: 'Seleccionar artículo DD ÚNICA' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Confirmar 0 artículos y 1 disposiciones' }).disabled).toBe(false)
