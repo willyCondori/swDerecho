@@ -118,3 +118,44 @@ class NormativaEndpointsTests(APITestCase):
         self.assertEqual(elegido.status_code, 200, elegido.data)
         self.assertIn('Versión nueva', elegido.data['articulos'][0]['texto_nuevo'])
         self.assertFalse(cache.get('revision_carga_pdf:' + elegido.data['revision_token'])['ambiguedades_pendientes'])
+
+    @patch('modulo_catalogo.services.pdf_normativo_service.leer_pdf')
+    def test_extracto_anexo_impide_reemplazar_norma_completa(self, lectura):
+        from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
+        from modulo_catalogo.views.revision_carga_view import validar_revision
+        from rest_framework.exceptions import ValidationError
+        lectura.return_value = ('LEY N° 100\nARTÍCULO 1. Objeto de norma principal.\nLEY N° 1333\nARTÍCULO 104. Delito ambiental.', [])
+        parametros = {'archivo': self.archivo(), 'rama_id': self.rama.pk, 'nombre_documento': 'Ley 1333', 'motor_lectura': 'clasico', 'seccion_documento': '1'}
+        resp = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['fragmento_normativo'])
+        parametros.update(archivo=self.archivo(), revision_token=resp.data['revision_token'], modo_actualizacion='completo')
+        serializer = CargaArticulosPDFSerializer(data=parametros, context={'solo_revision': True})
+        serializer.is_valid(raise_exception=True)
+        with self.assertRaisesMessage(ValidationError, 'extracto'):
+            validar_revision(serializer.validated_data, self.abogado.pk)
+
+    @patch('modulo_catalogo.services.pdf_normativo_service.leer_pdf')
+    def test_extracto_modificatorio_requiere_identificar_norma_destinataria(self, lectura):
+        import json
+        lectura.return_value = ('LEY N° 100\nARTÍCULO 1. Objeto principal.\nLEY N° 1582\nMODIFICACIÓN DE LA LEY DE PENSIONES\nARTÍCULO 119. Delito de pensiones.', [])
+        parametros = {'archivo': self.archivo(), 'rama_id': self.rama.pk, 'nombre_documento': 'Ley 1582', 'motor_lectura': 'clasico', 'seccion_documento': '1'}
+        resp = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertTrue(resp.data['identidad_por_verificar'])
+        parametros.update(archivo=self.archivo(), nombre_documento='Ley de Pensiones', metadatos=json.dumps({'tipo_norma': 'Ley', 'numero_norma': '065', 'fecha_norma': '2010-12-10'}))
+        resp = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertFalse(resp.data['identidad_por_verificar'])
+        self.assertEqual(resp.data['metadatos']['numero_norma'], '065')
+        self.assertEqual(resp.data['seccion_activa'], '1')
+
+    def test_lista_normas_devuelve_ramas_asociadas_sin_duplicar(self):
+        from modulo_catalogo.models import Articulo
+        norma = Norma.objects.create(nombre='Norma con rama asociada')
+        Articulo.objects.create(norma=norma, rama=self.rama, numero_articulo='1', contenido='Texto primero')
+        Articulo.objects.create(norma=norma, rama=self.rama, numero_articulo='2', contenido='Texto segundo')
+        resp = self.client.get('/api/catalogo/normas/lista/')
+        self.assertEqual(resp.status_code, 200)
+        dato = next(n for n in resp.data if n['id'] == norma.pk)
+        self.assertEqual(dato['ramas'], [{'id': self.rama.pk, 'nombre': self.rama.nombre}])

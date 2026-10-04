@@ -280,3 +280,46 @@ revisión de sus destinos. Las referencias a sentencias constitucionales y autos
 aclaratorios tienen un aviso específico; no se convierten en derogación legislativa.
 El contador de unidades con indicación de derogación reconoce las notas situadas
 inmediatamente después del título. Todo efecto continúa requiriendo confirmación.
+
+
+### Anexos del PDF SEGIP y notas históricas
+
+La revisión distingue la norma principal de las normas anexas y conserva el PDF
+original. El SEGIP de prueba contiene seis secciones: Código Penal, Ley 1333,
+el bloque titulado Ley 1582 (pensiones), Ley 1008, Ley 026 y Ley 2492.
+Los anexos contienen extractos; se cargan como normas independientes por
+confirmación del usuario, una sección por carga, con actualización selectiva.
+Un extracto no puede retirar los artículos ausentes de la norma completa.
+
+El bloque de pensiones tiene un encabezado modificatorio: hay que verificar la
+norma destinataria, su número y fecha desde el panel antes de cargar los
+artículos 119 y 120. Una nota «Incorporado por Ley…» dentro del Código Penal
+no crea una norma nueva ni desplaza el artículo fuera del código.
+
+Para notas históricas de incorporación o modificación, el alcance se extrae
+exclusivamente de la nota editorial. Así, la referencia al numeral 1 en el cuerpo
+del artículo 350 Bis no se interpreta como una incorporación parcial.
+El artículo 10 de la Ley 700 incorpora los artículos 350 Bis y 350 Ter completos:
+https://www.fiscalia.gob.bo/marco-legal/leyes/ley-n-700
+Estas notas se muestran como antecedentes históricos de la versión del PDF,
+sin anunciar una nueva reforma pendiente ni cambiar la vigencia jurídica.
+Las derogaciones y abrogaciones expresas mantienen su flujo de verificación.
+
+El resumen distingue artículos guardados, disposiciones guardadas en su tabla
+propia y normas procesadas frente a secciones normativas detectadas en el PDF.
+También lista las normas nuevas realmente creadas o la norma existente reutilizada.
+El Código Penal principal de este PDF tiene 448 artículos y cero disposiciones
+finales separadas: los artículos 364 y 365 permanecen como artículos.
+Los capítulos estructuran el documento; no se contabilizan como normas creadas.
+
+### Borrador de carga y rama de derecho
+
+El formulario, el File del PDF, el modo de actualización y la selección de artículos
+se conservan en memoria al navegar a otra pantalla y volver, dentro de la misma
+sesión. Limpiar, iniciar una carga aceptada o cambiar de usuario descarta el borrador.
+No persiste al recargar el navegador ni al cerrar la sesión.
+La revisión en curso continúa usando su recuperación de progreso independiente.
+
+El listado de normas devuelve sus ramas activas asociadas a artículos activos o
+PDF vigentes. Elegir una norma con una sola rama completa el campo automáticamente.
+Si no tiene rama conocida o tiene varias, el usuario debe seleccionar la rama.

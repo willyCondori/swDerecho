@@ -127,6 +127,17 @@ class IndiceDeCargasActivasTests(CargasActivasBase):
         # El resultado sigue disponible por task_id, como antes.
         self.assertEqual(obtener_progreso(task_id)["meta"]["resumen"], {"insertados": 3})
 
+    def test_resultado_identifica_norma_creada_o_reutilizada(self):
+        for creada in [True, False]:
+            carga = CargaFalsa()
+            task_id = self.lanzar(carga, norma_creada=creada)
+            carga.soltar.set()
+            self.assertTrue(esperar(lambda: obtener_progreso(task_id)['state'] == 'SUCCESS'))
+            resumen = obtener_progreso(task_id)['meta']['resumen']
+            esperada = [{'id': 1, 'nombre': 'Código Penal'}]
+            self.assertEqual(resumen['normas_creadas'], esperada if creada else [])
+            self.assertEqual(resumen['normas_reutilizadas'], [] if creada else esperada)
+
     def test_carga_que_falla_sale_de_las_activas(self):
         carga = CargaFalsa(falla=True)
         task_id = self.lanzar(carga)

@@ -84,3 +84,15 @@ it('las versiones repetidas requieren elegir una alternativa antes de reemplazar
   expect(screen.getByText('Texto anterior íntegro')).toBeTruthy()
   expect(screen.getByText('Texto nuevo íntegro')).toBeTruthy()
 })
+
+it('permite identificar el destinatario de un extracto sin habilitar reemplazo completo', () => {
+  const onIdentidad = vi.fn()
+  render(<RevisionCargaPanel revision={{ ...revision, fragmento_normativo: true, identidad_por_verificar: true }} modo="articulos" seleccion={['1']} onIdentidad={onIdentidad} />)
+  expect(screen.getByRole('radio', { name: /Reemplazar archivo completo/ }).disabled).toBe(true)
+  expect(screen.getByRole('button', { name: 'Confirmar 1 artículos' }).disabled).toBe(true)
+  fireEvent.change(screen.getByLabelText('Nombre de la norma destinataria'), { target: { value: 'Ley de Pensiones' } })
+  fireEvent.change(screen.getByLabelText('Número legal de la norma destinataria'), { target: { value: '065' } })
+  fireEvent.change(screen.getByLabelText('Fecha de la norma destinataria'), { target: { value: '2010-12-10' } })
+  fireEvent.click(screen.getByRole('button', { name: 'Revisar extracto con esta identidad' }))
+  expect(onIdentidad).toHaveBeenCalledWith({ nombre: 'Ley de Pensiones', numero: '065', fecha: '2010-12-10' })
+})

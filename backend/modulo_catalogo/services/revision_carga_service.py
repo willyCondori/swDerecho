@@ -132,6 +132,8 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
             DocumentoNorma.objects.filter(norma=norma, rama=rama, vigente=True).exclude(pk=fuente.pk).update(vigente=False)
         guardar_disposiciones(fuente, disposiciones)
         analisis = fuente.analisis_normativo
+        resultado.revision['normas_detectadas'] = len(analisis.get('secciones') or [None])
+        resultado.revision['normas_guardadas'] = 1
         cambios = [c for c in analisis.get('cambios', [])
                    if numero_clave(c['unidad_fuente']) in {numero_clave(a['numero']) for a in elegidos + disposiciones}]
         registrar_cambios(fuente, elegidos + disposiciones, cambios, fuente.metadatos)

@@ -6,9 +6,11 @@
    * drag & drop, validación y limpieza. Mantiene el componente de
    * página libre de este detalle de implementación.
    */
-  export function useArchivoPdf() {
+  export function useArchivoPdf(control = {}) {
     const fileInputRef = useRef(null)
-    const [archivo, setArchivo] = useState(null)
+    const [archivoInterno, setArchivoInterno] = useState(null)
+    const archivo = control.onArchivo ? control.archivo : archivoInterno
+    const setArchivo = control.onArchivo || setArchivoInterno
     const [dragOver, setDragOver] = useState(false)
     const [error, setError] = useState(null)
 
@@ -21,13 +23,13 @@
       }
       setError(null)
       setArchivo(file)
-    }, [])
+    }, [setArchivo])
 
     const remover = useCallback(() => {
       setArchivo(null)
       setError(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
-    }, [])
+    }, [setArchivo])
 
     const handleDrop = useCallback((e) => {
       e.preventDefault()

@@ -35,3 +35,10 @@ it('conserva el motivo específico de una referencia judicial o histórica', () 
   expect(screen.getByRole('note').textContent).toContain('Referencia judicial')
   expect(screen.getByRole('note').textContent).not.toContain('Cláusula general')
 })
+
+it('presenta incorporaciones históricas como nota de la versión, sin pedir aplicar otra reforma', () => {
+  render(<AvisosVigencia avisos={[{ id: 6, nota_historica: true, operacion: 'incorpora', estado: 'pendiente', mensaje: 'Nota histórica: incorporado por Ley 700.', parte_afectada: { tipo: 'parcial', descripcion: 'Numeral 1' } }]} />)
+  expect(screen.getByRole('note').textContent).toContain('Nota histórica de la versión del PDF')
+  expect(screen.getByRole('note').textContent).not.toContain('Revisión pendiente')
+  expect(screen.getByRole('note').textContent).not.toContain('Numeral 1')
+})

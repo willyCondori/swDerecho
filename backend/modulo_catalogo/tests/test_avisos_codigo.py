@@ -91,3 +91,10 @@ class SufijosParenteticosTests(SimpleTestCase):
                   'texto': 'ÚNICA. Se deroga el Artículo 129 (Bis) del Código Penal.'}
         for detector in [detectar_cambios, detectar_cambios_literales]:
             self.assertEqual([c['unidad'] for c in detector([unidad])], ['129 BIS'])
+
+    def test_cabecera_quater_acentuado_se_reconstruye(self):
+        from modulo_catalogo.services.lectura_normativa_service import extraer_unidades
+        for motor in ['clasico', 'qwen']:
+            with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}):
+                u = extraer_unidades('Artículo 177. Quáter (Alteración). Texto del primer delito.\nArtículo 181. Bis. Texto de otro delito.', motor)
+                self.assertEqual([x['numero'].casefold() for x in u], ['177 quater', '181 bis'])

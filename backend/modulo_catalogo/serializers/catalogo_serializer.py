@@ -139,13 +139,18 @@ class NormaSerializer(AvisosNormaMixin, serializers.ModelSerializer):
 
 
 class NormaListSerializer(AvisosNormaMixin, serializers.ModelSerializer):
+    ramas = serializers.SerializerMethodField()
+
+    def get_ramas(self, obj):
+        return self.context.get('ramas_por_norma', {}).get(obj.pk, [])
+
     avisos_vigencia = serializers.SerializerMethodField()
     estado_vigencia = serializers.SerializerMethodField()
     jerarquia = JerarquiaListSerializer(read_only=True)
 
     class Meta:
         model  = Norma
-        fields = ["id", "nombre", "sigla", "jerarquia", "tipo_norma", "numero_norma", "fecha_norma", "fecha_publicacion", "avisos_vigencia", "estado_vigencia"]
+        fields = ["id", "nombre", "sigla", "jerarquia", "ramas", "tipo_norma", "numero_norma", "fecha_norma", "fecha_publicacion", "avisos_vigencia", "estado_vigencia"]
 
 
 # ---------------------------------------------------------------------------

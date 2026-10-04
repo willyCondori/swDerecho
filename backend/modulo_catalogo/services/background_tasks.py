@@ -171,9 +171,14 @@ def lanzar_carga_en_background(
                 sobrescribir=sobrescribir,
                 **opciones_revision,
             )
+            resumen = resultado.resumen()
+            if info and 'norma_creada' in info:
+                norma_resultado = {'id': norma_id, 'nombre': info.get('nombre_documento') or resumen.get('norma')}
+                resumen['normas_creadas'] = [norma_resultado] if info['norma_creada'] else []
+                resumen['normas_reutilizadas'] = [] if info['norma_creada'] else [norma_resultado]
             cache.set(
                 CACHE_PREFIX + task_id,
-                {"state": "SUCCESS", "meta": {"resumen": resultado.resumen()}},
+                {"state": "SUCCESS", "meta": {"resumen": resumen}},
                 timeout=CACHE_TTL_SEGUNDOS,
             )
             if on_exito is not None:

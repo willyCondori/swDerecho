@@ -229,3 +229,15 @@ class VigenciaNormativaTests(TestCase):
         self.assertIn('norma causante por verificar', aviso(c)['mensaje'])
         with self.assertRaisesMessage(ValueError, 'Identifica la norma causante'):
             confirmar(c, self.datos_revision(), self.usuario)
+
+    def test_nota_de_incorporacion_no_toma_numeral_del_cuerpo_como_alcance(self):
+        self.doc.norma = self.base
+        self.doc.save(update_fields=['norma'])
+        self.articulo.contenido = 'Artículo 25. Tratos crueles.\nI. Delito.\n1. Conducta penal.\nII. Referencia al numeral 1.\nIncorporado por disposición del Art. 10 de la Ley N° 700 de 1 de junio de 2015.'
+        self.articulo.save()
+        c = self.registrar(operacion='incorpora', origen='nota_editorial', norma='', unidad='25',
+                          causante='Ley 700', fecha_causante='2015-06-01', cita=self.articulo.contenido)
+        self.assertEqual(c.referencia['parte_afectada']['tipo'], 'total')
+        self.assertTrue(aviso(c)['nota_historica'])
+        self.assertIn('Nota histórica', aviso(c)['mensaje'])
+        self.assertNotIn('pendiente de verificación', aviso(c)['mensaje'])

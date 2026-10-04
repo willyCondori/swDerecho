@@ -4,6 +4,7 @@ import re
 import unicodedata
 from datetime import date
 
+from .notas_normativas_service import evidencia_de_alcance
 from django.db import transaction
 from django.utils import timezone
 from modulo_catalogo.models import Articulo, Norma, CambioNormativo, VersionArticulo
@@ -100,6 +101,11 @@ def conservar_version(articulo):
 
 def aviso(cambio):
     ref = cambio.referencia
+    if cambio.origen == 'nota_editorial' and cambio.operacion in ['modifica', 'incorpora']:
+        from .alcance_normativo_service import identificar_parte
+        parte = identificar_parte(evidencia_de_alcance(cambio.cita, cambio.origen, cambio.operacion), 'total',
+                                  cambio.articulo_afectado, cambio.operacion, ref.get('unidad', ''))
+        ref = {**ref, 'parte_afectada': parte, 'alcance': parte['descripcion'] if parte['tipo'] == 'parcial' else 'total'}
     parcial = ref.get('alcance', '')
     sujeto = 'Esta norma' if not cambio.articulo_afectado_id else (
         f"Esta disposición ({cambio.articulo_afectado.numero_articulo})"
@@ -127,8 +133,11 @@ def aviso(cambio):
         descripcion = (f'Regla de vigencia o plazo de {causante}. No confirma una derogación concreta.'
                        if cambio.operacion == 'temporal' else
                        f'Aviso para revisión de {causante}: {parcial}. No confirma una derogación concreta.')
+    historica = cambio.origen == 'nota_editorial' and cambio.operacion in ['modifica', 'incorpora']
+    if historica:
+        descripcion = f'Nota histórica: artículo {ref.get("unidad")} {"incorporado" if cambio.operacion == "incorpora" else "modificado"} por {causante}. Fecha: {fecha_norma.isoformat() if fecha_norma else "por verificar"}. El PDF ya incluye el texto reproducido; esta nota no indica una derogación ni una nueva reforma pendiente de aplicar.'
     destino = evaluar_destino({**ref, 'operacion': cambio.operacion, 'origen': cambio.origen}, cambio.fuente.norma)
-    return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision,
+    return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision, 'nota_historica': historica,
             'destino_catalogo': destino,
             'mensaje': descripcion, 'norma_causante': causante,
             'unidad_fuente': cambio.unidad_fuente, 'disposicion_fuente': describir_unidad_fuente(cambio.unidad_fuente),
@@ -180,7 +189,7 @@ def registrar_cambios(documento, unidades, cambios, metadatos):
             f"{metadatos.get('tipo_norma', '')} {metadatos.get('numero_norma', '')}".strip() or documento.norma.nombre)
         fechac = fecha(c.get('fecha_causante')) if c['origen'] == 'nota_editorial' else fecha(metadatos.get('fecha_norma'))
         from .alcance_normativo_service import identificar_parte
-        parte = identificar_parte(c['cita'], c['alcance'], articulo, c['operacion'], numero)
+        parte = identificar_parte(evidencia_de_alcance(c['cita'], c['origen'], c['operacion']), c['alcance'], articulo, c['operacion'], numero)
         referencia = {'norma': c['norma'], 'unidad': numero, 'alcance': parte['descripcion'] if parte['tipo'] == 'parcial' else c['alcance'], 'parte_afectada': parte}
         digest = hashlib.sha256(json.dumps([documento.pk, c], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
         CambioNormativo.objects.get_or_create(huella=digest, defaults={
@@ -200,7 +209,7 @@ def registrar_cambios(documento, unidades, cambios, metadatos):
             evento.norma_afectada = objetivo
             evento.articulo_afectado = articulo
             from .alcance_normativo_service import identificar_parte
-            evento.referencia = {**ref, 'parte_afectada': identificar_parte(evento.cita, ref.get('alcance', ''), articulo, evento.operacion, ref.get('unidad', ''))}
+            evento.referencia = {**ref, 'parte_afectada': identificar_parte(evidencia_de_alcance(evento.cita, evento.origen, evento.operacion), 'total' if evento.origen == 'nota_editorial' and evento.operacion in ['modifica', 'incorpora'] else ref.get('alcance', ''), articulo, evento.operacion, ref.get('unidad', ''))}
             evento.save(update_fields=['norma_afectada', 'articulo_afectado', 'referencia'])
             afectadas.add(objetivo.pk)
     afectadas.update(CambioNormativo.objects.filter(fuente=documento, norma_afectada__isnull=False)
@@ -251,7 +260,7 @@ def confirmar(cambio, datos, usuario):
             raise ValueError('La norma o unidad afectada todavía no tiene una coincidencia inequívoca en el catálogo.')
         from .alcance_normativo_service import identificar_parte, fragmento_literal
         ref = dict(cambio.referencia)
-        parte = identificar_parte(cambio.cita, ref.get('alcance', ''), cambio.articulo_afectado, cambio.operacion, ref.get('unidad', ''))
+        parte = identificar_parte(evidencia_de_alcance(cambio.cita, cambio.origen, cambio.operacion), 'total' if cambio.origen == 'nota_editorial' and cambio.operacion in ['modifica', 'incorpora'] else ref.get('alcance', ''), cambio.articulo_afectado, cambio.operacion, ref.get('unidad', ''))
         if parte['tipo'] == 'parcial' and datos.get('fragmento_afectado'):
             fragmento = fragmento_literal(cambio.articulo_afectado.contenido if cambio.articulo_afectado else '', datos['fragmento_afectado'])
             if fragmento and fragmento.strip() == cambio.articulo_afectado.contenido.strip():

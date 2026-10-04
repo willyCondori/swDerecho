@@ -1,3 +1,4 @@
+import re
 import hashlib
 import uuid
 
@@ -38,6 +39,10 @@ def validar_revision(data, usuario_id):
     if huella_catalogo(filas_actuales(data['norma'].pk if data.get('norma') else None,
                                     data['rama'].pk)) != revision['huella']:
         raise ValidationError({'revision_token': 'El catálogo cambió. Vuelve a revisar el PDF.'})
+    if revision.get('identidad_por_verificar'):
+        raise ValidationError({'metadatos': 'Verifica la identidad de la ley modificada y revisa nuevamente el extracto antes de cargar.'})
+    if data.get('modo_actualizacion') == 'completo' and revision.get('fragmento_normativo'):
+        raise ValidationError({'modo_actualizacion': 'Un extracto no puede reemplazar la norma completa. Usa artículos seleccionados.'})
     if data.get('modo_actualizacion') == 'completo' and revision.get('ambiguedades_pendientes'):
         raise ValidationError({'variantes_unidades': 'Revisa las alternativas del PDF antes de reemplazar el catálogo completo.'})
     seleccion = data.get('articulos_seleccionados', [])
@@ -79,6 +84,12 @@ class RevisionCargaPDFView(APIView):
                 advertencias.append('Hay unidades con versiones o textos distintos. Revisa sus alternativas; las no resueltas no se importarán ni generarán efectos normativos.')
             from modulo_catalogo.services.disposiciones_service import separar_unidades
             articulos, disposiciones = separar_unidades(articulos)
+            fragmento = len(secciones) > 1 and seccion['id'] != '0' and bool(articulos) and articulos[0]['numero'].strip().upper() not in ['1', 'ÚNICO', 'UNICO']
+            if fragmento:
+                advertencias.append('Esta sección contiene un extracto de otra norma, no su texto completo. Confirma su identidad y carga solo sus artículos; no reemplaces el catálogo completo.')
+            identidad_por_verificar = fragmento and bool(re.search(r'MODIFICACI[ÓO]N\s+DE\s+LA\s+LEY', texto[:700], re.I)) and not data.get('metadatos', {}).get('numero_norma')
+            if identidad_por_verificar:
+                advertencias.append('El encabezado cita una ley modificatoria, pero los artículos pueden pertenecer a la ley modificada. Verifica nombre, número y fecha de la norma destinataria en la revisión del extracto antes de cargar.')
             unidades_importadas = articulos + disposiciones
             from modulo_catalogo.services.algoritmos_normativos_service import detectar_cambios_literales, extraer_metadatos_literales
             cambios = detectar_cambios(unidades_importadas, progreso) if motor == 'qwen' else detectar_cambios_literales(unidades_importadas, progreso)
@@ -111,12 +122,12 @@ class RevisionCargaPDFView(APIView):
                                   'destino': datos_destino(data), 'huella': huella_catalogo(filas),
                                   'articulos': unidades_importadas, 'cambios': cambios, 'metadatos': metadatos,
                                   'motor': motor, 'documento_oficial_id': data.get('documento_oficial_id'),
-                                  'seccion': seccion, 'secciones': secciones,
+                                  'seccion': seccion, 'secciones': secciones, 'fragmento_normativo': fragmento, 'identidad_por_verificar': identidad_por_verificar,
                                   'ambiguedades_pendientes': any(not u['seleccionada'] for u in ambiguas)}, timeout=7200)
         from modulo_catalogo.services.vigencia_service import preparar_avisos_revision
         avisos_revision = preparar_avisos_revision(cambios, metadatos, data.get('norma'),
             data['norma'].nombre if data.get('norma') else data['nombre_documento'])
         return Response({'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
-                         'secciones_documento': secciones, 'seccion_activa': seccion['id'], 'unidades_ambiguas': ambiguas,
+                         'secciones_documento': secciones, 'seccion_activa': seccion['id'], 'fragmento_normativo': fragmento, 'identidad_por_verificar': identidad_por_verificar, 'unidades_ambiguas': ambiguas,
                          'disposiciones': disposiciones, 'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
                          **comparar_articulos(articulos, filas)})

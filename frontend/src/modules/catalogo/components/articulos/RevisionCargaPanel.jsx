@@ -4,7 +4,8 @@ import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
 const ACCIONES = { nuevo: 'Nuevo', actualizar: 'Se actualizará', sin_cambios: 'Sin cambios de texto' }
 
-export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, onSeleccion, onConfirmar, onCancelar, enviando, onSeccion, onAlternativa }) {
+export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, onSeleccion, onConfirmar, onCancelar, enviando, onSeccion, onAlternativa, onIdentidad }) {
+  const [identidad, setIdentidad] = useState({ nombre: '', numero: '', fecha: '' })
   const [vistaEfectos, setVistaEfectos] = useState({ revision: null, cantidad: 0 })
   const efectos = revision.cambios_normativos || []
   const visibles = vistaEfectos.revision === revision ? Math.min(vistaEfectos.cantidad, efectos.length) : 0
@@ -26,6 +27,14 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
         {revision.secciones_documento.map((s) => <option key={s.id} value={s.id}>{s.titulo || revision.norma}</option>)}
       </select></label>
     </section>}
+    {revision.identidad_por_verificar && <fieldset>
+      <legend>Identificar la norma destinataria del extracto</legend>
+      <p>El título puede corresponder a una ley modificatoria. Contrasta la norma a la que pertenecen estos artículos con la fuente antes de continuar.</p>
+      <label>Nombre de la norma destinataria <input value={identidad.nombre} onChange={(e) => setIdentidad({ ...identidad, nombre: e.target.value })} disabled={enviando} /></label>
+      <label>Número legal de la norma destinataria <input value={identidad.numero} onChange={(e) => setIdentidad({ ...identidad, numero: e.target.value })} disabled={enviando} /></label>
+      <label>Fecha de la norma destinataria <input type="date" value={identidad.fecha} onChange={(e) => setIdentidad({ ...identidad, fecha: e.target.value })} disabled={enviando} /></label>
+      <button type="button" disabled={enviando || !identidad.nombre.trim() || !identidad.numero.trim() || !identidad.fecha} onClick={() => onIdentidad?.(identidad)}>Revisar extracto con esta identidad</button>
+    </fieldset>}
     {(revision.unidades_ambiguas || []).map((u) => <fieldset key={u.clave} aria-label={`Alternativas de ${u.numero}`}>
       <legend>{u.tipo_unidad === 'articulo' ? 'Artículo' : 'Disposición'} {u.numero}: textos distintos en el PDF</legend>
       <p>Compara las versiones con el original. Solo se importará la alternativa que selecciones.</p>
@@ -38,13 +47,15 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     {pendientes.length > 0 && <p role="alert">Hay {pendientes.length} unidades pendientes de revisión. No se puede reemplazar el catálogo completo hasta resolverlas.</p>}
     <fieldset className={styles.modeOptions}>
       <legend>Cómo aplicar este PDF</legend>
-      <label><input type="radio" name="modoActualizacion" checked={completa} onChange={() => onModo('completo')} />
+      <label><input type="radio" name="modoActualizacion" disabled={revision.fragmento_normativo || revision.identidad_por_verificar} checked={completa} onChange={() => onModo('completo')} />
         <strong>Reemplazar archivo completo</strong><span>El catálogo activo de esta norma y rama quedará basado en este PDF.
         Los artículos ausentes se retirarán y el PDF anterior quedará como historial.</span></label>
       <label><input type="radio" name="modoActualizacion" checked={!completa} onChange={() => onModo('articulos')} />
         <strong>Actualizar artículos seleccionados</strong><span>Elige los artículos que se añadirán o actualizarán.
         Los demás conservarán su contenido y su PDF fuente.</span></label>
     </fieldset>
+    <p>{revision.secciones_documento?.length || 1} normas identificadas en el PDF · 1 norma seleccionada · {disposiciones.length} disposiciones para guardar.</p>
+    {revision.fragmento_normativo && <p role="note">Esta sección es un extracto. Se guardará en su norma propia; usa actualización de artículos seleccionados. Los demás artículos se conservan.</p>}
     <p role="status" className={styles.reviewSummary}>
       {contar('actualizar')} por actualizar · {contar('nuevo')} nuevos · {contar('sin_cambios')} sin cambios de texto
       {completa && ` · ${revision.sobrantes.length} retirados del catálogo activo`}
@@ -108,7 +119,7 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     </details>}
     <div className={styles.submitRow}>
       <button type="button" className={styles.btnSecondary} disabled={enviando} onClick={onCancelar}>Volver al formulario</button>
-      <button type="button" className={styles.btnPrimary} disabled={enviando || (completa && pendientes.length > 0) || (!elegidos.length && !disposiciones.length)} onClick={onConfirmar}>
+      <button type="button" className={styles.btnPrimary} disabled={enviando || revision.identidad_por_verificar || (completa && revision.fragmento_normativo) || (completa && pendientes.length > 0) || (!elegidos.length && !disposiciones.length)} onClick={onConfirmar}>
         {enviando ? 'Enviando…' : completa ? 'Confirmar reemplazo completo' : `Confirmar ${elegidos.length} artículos${disposiciones.length ? ` y ${disposiciones.length} disposiciones` : ''}`}
       </button>
     </div>

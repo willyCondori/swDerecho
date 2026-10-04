@@ -20,6 +20,11 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         </div>
       </div>
 
+      {resumen.normas_creadas?.length > 0 && <section role="status" aria-label="Normas nuevas creadas">
+        <h3>Normas nuevas creadas ({resumen.normas_creadas.length})</h3>
+        <ul>{resumen.normas_creadas.map((n) => <li key={n.id}>{n.nombre}</li>)}</ul>
+      </section>}
+      {resumen.normas_reutilizadas?.length > 0 && <p role="status">Normas existentes reutilizadas: {resumen.normas_reutilizadas.map((n) => n.nombre).join(', ')}. No se crearon normas nuevas en esta carga.</p>}
       {resumen.revision && <p className={styles.reviewSummary}>
         {resumen.revision.actualizar} artículos actualizados · {resumen.revision.nuevo} nuevos ·
         {' '}{resumen.revision.retirados} retirados del catálogo activo ·
@@ -31,11 +36,19 @@ export default function ResultSummary({ resumen, onReiniciar }) {
       <div className={styles.statsGrid}>
         <div className={styles.statBox}>
           <p className={styles.statValue}>{resumen.total_encontrados}</p>
-          <p className={styles.statLabel}>Encontrados</p>
+          <p className={styles.statLabel}>Artículos encontrados</p>
         </div>
         <div className={styles.statBox}>
           <p className={`${styles.statValue} ${styles.green}`}>{resumen.guardados}</p>
-          <p className={styles.statLabel}>Guardados</p>
+          <p className={styles.statLabel}>Artículos guardados</p>
+        </div>
+        <div className={styles.statBox}>
+          <p className={styles.statValue}>{resumen.revision?.disposiciones || 0}</p>
+          <p className={styles.statLabel}>Disposiciones guardadas</p>
+        </div>
+        <div className={styles.statBox}>
+          <p className={styles.statValue}>{resumen.revision?.normas_guardadas ?? 1} de {resumen.revision?.normas_detectadas ?? 1}</p>
+          <p className={styles.statLabel}>Normas del PDF procesadas en esta carga</p>
         </div>
         <div className={styles.statBox}>
           <p className={`${styles.statValue} ${styles.amber}`}>{resumen.duplicados}</p>

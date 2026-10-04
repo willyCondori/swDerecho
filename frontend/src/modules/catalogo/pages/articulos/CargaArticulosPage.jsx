@@ -1,9 +1,10 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useRevisionPdf } from '../../hooks/useRevisionPdf'
 import GacetaPanel from '../../components/articulos/GacetaPanel'
 import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
+import { useBorradorCarga } from '../../hooks/useBorradorCarga'
 import { useArchivoPdf } from '../../hooks/useArchivoPdf'
 import { validarFormulario } from '../../utils/validation'
 import FileDropzone from '../../components/articulos/FileDropzone'
@@ -38,20 +39,25 @@ export default function CargaArticulosPage() {
     cargaRetomada, otrasCargas, verificandoCargas,
   } = useCargaArticulos()
 
+  const { borrador, actualizar: actualizarBorrador, limpiar: limpiarBorrador } = useBorradorCarga(FORM_INICIAL)
+  const setArchivoBorrador = useCallback((archivo) => actualizarBorrador({ archivo }), [actualizarBorrador])
   const {
     fileInputRef, archivo, dragOver, error: archivoError,
     seleccionar, remover, handleDrop, handleDragOver, handleDragLeave, abrirSelector,
-  } = useArchivoPdf()
+  } = useArchivoPdf({ archivo: borrador.archivo, onArchivo: setArchivoBorrador })
 
-  const [form, setForm] = useState(FORM_INICIAL)
+  const form = borrador.form
+  const setForm = (valor) => actualizarBorrador((b) => ({ form: typeof valor === 'function' ? valor(b.form) : valor }))
   const [fieldErrors, setFieldErrors] = useState({})
   const { revision, revisando, pasoRevision, errorRevision, documento: documentoRevision, revisarPdf, limpiarRevision } = useRevisionPdf()
   const [revisionRetomada, setRevisionRetomada] = useState(revisando)
-  const [modoActualizacion, setModoActualizacion] = useState('articulos')
-  const [seleccion, setSeleccion] = useState([])
+  const modoActualizacion = borrador.modo
+  const setModoActualizacion = (modo) => actualizarBorrador({ modo })
+  const seleccion = borrador.seleccion
+  const setSeleccion = (seleccion) => actualizarBorrador({ seleccion })
   useEffect(() => {
-    if (revision) setSeleccion(revision.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero))
-  }, [revision])
+    if (revision && borrador.revisionSeleccion !== revision) actualizarBorrador({ revisionSeleccion: revision, seleccion: revision.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero) })
+  }, [revision, borrador.revisionSeleccion, actualizarBorrador])
 
   const modoExistente = form.modo === 'existente'
   const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
@@ -62,7 +68,9 @@ export default function CargaArticulosPage() {
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    const elegida = name === 'normaId' ? normas.find((n) => String(n.id) === String(value)) : null
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value,
+      ...(name === 'normaId' ? { ramaId: elegida?.ramas?.length === 1 ? String(elegida.ramas[0].id) : '' } : {}) }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
   }
 
@@ -113,6 +121,7 @@ export default function CargaArticulosPage() {
     setForm(FORM_INICIAL)
     setFieldErrors({})
     limpiarRevision()
+    limpiarBorrador()
   }
 
   return (
@@ -242,6 +251,7 @@ export default function CargaArticulosPage() {
                 error={fieldErrors.ramaId}
                 fullWidth={modoExistente}
               />
+              {modoExistente && normaSeleccionada?.ramas?.length > 1 && <p>Esta norma está asociada a varias ramas. Selecciona la correspondiente a este documento.</p>}
             </div>
 
             <fieldset className={styles.modeOptions}>
@@ -284,6 +294,7 @@ export default function CargaArticulosPage() {
       {mostrandoFormulario && revision && <RevisionCargaPanel revision={revision} modo={modoActualizacion}
         onModo={setModoActualizacion} seleccion={seleccion} onSeleccion={setSeleccion} enviando={enviando}
         onCancelar={limpiarRevision} onSeccion={async (id) => {
+          setModoActualizacion('articulos')
           const seccion = revision.secciones_documento.find((s) => s.id === id)
           const clave = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
           const legal = /^(ley|decreto ley|decreto supremo|resolucion ministerial)[^\d]*(\d+)/.exec(clave(seccion.titulo))
@@ -294,12 +305,17 @@ export default function CargaArticulosPage() {
             normaId: destino?.id || null, nombreDocumento: seccion.titulo, sigla: '', documentoOficialId: null,
             jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
             metadatos: revision.payload.metadatos?.url_fuente ? { url_fuente: revision.payload.metadatos.url_fuente } : {} })
+        }} onIdentidad={async ({ nombre, numero, fecha }) => {
+          const destino = normas.find((n) => n.tipo_norma?.toLowerCase() === 'ley' && Number(n.numero_norma) === Number(numero))
+          await revisarPdf({ ...revision.payload, normaId: destino?.id || null, nombreDocumento: nombre.trim(), sigla: '', documentoOficialId: null,
+            jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
+            metadatos: { ...revision.payload.metadatos, tipo_norma: 'Ley', numero_norma: numero.trim(), fecha_norma: fecha } })
         }} onAlternativa={async (clave, id) => {
           await revisarPdf({ ...revision.payload, variantesUnidades: { ...revision.payload.variantesUnidades, [clave]: id } })
         }} onConfirmar={async () => {
           const resultado = await cargar({ ...revision.payload, modoActualizacion,
             revisionToken: revision.revision_token, articulosSeleccionados: seleccion })
-          if (resultado.success) limpiarRevision()
+          if (resultado.success) { limpiarRevision(); limpiarBorrador() }
         }} />}
 
       {verificandoCargas && <p role="status">Verificando si hay un PDF en procesamiento…</p>}

@@ -185,6 +185,8 @@ class CargaArticulosView(APIView):
                 ),
                 info={
                     "nombre_documento": norma.nombre,
+                    "norma_creada": norma_creada,
+                    "norma_id": norma.id,
                     "archivo": archivo.name,
                     "rama": rama.nombre,
                     "usuario_id": usuario.id,

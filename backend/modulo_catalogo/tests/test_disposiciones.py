@@ -83,6 +83,8 @@ class DisposicionesTests(APITestCase):
 
     def test_disposiciones_guardadas_sin_articulos_seleccionados_conservan_avisos(self):
         resultado = self.cargar_disposiciones()
+        self.assertEqual(resultado.revision['disposiciones'], 2)
+        self.assertEqual(resultado.revision['normas_guardadas'], 1)
         self.assertEqual(DisposicionNormativa.objects.count(), 2)
         self.assertFalse(Articulo.objects.filter(norma=self.norma).exists())
         self.assertEqual(CambioNormativo.objects.count(), 2)

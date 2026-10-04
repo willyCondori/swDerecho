@@ -51,3 +51,10 @@ def nota_editorial(unidad):
                 'causante': identidades[0] if len(identidades) == 1 else '', 'fecha_causante': fecha_literal(evidencia),
                 'alcance': 'Nota histórica de incorporación: puede referirse a varios artículos o al capítulo siguiente. Verifique los destinos en la ley citada.'}
     return None
+
+
+def evidencia_de_alcance(cita, origen, operacion):
+    if origen == 'nota_editorial' and operacion in ['modifica', 'incorpora']:
+        nota = re.search(r'(?im)^\s*(?:modificad[oa]|incorporad[oa])\s+por\b', cita)
+        return cita[nota.start():] if nota else cita
+    return cita

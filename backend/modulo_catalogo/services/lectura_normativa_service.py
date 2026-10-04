@@ -254,6 +254,8 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
                 raise
             # Mostrar las unidades como alternativas, en vez de exigir cortar el PDF.
             return reconstruir(localizar_clasico(lineas), lineas, extraer_titulo)
+        for articulo in articulos:
+            articulo['numero'] = numero_literal(articulo['numero'])
         excluidas = set()
         conocidas = localizar_clasico(lineas, excluidas)
         if excluidas and any(u['tipo'] == 'articulo' for u in conocidas):
@@ -283,7 +285,7 @@ def reconstruir(unidades, lineas, extraer_titulo):
         if not 0 <= pos < len(lineas) or pos in posiciones or not numero:
             raise ValueError('Qwen devolvió una ubicación duplicada o inexistente.')
         # Validar la identidad contra la cabecera, no contra cualquier cifra del cuerpo.
-        cabecera = normalizar(re.sub(r'[().°º–-]', ' ', lineas[pos])).upper()
+        cabecera = normalizar(re.sub(r'[().°º–-]', ' ', lineas[pos])).upper().replace('QUÁTER', 'QUATER')
         if not re.search(r'(?<!\w)' + re.escape(normalizar(numero).upper()) + r'(?!\w)', cabecera):
             raise ValueError('El número extraído no coincide con la cabecera original.')
         posiciones.add(pos)
