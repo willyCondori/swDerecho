@@ -29,3 +29,9 @@ it('explica qué hacer si el artículo exacto no está cargado', () => {
   expect(screen.getByRole('note').textContent).toContain('Solo aviso')
   expect(screen.getByRole('note').textContent).toContain('primero incorpore esa norma o artículo')
 })
+
+it('conserva el motivo específico de una referencia judicial o histórica', () => {
+  render(<AvisosVigencia avisos={[{ id: 5, operacion: 'general', estado: 'pendiente', mensaje: 'Referencia judicial: revisar sentencia y aclaraciones.', cita: 'SC 0034/2006' }]} />)
+  expect(screen.getByRole('note').textContent).toContain('Referencia judicial')
+  expect(screen.getByRole('note').textContent).not.toContain('Cláusula general')
+})

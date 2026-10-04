@@ -375,6 +375,11 @@ def detectar_cambios(unidades, progreso=None):
     cambios = []
     for i, u in enumerate(unidades):
         if progreso: progreso({'paso': f'Analizando efectos normativos: {i + 1}/{len(unidades)}'})
+        from .notas_normativas_service import nota_editorial, regla_temporal
+        historico = nota_editorial(u)
+        if historico:
+            cambios.append(historico)
+            continue
         expresos = detectar_derogaciones_expresas([u])
         if expresos:
             cambios.extend(expresos)
@@ -383,7 +388,7 @@ def detectar_cambios(unidades, progreso=None):
         reforma = re.search(r'\b(?:abrog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|derog(?:a(?:da|do|das|dos|n)?|ar|aci[oó]n)|'
                             r'modific(?:a(?:da|do|das|dos|n)?|ar)|incorpor(?:a(?:da|do|das|dos|n)?|ar)|'
                             r'sustituy\w*)\b', operativo, re.I)
-        temporal = re.search(r'\b(?:vigencia|publicaci[oó]n|plazos?)\b', operativo, re.I)
+        temporal = regla_temporal(u, operativo)
         if not reforma:
             if temporal:
                 # Este aviso no cambia vigencia ni necesita interpretar un plazo.
@@ -458,12 +463,13 @@ def extraer_metadatos(texto):
         raise ValueError('La fecha identificada por Qwen no es válida.')
     if datos['numero_norma'] and not re.search(r'(?<!\w)' + re.escape(datos['numero_norma']) + r'(?!\w)', texto[:2000]):
         raise ValueError('La identidad de la norma no está respaldada por su encabezado.')
-    datos['numero_norma'] = re.sub(r'^N(?:[°ºoO.]|ro\.)?\s*', '', datos['numero_norma'], flags=re.I).strip()
+    datos['numero_norma'] = re.sub(r'^N(?:ro\.?|[°ºoO]\.?)?\s*', '', datos['numero_norma'], flags=re.I).strip()
     return {k: v for k, v in datos.items() if v}
 
 
 
 def fecha_literal(texto):
+    texto = re.sub(r'\bdde\b', 'de', texto, flags=re.I)  # Error tipográfico presente en la edición; no altera la cita.
     from .vigencia_service import fecha
     iso = re.search(r'\b\d{4}-\d{2}-\d{2}\b', texto)
     if iso and fecha(iso.group()): return iso.group()
@@ -478,7 +484,7 @@ def fecha_literal(texto):
 def identidades_literales(texto):
     return list(dict.fromkeys(' '.join(m) for m in re.findall(
         r'\b(Decreto\s+Ley|Decreto\s+Supremo|Decreto\s+Presidencial|Resoluci[oó]n\s+Suprema|'
-        r'Resoluci[oó]n\s+Ministerial|Ley)\s+(?:N(?:[°ºoO.]|ro\.)?\s*)?(\d+)(?!\d)', texto, re.I)))
+        r'Resoluci[oó]n\s+Ministerial|Ley)\s+(?:N(?:ro\.?|[°ºoO]\.?)?\s*)?(\d+)(?!\d)', texto, re.I)))
 
 def ajustar_cambio_literal(cambio, unidad):
     """Corregir salidas del 2B solo cuando una cláusula literal lo permite.

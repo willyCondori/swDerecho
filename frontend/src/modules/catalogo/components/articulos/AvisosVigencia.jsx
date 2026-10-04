@@ -16,7 +16,7 @@ export default function AvisosVigencia({ avisos = [] }) {
     {avisos.map((a) => <aside key={a.id} role="note" className={styles.aviso}>
       <strong>{['temporal', 'general'].includes(a.operacion) ? 'Aviso informativo' : a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
       <p>{['temporal', 'general'].includes(a.operacion)
-        ? `${a.operacion === 'temporal' ? 'Regla de vigencia o plazo' : 'Cláusula general'} de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.`
+        ? (a.operacion === 'temporal' ? `Regla de vigencia o plazo de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.` : (a.mensaje || `Aviso para revisión de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.`))
         : a.mensaje}</p>
       {!['temporal', 'general'].includes(a.operacion) && a.estado === 'pendiente' && <p>
         {a.destino_catalogo?.encontrado === false ? 'Solo aviso: el destino exacto no está cargado. Para aplicar el cambio, primero incorpore esa norma o artículo y luego revise el efecto en Catálogo → Normas.'

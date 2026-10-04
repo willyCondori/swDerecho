@@ -263,3 +263,20 @@ Una lectura local del Código Penal de SEGIP de 110 páginas, incluyendo separac
 de seis normas anexas y detección de efectos, tomó aproximadamente 2,6 segundos.
 Esta medición no incluye embeddings, publicación en la base de datos ni OCR;
 el tiempo depende del documento y del equipo.
+
+
+### Validación de avisos del Código Penal
+
+La mención de vigencia, publicación o plazos en la descripción de un delito no
+se considera por sí sola una regla temporal. Los avisos temporales se reservan
+para entrada en vigor, cabeceras de vigencia o disposiciones de plazos normativos.
+Las notas históricas identifican la ley que modificó, incorporó o derogó la unidad;
+no se atribuyen al decreto original. Se admiten las grafías «No.» y el error
+«marzo dde 1999» en la copia de análisis, conservando la cita sin alteraciones.
+Una nota sin norma causante identificada no puede confirmarse.
+
+Las incorporaciones de capítulos contiguos o de varios artículos quedan para
+revisión de sus destinos. Las referencias a sentencias constitucionales y autos
+aclaratorios tienen un aviso específico; no se convierten en derogación legislativa.
+El contador de unidades con indicación de derogación reconoce las notas situadas
+inmediatamente después del título. Todo efecto continúa requiriendo confirmación.

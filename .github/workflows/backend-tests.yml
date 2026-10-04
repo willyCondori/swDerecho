@@ -146,6 +146,7 @@ jobs:
             modulo_catalogo.tests.test_lectura_normativa \
             modulo_catalogo.tests.test_algoritmos_normativos \
             modulo_catalogo.tests.test_paridad_motores \
+            modulo_catalogo.tests.test_avisos_codigo \
             modulo_catalogo.tests.test_disposiciones \
             modulo_catalogo.tests.test_gaceta_penal \
             modulo_catalogo.tests.test_normativa_endpoints \

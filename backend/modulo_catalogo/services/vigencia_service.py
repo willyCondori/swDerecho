@@ -107,7 +107,7 @@ def aviso(cambio):
     if not cambio.norma_afectada_id:
         sujeto = f"Artículo o disposición {ref.get('unidad')} de {ref.get('norma') or 'la norma del documento'}" if ref.get('unidad') else f"La norma {ref.get('norma') or 'referida en la fuente'}"
     verbos = {'abroga': 'abrogada', 'deroga': 'derogado', 'modifica': 'modificado', 'incorpora': 'ampliado'}
-    causante = cambio.norma_causante or cambio.fuente.norma.nombre
+    causante = cambio.norma_causante or ('norma causante por verificar' if cambio.origen == 'nota_editorial' else cambio.fuente.norma.nombre)
     fecha_norma = cambio.fecha_norma_causante
     if parcial and clave(parcial) not in ['total', 'completo', 'articulo completo', 'norma completa']:
         sujeto = f'Afectación parcial del artículo o disposición {ref.get("unidad", "")}'
@@ -124,7 +124,9 @@ def aviso(cambio):
     if cambio.operacion in ['modifica', 'incorpora']:
         descripcion += ' Consulte la fuente modificatoria; el texto mostrado puede requerir consolidación.'
     if cambio.operacion in ['temporal', 'general']:
-        descripcion = f'{"Regla de vigencia o plazo" if cambio.operacion == "temporal" else "Cláusula general"} de {causante}. Fuente: {describir_unidad_fuente(cambio.unidad_fuente)}. No confirma una derogación concreta.'
+        descripcion = (f'Regla de vigencia o plazo de {causante}. No confirma una derogación concreta.'
+                       if cambio.operacion == 'temporal' else
+                       f'Aviso para revisión de {causante}: {parcial}. No confirma una derogación concreta.')
     destino = evaluar_destino({**ref, 'operacion': cambio.operacion, 'origen': cambio.origen}, cambio.fuente.norma)
     return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision,
             'destino_catalogo': destino,
@@ -274,6 +276,8 @@ def confirmar(cambio, datos, usuario):
         if anterior and cambio.fecha_norma_causante <= anterior:
             raise ValueError('La norma causante debe ser posterior a la norma afectada; la misma fecha requiere estudiar la prioridad jurídica.')
         fuente = cambio.fuente.norma
+        if cambio.origen == 'nota_editorial' and not cambio.norma_causante:
+            raise ValueError('Identifica la norma causante en la fuente antes de confirmar la nota histórica.')
         destino = cambio.norma_afectada
         if (cambio.origen != 'nota_editorial' and fuente.jerarquia_id and destino.jerarquia_id
                 and fuente.jerarquia.nivel > destino.jerarquia.nivel

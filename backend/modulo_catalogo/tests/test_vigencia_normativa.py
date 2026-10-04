@@ -220,3 +220,12 @@ class VigenciaNormativaTests(TestCase):
         self.assertFalse(data['destino_catalogo']['encontrado'])
         self.assertEqual(c.estado_revision, 'pendiente')
         self.assertIsNone(c.articulo_afectado_id)
+
+    def test_nota_sin_causante_no_atribuye_codigo_original_ni_permite_confirmar(self):
+        self.doc.norma = self.base
+        self.doc.save(update_fields=['norma'])
+        c = self.registrar(operacion='deroga', origen='nota_editorial', norma='', unidad='25',
+                          causante='', fecha_causante='2001-12-20', cita='Artículo 25. Derogado por norma no identificada.')
+        self.assertIn('norma causante por verificar', aviso(c)['mensaje'])
+        with self.assertRaisesMessage(ValueError, 'Identifica la norma causante'):
+            confirmar(c, self.datos_revision(), self.usuario)

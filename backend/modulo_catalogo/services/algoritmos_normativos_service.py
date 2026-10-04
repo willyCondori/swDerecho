@@ -17,19 +17,10 @@ def detectar_cambios_literales(unidades, progreso=None):
         base = {'norma': '', 'unidad': '', 'alcance': 'total', 'cita': cita,
                 'origen': 'clausula', 'causante': '', 'fecha_causante': '',
                 'unidad_fuente': unidad['numero']}
-        # Las notas editoriales se vinculan a su propia unidad y a la ley histórica.
-        numero = re.sub(r'^(?:DT|DF|DD|DA|DAD)\s+', '', unidad['numero'])
-        nota = re.match(r'^\s*(?:(?:ART[IÍ]CULO|ART\.)\s+)?' + re.escape(numero) +
-                        r'\s*[°º.\-–:]*\s*\(?\s*(DEROGAD[OA]|ABROGAD[OA])\b', cita, re.I)
-        if not nota:
-            # La edición puede dejar el título del artículo antes de la nota en la siguiente línea.
-            cabecera, _, resto = cita.partition('\n')
-            nota = re.match(r'^\s*(DEROGAD[OA]|ABROGAD[OA])\s+por\b', resto, re.I)
-        if nota and re.search(r'\bpor\b', cita[:800], re.I):
-            ids = identidades_literales(cita[:800])
-            cambios.append({**base, 'operacion': 'deroga' if nota.group(1).upper().startswith('DEROG') else 'abroga',
-                            'origen': 'nota_editorial', 'unidad': unidad['numero'],
-                            'causante': ids[0] if len(ids) == 1 else '', 'fecha_causante': fecha_literal(cita[:800])})
+        from .notas_normativas_service import nota_editorial, regla_temporal
+        historico = nota_editorial(unidad)
+        if historico:
+            cambios.append(historico)
             continue
         if re.search(r'todas\s+las\s+disposiciones\s+contrarias', cita, re.I):
             cambios.append({**base, 'operacion': 'general', 'alcance': 'indeterminado'})
@@ -41,7 +32,7 @@ def detectar_cambios_literales(unidades, progreso=None):
                          r'modific(?:a|an)|incorpor(?:a|an)|sustituy(?:e|en))\b', cita, re.I):
             operaciones = []
         if not operaciones:
-            if re.search(r'\b(?:vigencia|publicaci[oó]n|plazos?)\b', cita, re.I):
+            if regla_temporal(unidad, cita):
                 cambios.append({**base, 'operacion': 'temporal', 'alcance': 'Regla de vigencia o plazo; no implica derogación'})
             continue
         # No asignar el destino de una cláusula al verbo de otra.

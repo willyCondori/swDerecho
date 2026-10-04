@@ -14,6 +14,10 @@ def numero_clave(numero):
 
 
 def indica_derogacion(articulo):
+    from .notas_normativas_service import nota_editorial
+    nota = nota_editorial(articulo)
+    if nota and nota['operacion'] in ['deroga', 'abroga']:
+        return True
     # Solo una indicación en la cabecera propia, nunca una cita en el cuerpo.
     from .carga_pdf_service import PATRON_CABECERA
     texto = articulo['texto'].strip()
