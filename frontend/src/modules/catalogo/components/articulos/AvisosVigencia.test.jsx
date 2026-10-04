@@ -16,3 +16,16 @@ describe('AvisosVigencia', () => {
     expect(screen.getByRole('note').textContent).toContain('Revisión pendiente')
   })
 })
+
+it('un plazo es informativo y no se presenta como derogación pendiente', () => {
+  render(<AvisosVigencia avisos={[{ id: 3, operacion: 'temporal', estado: 'pendiente', norma_causante: 'Ley 1636', mensaje: 'Afectación parcial del artículo o disposición : temporal', parte_afectada: { tipo: 'parcial' } }]} />)
+  expect(screen.getByRole('note').textContent).toContain('Aviso informativo')
+  expect(screen.getByRole('note').textContent).not.toContain('Afectación parcial')
+  expect(screen.getByRole('note').textContent).not.toContain('Revisión pendiente')
+})
+
+it('explica qué hacer si el artículo exacto no está cargado', () => {
+  render(<AvisosVigencia avisos={[{ id: 4, operacion: 'deroga', estado: 'pendiente', mensaje: 'Artículo 281 Quater', destino_catalogo: { encontrado: false } }]} />)
+  expect(screen.getByRole('note').textContent).toContain('Solo aviso')
+  expect(screen.getByRole('note').textContent).toContain('primero incorpore esa norma o artículo')
+})

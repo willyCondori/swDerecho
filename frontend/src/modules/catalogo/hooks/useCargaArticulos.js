@@ -3,10 +3,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import cargaArticulosApi from '../../../api/cargaArticulosApi'
 import catalogoApi from '../../../api/catalogoApi'
 
+import useAuthStore from '../../auth/store/authStore'
+
+const cargasRecordadas = new Map()
+useAuthStore.subscribe((actual, anterior) => {
+  if (actual.user?.id !== anterior.user?.id) cargasRecordadas.clear()
+})
+
 const POLL_INTERVAL_MS = 1500
 const POLL_OTRAS_MS = 3000
 
 export function useCargaArticulos() {
+  const usuario = useAuthStore((s) => s.user?.id)
   const [jerarquias, setJerarquias] = useState([])
   const [ramas,      setRamas]      = useState([])
   const [normas,     setNormas]     = useState([])
@@ -25,7 +33,9 @@ export function useCargaArticulos() {
   // pantalla (retomada), y cargas en curso de otros usuarios.
   const [cargaRetomada, setCargaRetomada] = useState(null)
   const [otrasCargas,   setOtrasCargas]   = useState([])
+  const [verificandoCargas, setVerificandoCargas] = useState(true)
 
+  const montado = useRef(false)
   const pollRef = useRef(null)
   const taskIdRef = useRef(null)
 
@@ -53,9 +63,14 @@ export function useCargaArticulos() {
   const pollEstado = useCallback((id) => {
     if (pollRef.current) clearInterval(pollRef.current)
 
+    if (!montado.current) return
+    let consultando = false
     pollRef.current = setInterval(async () => {
+      if (consultando) return
+      consultando = true
       try {
         const { data } = await cargaArticulosApi.estado(id)
+        if (!montado.current || taskIdRef.current !== id) return
         setEstado(data.estado)
         if (data.progreso != null) setProgreso(data.progreso)
         if (data.paso)             setPaso(data.paso)
@@ -69,14 +84,17 @@ export function useCargaArticulos() {
           clearInterval(pollRef.current)
         }
       } catch (e) {
+        if (!montado.current || taskIdRef.current !== id) return
         setError('Se perdió la conexión con el servidor durante el seguimiento.')
         clearInterval(pollRef.current)
-      }
+      } finally { consultando = false }
     }, POLL_INTERVAL_MS)
   }, [])
 
   useEffect(() => {
+    montado.current = true
     return () => {
+      montado.current = false
       if (pollRef.current) clearInterval(pollRef.current)
     }
   }, [])
@@ -90,6 +108,26 @@ export function useCargaArticulos() {
     let cancelado = false
     const retomar = async () => {
       try {
+        const recordada = cargasRecordadas.get(usuario)
+        if (recordada) {
+          if (!recordada.task_id) {
+            const { data: inicio } = await recordada.inicio
+            if (cancelado) return
+            recordada.task_id = inicio.task_id
+          }
+          taskIdRef.current = recordada.task_id
+          setTaskId(recordada.task_id)
+          setCargaRetomada(recordada)
+          const { data: avance } = await cargaArticulosApi.estado(recordada.task_id)
+          if (cancelado) return
+          setEstado(avance.estado)
+          setProgreso(avance.progreso ?? 0)
+          setPaso(avance.paso || '')
+          if (avance.estado === 'SUCCESS') { setResumen(avance.resumen); setProgreso(100) }
+          else if (avance.estado === 'FAILURE') setError(avance.error || 'El procesamiento falló.')
+          else pollEstado(recordada.task_id)
+          return
+        }
         const { data } = await cargaArticulosApi.activas()
         if (cancelado || taskIdRef.current) return  // ya se inició una carga en esta sesión
         const lista = Array.isArray(data) ? data : []
@@ -98,6 +136,7 @@ export function useCargaArticulos() {
           taskIdRef.current = propia.task_id
           setTaskId(propia.task_id)
           setCargaRetomada(propia)
+          if (usuario != null) cargasRecordadas.set(usuario, propia)
           setEstado(propia.estado)
           setProgreso(propia.progreso ?? 0)
           setPaso(propia.paso || '')
@@ -105,12 +144,16 @@ export function useCargaArticulos() {
         }
         setOtrasCargas(lista.filter((c) => c !== propia))
       } catch (e) {
+        if (cancelado) return
+        setError('No se pudo verificar el procesamiento del PDF. Vuelve a entrar cuando se restablezca la conexión.')
         console.error('No se pudieron consultar las cargas en curso:', e)
+      } finally {
+        if (!cancelado) setVerificandoCargas(false)
       }
     }
     retomar()
     return () => { cancelado = true }
-  }, [pollEstado])
+  }, [pollEstado, usuario])
 
   // Mientras haya cargas de otros en curso, se refresca su avance hasta que terminen.
   const hayOtras = otrasCargas.length > 0
@@ -138,8 +181,12 @@ export function useCargaArticulos() {
     setEstado('PENDING')
 
     try {
-      const { data } = await cargaArticulosApi.cargar(payload)
+      const inicio = cargaArticulosApi.cargar(payload)
+      if (usuario != null) cargasRecordadas.set(usuario, { inicio, nombre_documento: payload.nombreDocumento || payload.archivo?.name })
+      const { data } = await inicio
+      if (useAuthStore.getState().user?.id !== usuario) return { success: true }
       taskIdRef.current = data.task_id
+      if (usuario != null) cargasRecordadas.set(usuario, { task_id: data.task_id, nombre_documento: payload.nombreDocumento || payload.archivo?.name })
       setTaskId(data.task_id)
 
       const avisos = []
@@ -150,6 +197,7 @@ export function useCargaArticulos() {
       pollEstado(data.task_id)
       return { success: true }
     } catch (err) {
+      cargasRecordadas.delete(usuario)
       const errData = err.response?.data
       let msg = 'Error al subir el archivo.'
       if (errData) {
@@ -168,9 +216,10 @@ export function useCargaArticulos() {
     } finally {
       setEnviando(false)
     }
-  }, [pollEstado])
+  }, [pollEstado, usuario])
 
   const reset = useCallback(() => {
+    cargasRecordadas.delete(usuario)
     if (pollRef.current) clearInterval(pollRef.current)
     taskIdRef.current = null
     setTaskId(null)
@@ -181,7 +230,7 @@ export function useCargaArticulos() {
     setResumen(null)
     setError(null)
     setAdvertencias([])
-  }, [])
+  }, [usuario])
 
   const procesando = estado === 'PENDING' || estado === 'STARTED'
 
@@ -190,6 +239,6 @@ export function useCargaArticulos() {
     cargar, reset,
     enviando, procesando,
     taskId, estado, progreso, paso, resumen, error, advertencias,
-    cargaRetomada, otrasCargas,
+    cargaRetomada, otrasCargas, verificandoCargas,
   }
 }

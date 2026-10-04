@@ -26,6 +26,7 @@ export default function ResultSummary({ resumen, onReiniciar }) {
         {' '}{resumen.revision.derogados_indicados} con indicación de derogación o abrogación en el PDF.
       </p>}
       {resumen.revision?.disposiciones > 0 && <p>{resumen.revision.disposiciones} disposiciones guardadas en su tabla propia.</p>}
+      {resumen.revision?.avisos?.length > 0 && <p>Los avisos siguientes documentan efectos detectados en la fuente. Subir este PDF no confirma automáticamente derogaciones ni abrogaciones.</p>}
       <AvisosVigencia avisos={resumen.revision?.avisos || []} />
       <div className={styles.statsGrid}>
         <div className={styles.statBox}>

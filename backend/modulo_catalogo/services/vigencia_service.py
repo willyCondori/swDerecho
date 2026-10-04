@@ -63,6 +63,9 @@ def describir_unidad_fuente(numero):
 
 def evaluar_destino(cambio, norma_fuente=None):
     """Solo aplicar a un destino inequívoco cuyo contenido esté en el catálogo."""
+    if cambio.get('operacion') in ['temporal', 'general']:
+        return {'encontrado': False, 'norma_id': None, 'articulo_id': None,
+                'mensaje': 'Aviso informativo: no identifica una derogación concreta para confirmar.'}
     norma = (norma_fuente if cambio.get('origen') == 'nota_editorial' and not cambio.get('norma')
              else resolver_norma(cambio.get('norma', '')))
     numero = cambio.get('unidad', '')
@@ -120,7 +123,11 @@ def aviso(cambio):
         descripcion = 'Afectación detectada, pendiente de verificación. ' + descripcion
     if cambio.operacion in ['modifica', 'incorpora']:
         descripcion += ' Consulte la fuente modificatoria; el texto mostrado puede requerir consolidación.'
+    if cambio.operacion in ['temporal', 'general']:
+        descripcion = f'{"Regla de vigencia o plazo" if cambio.operacion == "temporal" else "Cláusula general"} de {causante}. Fuente: {describir_unidad_fuente(cambio.unidad_fuente)}. No confirma una derogación concreta.'
+    destino = evaluar_destino({**ref, 'operacion': cambio.operacion, 'origen': cambio.origen}, cambio.fuente.norma)
     return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision,
+            'destino_catalogo': destino,
             'mensaje': descripcion, 'norma_causante': causante,
             'unidad_fuente': cambio.unidad_fuente, 'disposicion_fuente': describir_unidad_fuente(cambio.unidad_fuente),
             'fecha': fecha_norma.isoformat() if fecha_norma else None,

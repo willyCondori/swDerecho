@@ -15,10 +15,10 @@ export default function ProgressPanel({ paso, progreso, documento, retomada = fa
           <p className={styles.progressStep}>{paso || 'Iniciando...'}</p>
         </div>
       </div>
-      <div className={styles.progressBarBg}>
+      {progreso != null && <><div className={styles.progressBarBg}>
         <div className={styles.progressBar} style={{ width: `${progreso}%` }} />
       </div>
-      <p className={styles.progressPercent}>{progreso}%</p>
+      <p className={styles.progressPercent}>{progreso}%</p></>}
       <p className={styles.progressHint}>
         <i className="ti ti-info-circle" aria-hidden="true" />{' '}
         {retomada

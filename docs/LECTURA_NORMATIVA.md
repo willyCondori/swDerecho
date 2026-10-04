@@ -237,3 +237,10 @@ documentos requieren recuperar el archivo o subirlo nuevamente para reanalizarlo
 Validación: 288 pruebas de backend y 112 de frontend aprobadas. Compilación
 correcta y lint sin errores nuevos. La recuperación incluye una prueba de
 repetición para evitar avisos duplicados.
+
+
+### Volver a la pantalla de carga
+
+Al navegar dentro de la aplicación, la revisión conserva el PDF original, el avance y el resultado en memoria de la sesión. Volver a «Cargar artículos» retoma el progreso sin iniciar otra lectura; si ya terminó, presenta la revisión para confirmarla. La carga confirmada consulta su tarea del servidor, incluso si terminó mientras el usuario estaba fuera. Antes de ofrecer el formulario se verifica si hay una carga activa. Estos datos se eliminan al cambiar de usuario o cerrar sesión. La revisión en memoria no sobrevive a recargar completamente el navegador; el servidor continúa trabajando.
+
+Los avisos no aplican efectos automáticamente. Las reglas temporales y las cláusulas generales son informativas. Un efecto concreto con destino cargado se revisa en Catálogo → Normas por un usuario autorizado. Si falta la norma o el artículo exacto, es solo un aviso: primero debe incorporarse ese destino y después verificarse la fuente, la fecha y el alcance. Artículo 323 no sustituye a 323 Bis; artículo 281 no sustituye a 281 Quater. Los contadores de artículos importados son distintos de los efectos detectados en las disposiciones.

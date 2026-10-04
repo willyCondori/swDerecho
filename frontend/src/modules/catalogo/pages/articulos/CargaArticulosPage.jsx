@@ -1,6 +1,6 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
-import { useEffect, useRef, useState } from 'react'
-import cargaArticulosApi from '../../../../api/cargaArticulosApi'
+import { useEffect, useState } from 'react'
+import { useRevisionPdf } from '../../hooks/useRevisionPdf'
 import GacetaPanel from '../../components/articulos/GacetaPanel'
 import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
@@ -35,7 +35,7 @@ export default function CargaArticulosPage() {
     cargar, reset,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
-    cargaRetomada, otrasCargas,
+    cargaRetomada, otrasCargas, verificandoCargas,
   } = useCargaArticulos()
 
   const {
@@ -45,21 +45,20 @@ export default function CargaArticulosPage() {
 
   const [form, setForm] = useState(FORM_INICIAL)
   const [fieldErrors, setFieldErrors] = useState({})
-  const [revision, setRevision] = useState(null)
-  const [revisando, setRevisando] = useState(false)
-  const [pasoRevision, setPasoRevision] = useState('')
-  const [errorRevision, setErrorRevision] = useState('')
+  const { revision, revisando, pasoRevision, errorRevision, documento: documentoRevision, revisarPdf, limpiarRevision } = useRevisionPdf()
+  const [revisionRetomada, setRevisionRetomada] = useState(revisando)
   const [modoActualizacion, setModoActualizacion] = useState('articulos')
   const [seleccion, setSeleccion] = useState([])
-  const revisionActual = useRef(0)
-  useEffect(() => { revisionActual.current++; setRevision(null); setErrorRevision(''); setRevisando(false); setPasoRevision('') }, [archivo, form])
+  useEffect(() => {
+    if (revision) setSeleccion(revision.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero))
+  }, [revision])
 
   const modoExistente = form.modo === 'existente'
   const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
   const jerarquiaSeleccionada = modoExistente
     ? normaSeleccionada?.jerarquia
     : jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
-  const mostrandoFormulario = !procesando && !resumen && !error
+  const mostrandoFormulario = !verificandoCargas && !revisando && !procesando && !resumen && !error
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -92,25 +91,8 @@ export default function CargaArticulosPage() {
       metadatos: Object.fromEntries(Object.entries({ tipo_norma: form.tipoNorma, numero_norma: form.numeroNorma,
         fecha_norma: form.fechaNorma, fecha_publicacion: form.fechaPublicacion, url_fuente: form.urlFuente }).filter(([, v]) => v)),
     }
-    setRevisando(true)
-    setPasoRevision('Iniciando revisión del PDF…')
-    setErrorRevision('')
-    const solicitud = ++revisionActual.current
-    try {
-      const { data } = await (payload.motorLectura === 'qwen'
-        ? cargaArticulosApi.revisarConIA(payload, () => solicitud === revisionActual.current, (estado) => {
-          if (solicitud === revisionActual.current && estado.paso) setPasoRevision(estado.paso)
-        })
-        : cargaArticulosApi.revisar(payload))
-      if (solicitud !== revisionActual.current) return
-      setRevision({ ...data, payload })
-      setSeleccion(data.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero))
-    } catch (err) {
-      if (solicitud !== revisionActual.current) return
-      const datos = err.response?.data
-      const mensaje = datos?.detail || (datos && Object.values(datos).flat()[0]) || err.message
-      setErrorRevision(typeof mensaje === 'string' ? mensaje : 'No se pudo revisar el PDF. Vuelve a intentarlo.')
-    } finally { if (solicitud === revisionActual.current) setRevisando(false) }
+    setRevisionRetomada(false)
+    await revisarPdf(payload)
   }
 
   const elegirOficial = (documento, pdf) => {
@@ -121,7 +103,7 @@ export default function CargaArticulosPage() {
       ramaId: ramas.find((r) => /penal/i.test(r.nombre))?.id || '',
       jerarquiaId: jerarquias.find((j) => j.nombre.toLowerCase() === documento.tipo.toLowerCase())?.id || '',
     })
-    setFieldErrors({}); setRevision(null)
+    setFieldErrors({}); limpiarRevision()
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -130,7 +112,7 @@ export default function CargaArticulosPage() {
     remover()
     setForm(FORM_INICIAL)
     setFieldErrors({})
-    setRevision(null)
+    limpiarRevision()
   }
 
   return (
@@ -296,15 +278,20 @@ export default function CargaArticulosPage() {
               </button>
             </div>
           </div>
-          {revisando && <p role="status" aria-live="polite">{pasoRevision}</p>}
-          {errorRevision && <p role="alert" className={styles.reviewWarning}>{errorRevision}</p>}
         </form>
       )}
 
       {mostrandoFormulario && revision && <RevisionCargaPanel revision={revision} modo={modoActualizacion}
         onModo={setModoActualizacion} seleccion={seleccion} onSeleccion={setSeleccion} enviando={enviando}
-        onCancelar={() => setRevision(null)} onConfirmar={() => cargar({ ...revision.payload,
-          modoActualizacion, revisionToken: revision.revision_token, articulosSeleccionados: seleccion })} />}
+        onCancelar={limpiarRevision} onConfirmar={async () => {
+          const resultado = await cargar({ ...revision.payload, modoActualizacion,
+            revisionToken: revision.revision_token, articulosSeleccionados: seleccion })
+          if (resultado.success) limpiarRevision()
+        }} />}
+
+      {verificandoCargas && <p role="status">Verificando si hay un PDF en procesamiento…</p>}
+      {revisando && <ProgressPanel paso={pasoRevision} progreso={null} documento={documentoRevision} retomada={revisionRetomada} />}
+      {errorRevision && !revisando && !revision && <p role="alert">{errorRevision}</p>}
 
       {procesando && (
         <ProgressPanel

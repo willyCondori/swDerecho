@@ -2,7 +2,7 @@ from datetime import date
 from django.test import TestCase
 from modulo_catalogo.models import Norma, RamaDerecho, Articulo, DocumentoNorma, CambioNormativo, VersionArticulo
 from modulo_catalogo.models.jerarquia import jerarquia
-from modulo_catalogo.services.vigencia_service import registrar_cambios, confirmar, conservar_version, avisos_visibles
+from modulo_catalogo.services.vigencia_service import registrar_cambios, confirmar, conservar_version, avisos_visibles, aviso
 from modulo_catalogo.serializers.catalogo_serializer import ArticuloListSerializer
 from modulo_usuarios.tests.factories import crear_rol, crear_usuario
 
@@ -206,3 +206,17 @@ class VigenciaNormativaTests(TestCase):
         self.assertEqual(avisos[0]['norma_causante'], 'Ley 2298')
         self.assertEqual(avisos[0]['disposicion_fuente'], 'disposición final tercera')
         self.assertEqual(CambioNormativo.objects.count(), 0)
+
+    def test_aviso_temporal_no_presenta_articulo_vacio_ni_derogacion(self):
+        c = self.registrar(operacion='temporal', norma='', unidad='', alcance='Plazo de 90 días')
+        mensaje = aviso(c)['mensaje']
+        self.assertIn('Regla de vigencia o plazo', mensaje)
+        self.assertNotIn('Afectación parcial', mensaje)
+        self.assertNotIn('pendiente de verificación', mensaje)
+
+    def test_aviso_identifica_destino_ausente_sin_aplicar_efecto(self):
+        c = self.registrar(operacion='deroga', unidad='281 QUATER')
+        data = aviso(c)
+        self.assertFalse(data['destino_catalogo']['encontrado'])
+        self.assertEqual(c.estado_revision, 'pendiente')
+        self.assertIsNone(c.articulo_afectado_id)

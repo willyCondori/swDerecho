@@ -14,10 +14,16 @@ export default function AvisosVigencia({ avisos = [] }) {
   }
   return <div className={styles.avisos} aria-label="Avisos de vigencia normativa">
     {avisos.map((a) => <aside key={a.id} role="note" className={styles.aviso}>
-      <strong>{a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
-      <p>{a.mensaje}</p>
+      <strong>{['temporal', 'general'].includes(a.operacion) ? 'Aviso informativo' : a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
+      <p>{['temporal', 'general'].includes(a.operacion)
+        ? `${a.operacion === 'temporal' ? 'Regla de vigencia o plazo' : 'Cláusula general'} de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.`
+        : a.mensaje}</p>
+      {!['temporal', 'general'].includes(a.operacion) && a.estado === 'pendiente' && <p>
+        {a.destino_catalogo?.encontrado === false ? 'Solo aviso: el destino exacto no está cargado. Para aplicar el cambio, primero incorpore esa norma o artículo y luego revise el efecto en Catálogo → Normas.'
+          : 'El aviso no cambia automáticamente la vigencia. Un usuario autorizado debe revisar la fuente y confirmar el efecto en Catálogo → Normas.'}
+      </p>}
       {a.disposicion_fuente && <p>Disposición de origen: {a.disposicion_fuente}</p>}
-      {a.parte_afectada?.tipo === 'parcial' && <div>
+      {!['temporal', 'general'].includes(a.operacion) && a.parte_afectada?.tipo === 'parcial' && <div>
         <p><strong>Parte afectada: {a.parte_afectada.descripcion}</strong></p>
         {a.parte_afectada.partes?.map((p, i) => <div key={i}>
           {p.fragmento ? <details><summary>Texto de {p.descripcion}</summary><blockquote>{p.fragmento}</blockquote></details>
