@@ -6,7 +6,20 @@ OCR = {'type': 'object', 'additionalProperties': False, 'required': ['texto'],
 
 def leer_pdf(contenido, motor, extractor):
     if motor != 'qwen':
-        return extractor(contenido), []
+        texto = extractor(contenido)
+        import fitz
+        with fitz.open(stream=contenido, filetype='pdf') as documento:
+            if documento.is_encrypted:
+                raise ValueError('El PDF está protegido. Sube una copia legible.')
+            escaneadas = [i for i, p in enumerate(documento) if len(p.get_text().strip()) < 35 and p.get_images()]
+            if not escaneadas:
+                return texto, []
+            from .ocr_local_service import transcribir_pagina
+            from .carga_pdf_service import quitar_encabezados_y_pies
+            paginas = [transcribir_pagina(p, i + 1) if i in escaneadas else p.get_text(sort=True)
+                       for i, p in enumerate(documento)]
+        return '\n'.join(quitar_encabezados_y_pies(paginas)), [
+            f'OCR local aplicado en páginas {[i + 1 for i in escaneadas]}. Contrasta el texto con el original.']
     import fitz
     textos, escaneadas = [], []
     with fitz.open(stream=contenido, filetype='pdf') as documento:

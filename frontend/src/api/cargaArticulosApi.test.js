@@ -43,3 +43,12 @@ it('publica el paso del análisis mientras espera el resultado', async () => {
     vi.useRealTimers()
   }
 })
+
+
+it('vincula la revisión y la carga a la sección y alternativas del mismo PDF', async () => {
+  await cargaArticulosApi.cargar({ archivo: new File(['pdf'], 'compilacion.pdf'), ramaId: 2,
+    seccionDocumento: '1', variantesUnidades: { 'articulo:13': 'alternativa-2' } })
+  const [, fd] = api.post.mock.calls.at(-1)
+  expect(fd.get('seccion_documento')).toBe('1')
+  expect(JSON.parse(fd.get('variantes_unidades'))).toEqual({ 'articulo:13': 'alternativa-2' })
+})

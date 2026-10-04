@@ -59,3 +59,25 @@ it('separa las disposiciones en tabla y permite cargarlas sin seleccionar artíc
   expect(screen.queryByRole('checkbox', { name: 'Seleccionar artículo DD ÚNICA' })).toBeNull()
   expect(screen.getByRole('button', { name: 'Confirmar 0 artículos y 1 disposiciones' }).disabled).toBe(false)
 })
+
+
+it('permite revisar otra norma del mismo PDF sin volver a subir otro archivo', () => {
+  const onSeccion = vi.fn()
+  render(<RevisionCargaPanel revision={{ ...revision, seccion_activa: '0',
+    secciones_documento: [{ id: '0', titulo: 'Código Penal' }, { id: '1', titulo: 'Ley 1333' }] }}
+    modo="articulos" seleccion={['1']} onModo={vi.fn()} onSeleccion={vi.fn()} onCancelar={vi.fn()} onConfirmar={vi.fn()} onSeccion={onSeccion} />)
+  fireEvent.change(screen.getByRole('combobox', { name: 'Norma del PDF' }), { target: { value: '1' } })
+  expect(onSeccion).toHaveBeenCalledWith('1')
+})
+
+it('las versiones repetidas requieren elegir una alternativa antes de reemplazar todo', () => {
+  const onAlternativa = vi.fn()
+  render(<RevisionCargaPanel revision={{ ...revision, unidades_ambiguas: [{ clave: 'articulo:1', numero: '1', tipo_unidad: 'articulo', seleccionada: '',
+    alternativas: [{ id_unidad: 'antes', texto: 'Texto anterior íntegro' }, { id_unidad: 'despues', texto: 'Texto nuevo íntegro' }] }] }}
+    modo="completo" seleccion={['1']} onModo={vi.fn()} onSeleccion={vi.fn()} onCancelar={vi.fn()} onConfirmar={vi.fn()} onAlternativa={onAlternativa} />)
+  expect(screen.getByRole('button', { name: 'Confirmar reemplazo completo' }).disabled).toBe(true)
+  fireEvent.click(screen.getByRole('radio', { name: 'Alternativa 2' }))
+  expect(onAlternativa).toHaveBeenCalledWith('articulo:1', 'despues')
+  expect(screen.getByText('Texto anterior íntegro')).toBeTruthy()
+  expect(screen.getByText('Texto nuevo íntegro')).toBeTruthy()
+})

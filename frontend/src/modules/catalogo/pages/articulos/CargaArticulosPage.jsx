@@ -26,7 +26,7 @@ const FORM_INICIAL = {
   modo: 'nueva', // 'nueva' | 'existente'
   normaId: '',
   nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '',
-  motorLectura: 'qwen', tipoNorma: '', numeroNorma: '', fechaNorma: '', fechaPublicacion: '', urlFuente: '', documentoOficialId: null,
+  motorLectura: 'clasico', tipoNorma: '', numeroNorma: '', fechaNorma: '', fechaPublicacion: '', urlFuente: '', documentoOficialId: null,
 }
 
 export default function CargaArticulosPage() {
@@ -97,7 +97,7 @@ export default function CargaArticulosPage() {
 
   const elegirOficial = (documento, pdf) => {
     seleccionar(pdf)
-    setForm({ ...FORM_INICIAL, nombreDocumento: documento.titulo, tipoNorma: documento.tipo,
+    setForm({ ...FORM_INICIAL, motorLectura: form.motorLectura, nombreDocumento: documento.titulo, tipoNorma: documento.tipo,
       numeroNorma: documento.numero, fechaPublicacion: documento.fecha_publicacion || '',
       urlFuente: documento.url_fuente, documentoOficialId: documento.id,
       ramaId: ramas.find((r) => /penal/i.test(r.nombre))?.id || '',
@@ -247,8 +247,8 @@ export default function CargaArticulosPage() {
             <fieldset className={styles.modeOptions}>
               <legend>Lectura y datos de la publicación</legend>
               <FormSelectField id="motorLectura" label="Lectura del documento" value={form.motorLectura} onChange={handleInputChange}
-                options={[{ value: 'qwen', label: 'Qwen local: artículos, disposiciones y cambios normativos' }, { value: 'clasico', label: 'Lectura clásica: requiere verificar manualmente las afectaciones' }]} />
-              <p>Qwen identifica la fecha y la norma principal. Completa los datos cuando el PDF no los indique claramente.</p>
+                options={[{ value: 'clasico', label: 'Algoritmos locales: lectura y efectos expresos, sin Qwen' }, { value: 'qwen', label: 'Qwen opcional: lectura asistida por IA' }]} />
+              <p>Los algoritmos conservan el texto original y detectan efectos expresos. Qwen es opcional y consume más recursos. Verifica los datos de la norma antes de confirmar.</p>
               <div className={styles.formGrid}>
                 <FormTextField id="tipoNorma" label="Tipo legal (opcional)" value={form.tipoNorma} onChange={handleInputChange} placeholder="Ley, Decreto Supremo, Resolución…" />
                 <FormTextField id="numeroNorma" label="Número legal (opcional)" value={form.numeroNorma} onChange={handleInputChange} />
@@ -283,7 +283,20 @@ export default function CargaArticulosPage() {
 
       {mostrandoFormulario && revision && <RevisionCargaPanel revision={revision} modo={modoActualizacion}
         onModo={setModoActualizacion} seleccion={seleccion} onSeleccion={setSeleccion} enviando={enviando}
-        onCancelar={limpiarRevision} onConfirmar={async () => {
+        onCancelar={limpiarRevision} onSeccion={async (id) => {
+          const seccion = revision.secciones_documento.find((s) => s.id === id)
+          const clave = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+          const legal = /^(ley|decreto ley|decreto supremo|resolucion ministerial)[^\d]*(\d+)/.exec(clave(seccion.titulo))
+          const destino = normas.find((n) => clave(n.nombre) === clave(seccion.titulo) ||
+            (/^codigo /.test(clave(seccion.titulo)) && clave(n.nombre).startsWith(clave(seccion.titulo))) ||
+            (legal && clave(n.tipo_norma) === legal[1] && Number(n.numero_norma) === Number(legal[2])))
+          await revisarPdf({ ...revision.payload, seccionDocumento: id, variantesUnidades: {},
+            normaId: destino?.id || null, nombreDocumento: seccion.titulo, sigla: '', documentoOficialId: null,
+            jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
+            metadatos: revision.payload.metadatos?.url_fuente ? { url_fuente: revision.payload.metadatos.url_fuente } : {} })
+        }} onAlternativa={async (clave, id) => {
+          await revisarPdf({ ...revision.payload, variantesUnidades: { ...revision.payload.variantesUnidades, [clave]: id } })
+        }} onConfirmar={async () => {
           const resultado = await cargar({ ...revision.payload, modoActualizacion,
             revisionToken: revision.revision_token, articulosSeleccionados: seleccion })
           if (resultado.success) limpiarRevision()

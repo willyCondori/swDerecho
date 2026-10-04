@@ -34,13 +34,12 @@ export function useRevisionPdf() {
     let snapshot = trabajo
     const vigente = () => sesiones.get(usuario) === snapshot
     try {
-      const { data } = await (payload.motorLectura === 'qwen'
-        ? cargaArticulosApi.revisarConIA(payload, vigente, (avance) => {
+      const { data } = await cargaArticulosApi.revisarAsincrono(payload, vigente, (avance) => {
           if (vigente() && avance.paso) {
             snapshot = { ...snapshot, pasoRevision: avance.paso }
             publicar(usuario, snapshot)
           }
-        }) : cargaArticulosApi.revisar(payload))
+        })
       if (vigente()) publicar(usuario, { ...snapshot, revisando: false, revision: { ...data, payload } })
     } catch (err) {
       if (!vigente()) return

@@ -3,14 +3,31 @@ import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
 const ACCIONES = { nuevo: 'Nuevo', actualizar: 'Se actualizará', sin_cambios: 'Sin cambios de texto' }
 
-export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, onSeleccion, onConfirmar, onCancelar, enviando }) {
+export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, onSeleccion, onConfirmar, onCancelar, enviando, onSeccion, onAlternativa }) {
   const disposiciones = revision.disposiciones || []
   const completa = modo === 'completo'
+  const pendientes = (revision.unidades_ambiguas || []).filter((u) => !u.seleccionada)
   const elegidos = revision.articulos.filter((a) => completa || seleccion.includes(a.numero))
   const contar = (accion) => elegidos.filter((a) => a.accion === accion).length
   const toggle = (numero) => onSeleccion(seleccion.includes(numero) ? seleccion.filter((n) => n !== numero) : [...seleccion, numero])
   return <section className={styles.card} aria-labelledby="revision-titulo">
     <h2 id="revision-titulo" className={styles.cardTitle}>Revisar cambios · {revision.norma}</h2>
+    {revision.secciones_documento?.length > 1 && <section aria-label="Normas identificadas en el PDF">
+      <p>Este PDF contiene varias normas. Se revisa y carga una norma por vez conservando el archivo original.</p>
+      <label>Norma del PDF <select aria-label="Norma del PDF" value={revision.seccion_activa} onChange={(e) => onSeccion?.(e.target.value)} disabled={enviando}>
+        {revision.secciones_documento.map((s) => <option key={s.id} value={s.id}>{s.titulo || revision.norma}</option>)}
+      </select></label>
+    </section>}
+    {(revision.unidades_ambiguas || []).map((u) => <fieldset key={u.clave} aria-label={`Alternativas de ${u.numero}`}>
+      <legend>{u.tipo_unidad === 'articulo' ? 'Artículo' : 'Disposición'} {u.numero}: textos distintos en el PDF</legend>
+      <p>Compara las versiones con el original. Solo se importará la alternativa que selecciones.</p>
+      {u.alternativas.map((a, i) => <div key={a.id_unidad}>
+        <label><input type="radio" name={u.clave} checked={u.seleccionada === a.id_unidad} onChange={() => onAlternativa?.(u.clave, a.id_unidad)} disabled={enviando} />Alternativa {i + 1}</label>
+        <details><summary>Ver texto completo de alternativa {i + 1}</summary><p style={{ whiteSpace: 'pre-wrap' }}>{a.texto}</p></details>
+      </div>)}
+      <label><input type="radio" name={u.clave} checked={u.seleccionada === 'ignorar'} onChange={() => onAlternativa?.(u.clave, 'ignorar')} disabled={enviando} />No importar esta unidad</label>
+    </fieldset>)}
+    {pendientes.length > 0 && <p role="alert">Hay {pendientes.length} unidades pendientes de revisión. No se puede reemplazar el catálogo completo hasta resolverlas.</p>}
     <fieldset className={styles.modeOptions}>
       <legend>Cómo aplicar este PDF</legend>
       <label><input type="radio" name="modoActualizacion" checked={completa} onChange={() => onModo('completo')} />
@@ -25,7 +42,7 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
       {completa && ` · ${revision.sobrantes.length} retirados del catálogo activo`}
     </p>
     <p>Una ausencia en el PDF no significa derogación. Los cambios detectados se registrarán para verificación, con el texto de respaldo.</p>
-    {revision.motor === 'clasico' && <p className={styles.reviewWarning}>La lectura clásica detecta derogaciones y abrogaciones expresas de disposiciones con un destino inequívoco. Verifica las cláusulas ambiguas manualmente o usa Qwen.</p>}
+    {revision.motor === 'clasico' && <p className={styles.reviewWarning}>La lectura por algoritmos detecta modificaciones, incorporaciones, derogaciones y abrogaciones expresas. Los destinos o alcances ambiguos permanecen como avisos para revisión manual.</p>}
     {revision.advertencias_lectura?.map((aviso, i) => <p key={i} role="note" className={styles.reviewWarning}>{aviso}</p>)}
     {revision.metadatos && <p>Norma principal: {revision.metadatos.tipo_norma} {revision.metadatos.numero_norma} · Fecha: {revision.metadatos.fecha_norma || 'por verificar'}.</p>}
     {Boolean(revision.cambios_normativos?.length) && <section role="alert" aria-label="Afectaciones normativas detectadas">
@@ -67,7 +84,7 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     </details>}
     <div className={styles.submitRow}>
       <button type="button" className={styles.btnSecondary} disabled={enviando} onClick={onCancelar}>Volver al formulario</button>
-      <button type="button" className={styles.btnPrimary} disabled={enviando || (!elegidos.length && !disposiciones.length)} onClick={onConfirmar}>
+      <button type="button" className={styles.btnPrimary} disabled={enviando || (completa && pendientes.length > 0) || (!elegidos.length && !disposiciones.length)} onClick={onConfirmar}>
         {enviando ? 'Enviando…' : completa ? 'Confirmar reemplazo completo' : `Confirmar ${elegidos.length} artículos${disposiciones.length ? ` y ${disposiciones.length} disposiciones` : ''}`}
       </button>
     </div>

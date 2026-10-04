@@ -5,8 +5,8 @@ from modulo_catalogo.models import DocumentoNorma
 from django.utils import timezone
 from modulo_catalogo.services.vigencia_service import clave, actualizar_avisos
 from modulo_catalogo.services.carga_pdf_service import extraer_texto_pdf_bytes
-from modulo_catalogo.services.lectura_normativa_service import extraer_unidades, detectar_derogaciones_expresas
-from modulo_catalogo.services.disposiciones_service import separar_unidades, guardar_disposiciones
+from modulo_catalogo.services.lectura_normativa_service import detectar_derogaciones_expresas
+from modulo_catalogo.services.disposiciones_service import separar_unidades, guardar_disposiciones, recuperar_unidades_seleccionadas
 from modulo_catalogo.services.vigencia_service import registrar_cambios
 
 
@@ -18,7 +18,7 @@ class Command(BaseCommand):
             try:
                 with default_storage.open(documento.ruta_archivo, 'rb') as pdf:
                     texto = extraer_texto_pdf_bytes(pdf.read())
-                _, disposiciones = separar_unidades(extraer_unidades(texto, 'clasico'))
+                _, disposiciones = separar_unidades(recuperar_unidades_seleccionadas(documento, texto))
                 cambios = detectar_derogaciones_expresas(disposiciones)
                 with transaction.atomic():
                     guardar_disposiciones(documento, disposiciones)

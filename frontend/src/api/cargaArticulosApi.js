@@ -6,6 +6,8 @@ const BASE = '/api/catalogo/cargar-articulos'
 function formulario(payload) {
   const fd = new FormData()
   fd.append('archivo', payload.archivo)
+  if (payload.seccionDocumento != null) fd.append('seccion_documento', payload.seccionDocumento)
+  if (payload.variantesUnidades) fd.append('variantes_unidades', JSON.stringify(payload.variantesUnidades))
   if (payload.motorLectura) fd.append('motor_lectura', payload.motorLectura)
   if (payload.metadatos) fd.append('metadatos', JSON.stringify(payload.metadatos))
   if (payload.documentoOficialId) fd.append('documento_oficial_id', payload.documentoOficialId)
@@ -28,7 +30,7 @@ const cargaArticulosApi = {
     headers: { 'Content-Type': 'multipart/form-data' },
     timeout: 120000,
   }),
-  revisarConIA: async (payload, sigueVigente = () => true, onProgreso = () => {}) => {
+  revisarAsincrono: async (payload, sigueVigente = () => true, onProgreso = () => {}) => {
     const inicio = await api.post(`${BASE}/revisar-iniciar/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
@@ -42,6 +44,7 @@ const cargaArticulosApi = {
     }
     throw new Error('La revisión fue cancelada en esta pantalla.')
   },
+  revisarConIA: (...args) => cargaArticulosApi.revisarAsincrono(...args),
   cargar: (payload) => {
     return api.post(`${BASE}/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },

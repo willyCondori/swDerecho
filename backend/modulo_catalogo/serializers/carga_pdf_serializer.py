@@ -50,6 +50,8 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                             insertar los nuevos.
     """
 
+    seccion_documento = serializers.CharField(required=False, allow_blank=False, max_length=20)
+    variantes_unidades = serializers.JSONField(required=False, default=dict)
     motor_lectura = serializers.ChoiceField(choices=['qwen', 'clasico'], required=False)
     metadatos = serializers.JSONField(required=False, default=dict)
     documento_oficial_id = serializers.IntegerField(required=False, min_value=1)

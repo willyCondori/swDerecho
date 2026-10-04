@@ -9,10 +9,16 @@ TIPOS = ['articulo', 'transitoria', 'final', 'derogatoria', 'abrogatoria', 'adic
 ORDINALES = r'PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOVENA|D[EÉ]CIMA|[UÚ]NICA'
 SECCION = re.compile(r'^\s*DISPOSICI[OÓ]N(?:ES)?\s+(TRANSITORIA|FINAL|DEROGATORIA|ABROGATORIA|ADICIONAL)(?:S|ES)?\b', re.I)
 ORDINAL = re.compile(r'^\s*(' + ORDINALES + r')\s*(?:[.\-–:(]|$)', re.I)
-ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO|ART\.)\s+([UÚ]NICO|\d+(?:\s*(?:bis|ter|quater|quinquies|sexies|septies))?)\s*(?:[°º.\-–:(]|$)', re.I)
+SUFIJOS = r'bis|ter|qu[aá]ter|quinquies|sexies|septies|octies|nonies|decies'
+ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO\.?|ART\.)\s+([UÚ]NICO|\d+(?:[ \t.°º–-]*(?:' + SUFIJOS + r')\b)?)\s*(?:[°º.\-–:(]|$)', re.I)
+
+def numero_literal(numero):
+    return normalizar(re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', re.sub(r'[.°º–-]+', ' ', numero))).replace('quáter', 'quater').replace('Quáter', 'Quater')
+
 ESTRUCTURA = {'type': 'object', 'additionalProperties': False, 'required': ['unidades'], 'properties': {
     'unidades': {'type': 'array', 'maxItems': 24, 'items': {'type': 'object', 'additionalProperties': False,
-        'required': ['linea', 'tipo', 'numero'], 'properties': {
+        'required': ['linea', 'tipo', 'numero', 'rol'], 'properties': {
+            'rol': {'enum': ['unidad', 'referencia', 'indice']},
             'linea': {'type': 'integer', 'minimum': 0}, 'tipo': {'enum': TIPOS},
             'numero': {'type': 'string', 'maxLength': 35}}}}}}
 
@@ -63,19 +69,26 @@ def consultar_fragmentado(instruccion, texto, esquema, campo, profundidad=0):
         return resultados
 
 
+def normalizar_referencias(texto):
+    # Corregir solo la copia de análisis: algunos PDF juntan «389 Bisde la Ley».
+    texto = re.sub(r'\b(Art[ií]culos?)(?=\d)', r'\1 ', texto, flags=re.I)
+    return re.sub(r'(\d+[ \t.°º–-]*(?:' + SUFIJOS + r'))(?=de(?:l)?\b)', r'\1 ', texto, flags=re.I)
+
+
 def destinos_sustituidos(prefijo):
+    prefijo = normalizar_referencias(prefijo)
     cabecera = ARTICULO.match(prefijo)
     if cabecera: prefijo = prefijo[cabecera.end():]
     prefijo = re.sub(r'(?m)^\s*\d+[.)]\s*(?=(?:El|La|Los|Las)\b)', '', prefijo, flags=re.I)
     # Algunos PDF juntan el numeral siguiente con la coma de la referencia anterior.
     prefijo = re.sub(r'([,;]\s*)\d+[.)]\s*(?=(?:El|La|Los|Las)\b)', r'\1', prefijo, flags=re.I)
-    numero = r'\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?'
+    numero = r'\d+(?:[ \t.°º–-]*(?:' + SUFIJOS + r')\b)?'
     patron_lista = numero + r'(?:\s*(?:,\s*(?:y\s+)?|y\s+)(?:Art[ií]culos?\s+)?' + numero + r')*'
     numeros = set()
     for referencia in re.finditer(r'\bArt[ií]culos?\s+', prefijo, re.I):
         lista = re.match(patron_lista, prefijo[referencia.end():], re.I)
         if lista:
-            numeros.update(normalizar(m).upper() for m in re.findall(numero, lista.group(), re.I))
+            numeros.update(numero_literal(m).upper() for m in re.findall(numero, lista.group(), re.I))
     return numeros
 
 
@@ -111,7 +124,7 @@ def localizar_clasico(lineas, excluidas=None):
         art = ARTICULO.match(linea)
         ordinal = ORDINAL.match(linea) if seccion != 'articulo' else None
         if art:
-            unidades.append({'linea': i, 'tipo': 'articulo', 'numero': art.group(1)})
+            unidades.append({'linea': i, 'tipo': 'articulo', 'numero': numero_literal(art.group(1))})
             inicio_actual = i
         elif ordinal:
             unidades.append({'linea': i, 'tipo': seccion, 'numero': ordinal.group(1)})
@@ -142,6 +155,22 @@ def indices_estructura_compacta(lineas):
     return sorted(posiciones)
 
 
+def indices_cabeceras_amplias(lineas):
+    excluidas = set()
+    conocidas = localizar_clasico(lineas, excluidas)
+    if len(conocidas) < 30:
+        return None
+    posiciones = {u['linea'] for u in conocidas}
+    for i, linea in enumerate(lineas):
+        if i in excluidas or i in posiciones:
+            continue
+        if SECCION.match(linea):
+            posiciones.add(i)
+        elif re.match(r'^\s*(?:ART[IÍ]CULO\b|ART\.|' + ORDINALES + r'\b|\d+\s*[.:-]+\s*\()', linea, re.I):
+            return None
+    return sorted(posiciones)
+
+
 def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
     from .carga_pdf_service import dividir_por_articulos, extraer_titulo_articulo as extraer_titulo
     motor = motor or settings.LECTURA_NORMATIVA_MOTOR
@@ -149,14 +178,19 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
     if motor == 'qwen':
         unidades = []
         indices = indices_estructura_compacta(lineas)
-        for i, bloque in enumerate(bloques_lineas(lineas, indices=indices)):
-            if progreso: progreso({'paso': f'Identificando unidades del PDF, bloque {i + 1}'})
+        if indices is None:
+            indices = indices_cabeceras_amplias(lineas)
+        bloques = list(bloques_lineas(lineas, indices=indices))
+        for i, bloque in enumerate(bloques):
+            if progreso: progreso({'paso': f'Identificando unidades del PDF, bloque {i + 1}/{len(bloques)}'})
             unidades.extend(consultar_fragmentado(
                 'Localiza inicios de artículos y disposiciones de la norma PRINCIPAL. '
                 'Los números antes de : son índices de línea globales. '
                 'No incluyas referencias, índices ni artículos dentro de citas de modificaciones. '
                 'PRIMERA transitoria y PRIMERA final son unidades diferentes. '
-                'ARTÍCULO ÚNICO es un artículo. Devuelve el número literal, sin prefijos.',
+                'ARTÍCULO ÚNICO es un artículo. Devuelve el número completo, incluidos Bis, Ter, Quater, Octies, etc. '
+                '13. Quater identifica 13 Quater y no 13. Para cada cabecera devuelve rol unidad, '
+                'referencia o indice; no conviertas una referencia ni una tabla de contenido en artículo.',
                 bloque, ESTRUCTURA, 'unidades'))
         # Los índices numéricos no son fiables en modelos pequeños. Las
         # cabeceras literales verificables completan el mapa sin generar texto.
@@ -166,10 +200,14 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
         corregidas = 0
         for u in unidades:
             pos = u['linea']
-            if pos in mapa:
-                if u != mapa[pos]: corregidas += 1
+            if u.get('rol', 'unidad') != 'unidad':
+                mapa.pop(pos, None)
+                corregidas += 1
                 continue
-            numero = re.sub(r'^(?:ART[IÍ]CULO|ART\.)\s*', '', u['numero'], flags=re.I).strip()
+            if pos in mapa:
+                if u['tipo'] != mapa[pos]['tipo'] or numero_literal(u['numero']).casefold() != mapa[pos]['numero'].casefold(): corregidas += 1
+                continue
+            numero = numero_literal(re.sub(r'^(?:ART[IÍ]CULO|ART\.)\s*', '', u['numero'], flags=re.I).strip())
             if not 0 <= pos < len(lineas) or pos in excluidas or SECCION.match(lineas[pos]):
                 corregidas += 1
                 continue
@@ -207,8 +245,23 @@ def extraer_unidades(texto, motor=None, advertencias=None, progreso=None):
             advertencias.append('Se completó la estructura usando cabeceras literales del PDF. Verifica la lista de unidades y su texto antes de confirmar.')
         unidades = list(mapa.values())
     elif motor == 'clasico':
-        articulos = dividir_por_articulos(texto)
-        unidades = [u for u in localizar_clasico(lineas) if u['tipo'] != 'articulo'
+        try:
+            articulos = dividir_por_articulos(texto)
+        except ValueError as exc:
+            from .carga_pdf_service import DocumentoConVariasNormasError
+            if not isinstance(exc, DocumentoConVariasNormasError):
+                raise
+            # Mostrar las unidades como alternativas, en vez de exigir cortar el PDF.
+            return reconstruir(localizar_clasico(lineas), lineas, extraer_titulo)
+        excluidas = set()
+        conocidas = localizar_clasico(lineas, excluidas)
+        if excluidas and any(u['tipo'] == 'articulo' for u in conocidas):
+            return reconstruir(conocidas, lineas, extraer_titulo)
+        from collections import Counter
+        repetidas = Counter((u['tipo'], u['numero'].casefold()) for u in conocidas)
+        if any(n > 1 for n in repetidas.values()):
+            return reconstruir(conocidas, lineas, extraer_titulo)
+        unidades = [u for u in conocidas if u['tipo'] != 'articulo'
                     or u['numero'].upper() in ['ÚNICO', 'UNICO']]
         if not unidades:
             return articulos
@@ -229,14 +282,14 @@ def reconstruir(unidades, lineas, extraer_titulo):
         if not 0 <= pos < len(lineas) or pos in posiciones or not numero:
             raise ValueError('Qwen devolvió una ubicación duplicada o inexistente.')
         # Validar la identidad contra la cabecera, no contra cualquier cifra del cuerpo.
-        cabecera = normalizar(re.sub(r'[°º]', ' ', lineas[pos])).upper()
+        cabecera = normalizar(re.sub(r'[.°º–-]', ' ', lineas[pos])).upper()
         if not re.search(r'(?<!\w)' + re.escape(normalizar(numero).upper()) + r'(?!\w)', cabecera):
             raise ValueError('El número extraído no coincide con la cabecera original.')
         posiciones.add(pos)
         clave = (f"{prefijos[unidad['tipo']]} {numero.upper()}"
                  if unidad['tipo'] != 'articulo' else numero)
-        if clave.casefold() in numeros:
-            raise ValueError('El documento contiene unidades repetidas; separa las normas de la compilación.')
+        # Una numeración repetida se conserva para resolver su norma o versión
+        # en la revisión, nunca se mezcla ni se descarta por escoger la primera.
         numeros.add(clave.casefold())
         fin = unidades[i + 1]['linea'] if i + 1 < len(unidades) else len(lineas)
         cuerpo = '\n'.join(lineas[pos:fin])
@@ -244,6 +297,7 @@ def reconstruir(unidades, lineas, extraer_titulo):
         resto = re.split(r'(?im)^\s*(?:DISPOSICI[OÓ]N(?:ES)?\s+|Rem[íi]tase\s+|Por\s+tanto,?\s+la\s+promulgo)', resto)[0]
         cuerpo = (primera + separador + resto).strip()
         resultados.append({'numero': clave, 'tipo_unidad': unidad['tipo'],
+                           'id_unidad': f'{unidad["tipo"]}:{clave}:{pos}', 'linea_inicio': pos,
                            'titulo': extraer_titulo(numero, cuerpo) if unidad['tipo'] == 'articulo' else lineas[pos].strip()[:500],
                            'texto': cuerpo})
     return resultados
@@ -424,7 +478,7 @@ def fecha_literal(texto):
 def identidades_literales(texto):
     return list(dict.fromkeys(' '.join(m) for m in re.findall(
         r'\b(Decreto\s+Ley|Decreto\s+Supremo|Decreto\s+Presidencial|Resoluci[oó]n\s+Suprema|'
-        r'Resoluci[oó]n\s+Ministerial|Ley)\s+(?:N(?:[°ºoO.]|ro\.)?\s*)?(\d+)\b', texto, re.I)))
+        r'Resoluci[oó]n\s+Ministerial|Ley)\s+(?:N(?:[°ºoO.]|ro\.)?\s*)?(\d+)(?!\d)', texto, re.I)))
 
 def ajustar_cambio_literal(cambio, unidad):
     """Corregir salidas del 2B solo cuando una cláusula literal lo permite.
@@ -462,8 +516,8 @@ def ajustar_cambio_literal(cambio, unidad):
             c.update(operacion='temporal', norma='', unidad='', alcance='Regla de vigencia o plazo; no implica derogación', origen='clausula')
         if c['origen'] == 'clausula':
             c.update(causante='', fecha_causante='')
-            objetivo = cita_sin_cabecera(cita)
-            objetivo = re.split(r'\bmodificad[ao]\s+por\b', objetivo, maxsplit=1, flags=re.I)[0]
+            objetivo = normalizar_referencias(cita_sin_cabecera(cita))
+            objetivo = re.split(r'\bmodificad[ao]\s*por\b', objetivo, maxsplit=1, flags=re.I)[0]
             identidades = identidades_literales(objetivo)
             codigos = list(dict.fromkeys('Código de Procedimiento Penal' if 'procedimiento' in m.lower() else 'Código Penal' for m in re.findall(
                 r'\bC[oó]digo\s+(?:de\s+Procedimiento\s+)?Penal\b', objetivo, re.I)))
@@ -471,7 +525,7 @@ def ajustar_cambio_literal(cambio, unidad):
                 c['norma'] = identidades[0]
             if len(codigos) == 1 and len(identidades) <= 1 and c['operacion'] in ['abroga', 'deroga', 'modifica', 'incorpora']:
                 c['norma'] = 'Código de Procedimiento Penal' if 'procedimiento' in codigos[0].lower() else 'Código Penal'
-            articulos = list(dict.fromkeys(re.findall(r'\bArt[ií]culo\s+(\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?)\b', objetivo, re.I)))
+            articulos = list(dict.fromkeys(numero_literal(n) for n in re.findall(r'\bArt[ií]culo\s*(\d+(?:[ \t.°º–-]*(?:' + SUFIJOS + r')\b)?)(?!\d)', objetivo, re.I)))
             if len(articulos) == 1 and c['operacion'] in ['deroga', 'modifica', 'incorpora']:
                 c['unidad'] = articulos[0]
             if c['operacion'] == 'abroga' and not articulos:
@@ -506,7 +560,7 @@ def completar_destinos_literales(cambio, unidad):
         r'\b(?:incorpor(?:a(?:da|do|das|dos|n)?|ar)|a[nñ]ade\w*)\b'] if re.search(patron, cita, re.I)]
     if len(operaciones) != 1:
         return [cambio]
-    objetivo = re.split(r'\bmodificad[ao]\s+por\b', cita_sin_cabecera(cita), maxsplit=1, flags=re.I)[0]
+    objetivo = re.split(r'\bmodificad[ao]\s*por\b', cita_sin_cabecera(cita), maxsplit=1, flags=re.I)[0]
     if len(identidades_literales(objetivo)) > 1:
         return [cambio]
     destinos = destinos_sustituidos(objetivo)

@@ -66,3 +66,55 @@ class NormativaEndpointsTests(APITestCase):
         self.assertTrue(resultado['revision_token'])
         self.assertEqual(len(resultado['articulos']), 1)
         self.assertFalse(Norma.objects.filter(nombre='Norma pendiente de revisión').exists())
+
+
+    @patch('modulo_catalogo.services.lectura_normativa_service.consultar', side_effect=AssertionError('No usar Qwen'))
+    @patch('modulo_catalogo.services.pdf_normativo_service.leer_pdf')
+    def test_compilacion_se_revisa_sin_cortar_pdf_y_cada_norma_tiene_su_revision(self, lectura, modelo):
+        texto = 'LEY N° 100\nLEY DE 10 DE ENERO DE 2000\nARTÍCULO 1. Contenido de la ley principal.\nLEY N° 200\nLEY DE 20 DE ENERO DE 2001\nARTÍCULO 1. Contenido distinto de otra ley.'
+        lectura.return_value = (texto, [])
+        parametros = {'archivo': self.archivo(), 'rama_id': self.rama.pk,
+                      'nombre_documento': 'Ley 100', 'motor_lectura': 'clasico'}
+        principal = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(principal.status_code, 200, principal.data)
+        self.assertEqual(len(principal.data['secciones_documento']), 2)
+        self.assertIn('ley principal', principal.data['articulos'][0]['texto_nuevo'])
+        self.assertNotIn('otra ley', principal.data['articulos'][0]['texto_nuevo'])
+        anexo = self.client.post('/api/catalogo/cargar-articulos/revisar/',
+            {**parametros, 'archivo': self.archivo(), 'seccion_documento': '1', 'nombre_documento': 'Ley 200'}, format='multipart')
+        self.assertEqual(anexo.status_code, 200, anexo.data)
+        self.assertIn('otra ley', anexo.data['articulos'][0]['texto_nuevo'])
+        self.assertEqual(anexo.data['metadatos']['numero_norma'], '200')
+        self.assertNotEqual(principal.data['revision_token'], anexo.data['revision_token'])
+        modelo.assert_not_called()
+
+    @patch('modulo_catalogo.services.pdf_normativo_service.leer_pdf', return_value=('ARTÍCULO 1. Base.', []))
+    @patch('modulo_catalogo.services.lectura_normativa_service.extraer_unidades')
+    def test_alternativas_no_se_importan_hasta_elegir_y_no_permiten_reemplazo_completo(self, unidades, lectura):
+        unidades.return_value = [
+            {'numero': '1', 'texto': 'ARTÍCULO 1. Versión anterior.', 'titulo': 'Anterior'},
+            {'numero': '1', 'texto': 'ARTÍCULO 1. Versión nueva.', 'titulo': 'Nueva'},
+            {'numero': '2', 'texto': 'ARTÍCULO 2. Unidad inequívoca.', 'titulo': 'Dos'}]
+        parametros = {'archivo': self.archivo(), 'rama_id': self.rama.pk,
+                      'nombre_documento': 'Ley 100', 'motor_lectura': 'clasico'}
+        resp = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(resp.status_code, 200, resp.data)
+        self.assertEqual([u['numero'] for u in resp.data['articulos']], ['2'])
+        grupo = resp.data['unidades_ambiguas'][0]
+        cache_revision = cache.get('revision_carga_pdf:' + resp.data['revision_token'])
+        self.assertTrue(cache_revision['ambiguedades_pendientes'])
+        from modulo_catalogo.views.revision_carga_view import validar_revision, datos_destino
+        from rest_framework.exceptions import ValidationError
+        datos = {'archivo': self.archivo(), 'rama': self.rama, 'nombre_documento': 'Ley 100',
+                 'motor_lectura': 'clasico', 'revision_token': resp.data['revision_token'], 'modo_actualizacion': 'completo'}
+        # El destino normalizado incluye los defaults del serializer.
+        datos['variantes_unidades'] = {}
+        with self.assertRaisesMessage(ValidationError, 'alternativas'):
+            validar_revision(datos, self.abogado.pk)
+        import json
+        parametros['archivo'] = self.archivo()
+        parametros['variantes_unidades'] = json.dumps({grupo['clave']: grupo['alternativas'][1]['id_unidad']})
+        elegido = self.client.post('/api/catalogo/cargar-articulos/revisar/', parametros, format='multipart')
+        self.assertEqual(elegido.status_code, 200, elegido.data)
+        self.assertIn('Versión nueva', elegido.data['articulos'][0]['texto_nuevo'])
+        self.assertFalse(cache.get('revision_carga_pdf:' + elegido.data['revision_token'])['ambiguedades_pendientes'])

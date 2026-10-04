@@ -36,6 +36,8 @@ def cita_del_destino(cita, unidad):
     patron = (r'\bArt[ií]culos?\s+(?P<art>\d+(?:\s+(?:bis|ter|quater|quinquies|sexies|septies))?)\b|'
               r'\bDisposici[oó]n\s+(?P<tipo>Transitoria|Final|Derogatoria|Abrogatoria)'
               r'\s+(?P<ordinal>\w+)\b')
+    cita = re.sub(r'\b(Art[ií]culos?)(?=\d)', r'\1 ', cita, flags=re.I)
+    cita = re.sub(r'(?<=\d)(?=(?:bis|ter|quater|quinquies|sexies|septies)\b)', ' ', cita, flags=re.I)
     referencias = list(re.finditer(patron, cita, re.I))
     if len(referencias) < 2 or not unidad:
         return cita, False

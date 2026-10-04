@@ -16,9 +16,9 @@ def guardar_disposiciones(documento, disposiciones):
 
 
 def importar_disposiciones_expresas(documento, texto):
-    from .lectura_normativa_service import extraer_unidades, detectar_derogaciones_expresas
+    from .lectura_normativa_service import detectar_derogaciones_expresas
     from .vigencia_service import registrar_cambios, aviso
-    _, disposiciones = separar_unidades(extraer_unidades(texto, 'clasico'))
+    _, disposiciones = separar_unidades(recuperar_unidades_seleccionadas(documento, texto))
     cambios = detectar_derogaciones_expresas(disposiciones)
     guardar_disposiciones(documento, disposiciones)
     registrar_cambios(documento, disposiciones, cambios, documento.metadatos)
@@ -26,3 +26,24 @@ def importar_disposiciones_expresas(documento, texto):
             'disposiciones': len(disposiciones), 'avisos_normativos': len(cambios),
             'avisos': [aviso(c) for c in documento.cambios_detectados.select_related('fuente__norma',
                       'articulo_afectado').exclude(estado_revision='descartado')]}
+
+
+def recuperar_unidades_seleccionadas(documento, texto):
+    """Recuperar sin mezclar anexos ni elegir versiones ambiguas por defecto."""
+    from .compilaciones_service import segmentar_normas, elegir_seccion, resolver_alternativas
+    from .lectura_normativa_service import extraer_unidades
+    from .vigencia_service import clave
+    secciones = segmentar_normas(texto, motor='clasico')
+    analisis = documento.analisis_normativo or {}
+    guardada = analisis.get('seccion') or {}
+    seleccion = None
+    if guardada:
+        candidatas = [s for s in secciones if clave(s['titulo']) == clave(guardada.get('titulo', ''))]
+        if len(candidatas) != 1:
+            raise ValueError('No se pudo recuperar inequívocamente la sección seleccionada; revisa el PDF nuevamente.')
+        seleccion = candidatas[0]['id']
+    texto, _ = elegir_seccion(texto, secciones, seleccion, documento.norma)
+    unidades = [u for u in extraer_unidades(texto, 'clasico')
+                if u.get('tipo_unidad', 'articulo') in {'articulo', *TIPOS_IMPORTADOS}]
+    unidades, _ = resolver_alternativas(unidades, analisis.get('variantes_unidades', {}))
+    return unidades

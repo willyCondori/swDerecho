@@ -4,44 +4,37 @@ Rama: `feature/lectura-ia-vigencia-normativa`.
 
 ## Preparación
 
-Instala las dependencias ya declaradas en `backend/requirements.txt`. Descarga
-el modelo con `ollama pull qwen3.5:2b` y mantén Ollama disponible en
-`http://127.0.0.1:11434`. Aplica `python manage.py migrate` desde `backend`.
-El tag oficial de 2B es **qwen3.5:2b**: https://ollama.com/library/qwen3.5:2b.
-
-Para el servidor estimado de 12 GB RAM y 4 GB VRAM:
+Instala las dependencias de `backend/requirements.txt` y aplica `python manage.py migrate` desde `backend`.
+La lectura predeterminada es **Algoritmos locales**. No utiliza Ollama ni Qwen.
+Sentence Transformers se conserva para los embeddings y la búsqueda del catálogo.
 
 ```dotenv
-OLLAMA_NORMATIVO_MODELO=qwen3.5:2b
-OLLAMA_NORMATIVO_CONTEXTO=4096
-OLLAMA_NORMATIVO_TIMEOUT=180
-OLLAMA_NORMATIVO_KEEP_ALIVE=-1
+LECTURA_NORMATIVA_MOTOR=clasico
+OLLAMA_NORMATIVO_PRELOAD_STARTUP=False
+OLLAMA_NORMATIVO_KEEP_ALIVE=5m
 EMBEDDING_PRELOAD_STARTUP=True
-OLLAMA_NORMATIVO_PRELOAD_STARTUP=True
 EMBEDDING_DEVICE=cpu
 EMBEDDING_BATCH_SIZE=8
 GACETA_PAUSA_SEGUNDOS=0.5
+PDF_OCR_IDIOMA=spa
 ```
 
-Configura `OLLAMA_NUM_PARALLEL=1` y `OLLAMA_MAX_LOADED_MODELS=1` en el proceso
-que ejecuta Ollama. El cliente también serializa las inferencias. Los embeddings
-se generan en CPU y Qwen permanece cargado en Ollama entre consultas.
-Esto reduce la competencia por VRAM; el rendimiento en el servidor de 4 GB
-debe medirse allí. El tamaño del archivo del modelo no es su consumo total.
+El backend precarga una instancia de Sentence Transformers por proceso; Qwen
+solo se solicita cuando se selecciona explícitamente su opción de lectura.
+Para utilizarla, descarga `ollama pull qwen3.5:2b` y mantén Ollama disponible en
+`http://127.0.0.1:11434`. El tiempo de residencia predeterminado es cinco minutos.
+Configura `OLLAMA_NUM_PARALLEL=1` y `OLLAMA_MAX_LOADED_MODELS=1` en Ollama.
+Un modelo residente de una ejecución anterior se puede liberar con
+`ollama stop qwen3.5:2b`. Reinicia el backend después de modificar su `.env`.
 
-El servidor WSGI/ASGI prepara ambos modelos antes de aceptar peticiones:
-Sentence Transformers carga una sola instancia por proceso y ejecuta una
-vectorización inicial; Qwen carga sus pesos y contexto en Ollama. El arranque
-inicial puede tardar; las peticiones posteriores reutilizan los modelos.
-Los comandos `migrate`, `shell` y los tests no hacen esta precarga. Si Ollama no
-está disponible, el servidor indica el fallo al iniciar. Para una instalación
-sin Qwen, configura `OLLAMA_NORMATIVO_PRELOAD_STARTUP=False`.
-Para desactivar también la precarga de embeddings usa `EMBEDDING_PRELOAD_STARTUP=False`.
-`keep_alive=-1` evita la descarga por inactividad; un reinicio de Ollama o la
-presión de memoria pueden exigir cargar Qwen nuevamente. Comprueba `ollama ps`.
+Para PDFs escaneados en el modo de algoritmos, instala Tesseract con el idioma
+español. Si no está en PATH, configura `PDF_TESSERACT_CMD` con la ruta al ejecutable.
+El OCR se ejecuta por página en CPU, con un hilo; los PDFs digitales no lo necesitan.
+El texto reconocido requiere contrastarse con el original. Sin Tesseract, un
+escaneo devuelve un error explicativo, sin cambiar automáticamente a Qwen.
 
 Ejecuta Django en **un proceso** para las tareas y la caché locales.
-La revisión de Qwen se realiza en segundo plano. Los hilos no sobreviven a
+La revisión de ambos motores se realiza en segundo plano. Los hilos no sobreviven a
 un reinicio del servidor: vuelve a revisar el PDF o repite la sincronización.
 Los documentos oficiales ya descargados y los errores de cada documento
 permanecen en PostgreSQL. No uses varios workers con la caché local:
@@ -49,12 +42,17 @@ para distribuir tareas hace falta una cola durable y una caché compartida.
 
 ## Uso
 
-En **Cargar artículos**, elige Qwen local, la norma y el PDF. Revisa la lista
+En **Cargar artículos → Lectura del documento**, elige **Algoritmos locales**, la norma y el PDF. Revisa la lista
 de artículos y, en una tabla aparte, disposiciones finales, derogatorias y abrogatorias.
 Las transitorias y adicionales no se importan.
 El texto de PDFs digitales se reconstruye desde el original; páginas escaneadas
 se transcriben una por una y muestran un aviso para contrastarlas con el PDF.
-Cada documento debe corresponder a una norma principal; separa las compilaciones.
+Si el PDF contiene varias normas, la revisión permite elegir una sección sin
+recortar el archivo original. Los anexos no se mezclan con la norma principal.
+Si un número de artículo contiene versiones distintas, debes elegir una alternativa
+o ignorarlo. Las versiones sin resolver no se importan ni generan efectos;
+impiden el reemplazo completo, pero permiten cargar otras unidades inequívocas.
+Las repeticiones de texto íntegro idéntico se deduplican.
 
 Los efectos de los artículos seleccionados y de todas las disposiciones importadas
 se guardan como detecciones pendientes.
@@ -94,7 +92,7 @@ En **Cargar artículos → Documentos penales de la Gaceta**, busca y descarga
 los originales. **Páginas por listado = 0** recorre todas las páginas disponibles;
 usa fechas para acotar por publicación. La relevancia penal se comprueba en
 el título y el cuerpo, con un filtro conservador que puede incluir normas
-relacionadas indirectamente. «Revisar e incorporar» envía el mismo PDF a Qwen.
+relacionadas indirectamente. «Revisar e incorporar» usa el motor seleccionado para leer el mismo PDF.
 
 También puedes descargar desde la consola:
 
@@ -244,3 +242,24 @@ repetición para evitar avisos duplicados.
 Al navegar dentro de la aplicación, la revisión conserva el PDF original, el avance y el resultado en memoria de la sesión. Volver a «Cargar artículos» retoma el progreso sin iniciar otra lectura; si ya terminó, presenta la revisión para confirmarla. La carga confirmada consulta su tarea del servidor, incluso si terminó mientras el usuario estaba fuera. Antes de ofrecer el formulario se verifica si hay una carga activa. Estos datos se eliminan al cambiar de usuario o cerrar sesión. La revisión en memoria no sobrevive a recargar completamente el navegador; el servidor continúa trabajando.
 
 Los avisos no aplican efectos automáticamente. Las reglas temporales y las cláusulas generales son informativas. Un efecto concreto con destino cargado se revisa en Catálogo → Normas por un usuario autorizado. Si falta la norma o el artículo exacto, es solo un aviso: primero debe incorporarse ese destino y después verificarse la fuente, la fecha y el alcance. Artículo 323 no sustituye a 323 Bis; artículo 281 no sustituye a 281 Quater. Los contadores de artículos importados son distintos de los efectos detectados en las disposiciones.
+
+
+## Algoritmos locales
+
+La opción analiza cabeceras, artículos y disposiciones finales, derogatorias y
+abrogatorias. Conserva sufijos como Bis, Quater y Octies y distingue referencias
+o textos reformados citados de los artículos propios de la norma.
+Detecta modificaciones, incorporaciones, derogaciones y abrogaciones expresas,
+sus destinos y alcances, notas históricas y reglas temporales. Una cláusula
+general o con destinos ambiguos produce un aviso para revisión; no permite
+deducir derogaciones tácitas. Las transitorias y adicionales se excluyen.
+No hace llamadas a Qwen durante esta lectura ni durante el análisis de efectos.
+
+El texto afectado no se reescribe automáticamente. Los efectos se presentan
+como avisos y siguen el flujo de confirmación con fuente, fecha y alcance.
+La recuperación posterior conserva la sección y las alternativas seleccionadas.
+
+Una lectura local del Código Penal de SEGIP de 110 páginas, incluyendo separación
+de seis normas anexas y detección de efectos, tomó aproximadamente 2,6 segundos.
+Esta medición no incluye embeddings, publicación en la base de datos ni OCR;
+el tiempo depende del documento y del equipo.

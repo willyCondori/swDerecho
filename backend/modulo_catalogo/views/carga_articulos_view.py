@@ -145,7 +145,9 @@ class CargaArticulosView(APIView):
                 subido_por=usuario,
                 vigente=not bool(revision),
                 metadatos=revision.get('metadatos', {}) if revision else data.get('metadatos', {}),
-                analisis_normativo={'cambios': revision.get('cambios', []), 'motor': revision.get('motor')} if revision else {},
+                analisis_normativo={'cambios': revision.get('cambios', []), 'motor': revision.get('motor'),
+                                  'seccion': revision.get('seccion'), 'secciones': revision.get('secciones'),
+                                  'variantes_unidades': revision.get('destino', {}).get('variantes_unidades', {})} if revision else {},
                 url_fuente=(revision.get('metadatos', {}) if revision else data.get('metadatos', {})).get('url_fuente', ''),
             )
 
