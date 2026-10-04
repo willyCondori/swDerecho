@@ -323,3 +323,26 @@ La revisión en curso continúa usando su recuperación de progreso independient
 El listado de normas devuelve sus ramas activas asociadas a artículos activos o
 PDF vigentes. Elegir una norma con una sola rama completa el campo automáticamente.
 Si no tiene rama conocida o tiene varias, el usuario debe seleccionar la rama.
+
+
+### Filtros de avisos normativos
+
+Los avisos se presentan ocultos al inicio, con contador por tipo y controles
+«Ver más» (diez por vez), «Ver todos» (del filtro seleccionado) y «Ocultar».
+Tipos: derogaciones, abrogaciones, históricos, modificaciones, incorporaciones,
+referencias judiciales, vigencia/plazos y otros. El estado se filtra por pendientes,
+confirmados, efectos futuros, informativos o fuentes/fechas por verificar.
+Los históricos con destino ambiguo permanecen en históricos, con revisión de
+fuente pendiente. Un aviso detectado no se anuncia como efecto confirmado.
+
+La auditoría del texto pegado de SEGIP tuvo 167 avisos: 32 derogaciones, una
+abrogación, 125 históricos, tres antecedentes históricos ambiguos, cinco
+referencias judiciales y una regla de vigencia. Se contrastaron los eventos
+con las notas literales guardadas; esto no certifica consolidación con toda
+la normativa posterior al PDF. Los artículos 130, 216 y 223 Ter citan varias
+reformas: se advierte revisar la secuencia y no atribuir una fuente única.
+
+La copia de análisis reconoce «25 marzo de 1999», «juliio» y «2021Ley»,
+conservando la cita original. Un año truncado («202») no se completa ni se
+confirma automáticamente. El resumen incluye el contador de artículos sin
+cambios de texto para distinguir guardados de nuevos/actualizados.

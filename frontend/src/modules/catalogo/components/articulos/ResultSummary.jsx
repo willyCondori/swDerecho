@@ -26,7 +26,7 @@ export default function ResultSummary({ resumen, onReiniciar }) {
       </section>}
       {resumen.normas_reutilizadas?.length > 0 && <p role="status">Normas existentes reutilizadas: {resumen.normas_reutilizadas.map((n) => n.nombre).join(', ')}. No se crearon normas nuevas en esta carga.</p>}
       {resumen.revision && <p className={styles.reviewSummary}>
-        {resumen.revision.actualizar} artículos actualizados · {resumen.revision.nuevo} nuevos ·
+        {resumen.revision.actualizar} artículos actualizados · {resumen.revision.nuevo} nuevos · {resumen.revision.sin_cambios || 0} sin cambios de texto ·
         {' '}{resumen.revision.retirados} retirados del catálogo activo ·
         {' '}{resumen.revision.derogados_indicados} con indicación de derogación o abrogación en el PDF.
       </p>}

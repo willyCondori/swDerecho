@@ -61,6 +61,16 @@ class AvisosCodigoTests(SimpleTestCase):
         self.assertFalse(indica_derogacion(unidad))
 
 
+    def test_fechas_con_erratas_de_segip_conservan_cita_y_no_completan_anios(self):
+        ejemplos = [('25 marzo de 1999', '1999-03-25'), ('04 de juliio de 2022', '2022-07-04'), ('27 de agosto de 2021Ley', '2021-08-27'), ('27 de agosto de 202', '')]
+        for literal, esperada in ejemplos:
+            unidad = {'numero': '105', 'texto': f'Artículo 105. Texto del delito.\nModificado por Ley 1443 de {literal}.'}
+            dato = self.ambos(unidad)[0]
+            self.assertEqual(dato['fecha_causante'], esperada)
+            self.assertIn(literal, dato['cita'])
+
+
+
 class SufijosParenteticosTests(SimpleTestCase):
     def test_129_y_129_bis_son_distintos_sin_capitulo_en_cuerpo(self):
         from modulo_catalogo.services.lectura_normativa_service import extraer_unidades

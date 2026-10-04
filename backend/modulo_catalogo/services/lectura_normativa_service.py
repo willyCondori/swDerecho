@@ -476,12 +476,13 @@ def extraer_metadatos(texto):
 
 def fecha_literal(texto):
     texto = re.sub(r'\bdde\b', 'de', texto, flags=re.I)  # Error tipográfico presente en la edición; no altera la cita.
+    texto = re.sub(r'\bjuliio\b', 'julio', texto, flags=re.I)
     from .vigencia_service import fecha
     iso = re.search(r'\b\d{4}-\d{2}-\d{2}\b', texto)
     if iso and fecha(iso.group()): return iso.group()
     meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio',
              'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
-    dato = re.search(r'\b(\d{1,2})\s+de\s+(' + '|'.join(meses) + r')\s+(?:de|del)\s+(\d{4})\b', texto, re.I)
+    dato = re.search(r'\b(\d{1,2})\s+(?:de\s+)?(' + '|'.join(meses) + r')\s+(?:de|del)\s+(\d{4})(?!\d)', texto, re.I)
     if dato:
         valor = f'{dato.group(3)}-{meses.index(dato.group(2).lower())+1:02d}-{int(dato.group(1)):02d}'
         if fecha(valor): return valor

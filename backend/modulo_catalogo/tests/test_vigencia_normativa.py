@@ -241,3 +241,19 @@ class VigenciaNormativaTests(TestCase):
         self.assertTrue(aviso(c)['nota_historica'])
         self.assertIn('Nota histórica', aviso(c)['mensaje'])
         self.assertNotIn('pendiente de verificación', aviso(c)['mensaje'])
+
+    def test_categorias_separan_judiciales_historicos_y_abrogaciones(self):
+        c = self.registrar()
+        self.assertEqual(aviso(c)['categoria_aviso'], 'abroga')
+        c.operacion = 'general'
+        c.origen = 'nota_editorial'
+        c.referencia = {'alcance': 'Referencia judicial: revisar sentencia.'}
+        self.assertEqual(aviso(c)['categoria_aviso'], 'judicial')
+        c.operacion = 'incorpora'
+        c.norma_causante = ''
+        c.cita = 'Incorporado por Ley 1525. Modificado por Ley 530.'
+        c.referencia = {'unidad': '223 ter', 'alcance': 'total'}
+        dato = aviso(c)
+        self.assertEqual(dato['categoria_aviso'], 'historico')
+        self.assertTrue(dato['requiere_verificacion_fuente'])
+        self.assertIn('varias reformas', dato['mensaje'])

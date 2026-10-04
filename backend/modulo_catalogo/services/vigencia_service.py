@@ -132,12 +132,21 @@ def aviso(cambio):
     if cambio.operacion in ['temporal', 'general']:
         descripcion = (f'Regla de vigencia o plazo de {causante}. No confirma una derogación concreta.'
                        if cambio.operacion == 'temporal' else
-                       f'Aviso para revisión de {causante}: {parcial}. No confirma una derogación concreta.')
+                       f'Aviso para revisión de {causante}: {parcial.rstrip(chr(46))}. No confirma una derogación concreta.')
     historica = cambio.origen == 'nota_editorial' and cambio.operacion in ['modifica', 'incorpora']
     if historica:
         descripcion = f'Nota histórica: artículo {ref.get("unidad")} {"incorporado" if cambio.operacion == "incorpora" else "modificado"} por {causante}. Fecha: {fecha_norma.isoformat() if fecha_norma else "por verificar"}. El PDF ya incluye el texto reproducido; esta nota no indica una derogación ni una nueva reforma pendiente de aplicar.'
+    categoria = cambio.operacion if cambio.operacion in ['deroga', 'abroga', 'modifica', 'incorpora', 'temporal'] else 'general'
+    if historica or cambio.origen == 'nota_editorial' and 'Nota histórica' in parcial:
+        categoria = 'historico'
+    elif cambio.operacion == 'general' and 'Referencia judicial' in parcial:
+        categoria = 'judicial'
+    fuente_por_verificar = categoria == 'historico' and (not cambio.norma_causante or not fecha_norma or cambio.operacion == 'general')
+    if historica and not cambio.norma_causante:
+        descripcion = f'Antecedente histórico del artículo {ref.get("unidad")}: la nota cita varias reformas o no identifica una fuente inequívoca. Contrasta la secuencia de cambios con las publicaciones originales antes de atribuir una modificación o incorporación.'
     destino = evaluar_destino({**ref, 'operacion': cambio.operacion, 'origen': cambio.origen}, cambio.fuente.norma)
     return {'id': cambio.pk, 'operacion': cambio.operacion, 'estado': cambio.estado_revision, 'nota_historica': historica,
+            'origen': cambio.origen, 'categoria_aviso': categoria, 'requiere_verificacion_fuente': fuente_por_verificar,
             'destino_catalogo': destino,
             'mensaje': descripcion, 'norma_causante': causante,
             'unidad_fuente': cambio.unidad_fuente, 'disposicion_fuente': describir_unidad_fuente(cambio.unidad_fuente),

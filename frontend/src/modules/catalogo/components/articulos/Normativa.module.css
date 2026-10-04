@@ -19,3 +19,10 @@
 .tabla th { font-weight: 600; }
 .tabla details { min-width: 12rem; max-width: 55rem; }
 .tablaContenedor { overflow-x: auto; }
+
+.avisos select { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: inherit; background: var(--bg-card, #fff); }
+.tipoAviso { font-weight: 600; }
+.aviso_deroga, .aviso_abroga { border-left-color: #c65850; background: #c6585012; }
+.aviso_historico { border-left-color: #6285b9; background: #6285b912; }
+.aviso_judicial { border-left-color: #9472b5; background: #9472b512; }
+.aviso_temporal, .aviso_general { border-left-color: #8696ab; background: #8696ab12; }
