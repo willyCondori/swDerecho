@@ -6,6 +6,7 @@ import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
 import { useBorradorCarga } from '../../hooks/useBorradorCarga'
 import { useArchivoPdf } from '../../hooks/useArchivoPdf'
+import { ramaDeNorma } from '../../utils/ramaNorma'
 import { validarFormulario } from '../../utils/validation'
 import FileDropzone from '../../components/articulos/FileDropzone'
 import FormSelectField from '../../components/articulos/FormSelectField'
@@ -66,11 +67,17 @@ export default function CargaArticulosPage() {
     : jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
   const mostrandoFormulario = !verificandoCargas && !revisando && !procesando && !resumen && !error
 
+  useEffect(() => {
+    if (form.modo !== 'existente' || form.ramaId || loadingOpts) return
+    const ramaId = ramaDeNorma(normas.find((n) => String(n.id) === String(form.normaId)), ramas)
+    if (ramaId) actualizarBorrador((b) => ({ form: { ...b.form, ramaId } }))
+  }, [form.modo, form.normaId, form.ramaId, loadingOpts, normas, ramas, actualizarBorrador])
+
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
     const elegida = name === 'normaId' ? normas.find((n) => String(n.id) === String(value)) : null
     setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value,
-      ...(name === 'normaId' ? { ramaId: elegida?.ramas?.length === 1 ? String(elegida.ramas[0].id) : '' } : {}) }))
+      ...(name === 'normaId' ? { ramaId: ramaDeNorma(elegida, ramas) } : {}) }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
   }
 

@@ -446,9 +446,9 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
         ids = list(qs.values_list('pk', flat=True))
         ramas_por_norma = {}
         asociaciones = list(Articulo.objects.filter(norma_id__in=ids, estado=True, rama__estado=True)
-                            .values('norma_id', 'rama_id', 'rama__nombre').distinct())
+                            .order_by().values('norma_id', 'rama_id', 'rama__nombre').distinct())
         asociaciones += list(DocumentoNorma.objects.filter(norma_id__in=ids, vigente=True, rama__estado=True)
-                             .values('norma_id', 'rama_id', 'rama__nombre').distinct())
+                             .order_by().values('norma_id', 'rama_id', 'rama__nombre').distinct())
         for asociacion in asociaciones:
             ramas = ramas_por_norma.setdefault(asociacion['norma_id'], {})
             ramas[asociacion['rama_id']] = {'id': asociacion['rama_id'], 'nombre': asociacion['rama__nombre']}
