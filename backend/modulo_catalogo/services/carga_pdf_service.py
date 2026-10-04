@@ -290,8 +290,8 @@ _SUFIJOS_ARTICULO.update({"octies", "nonies", "decies"})
 PATRON_CABECERA = re.compile(
     r"(?<!\w)(?P<palabra>art[íi]culo\.?|art\.)\s*"
     r"(?P<numero>\d+)(?!\d)[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*"
-    r"(?:(?P<sufijo>bis|ter|quater|quáter|quinquies|sexies|septies|octies|nonies|decies)"
-    r"\b[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*)?",
+    r"(?:(?:\([ \t]*)?(?P<sufijo>bis|ter|quater|quáter|quinquies|sexies|septies|octies|nonies|decies)"
+    r"\b(?:[ \t]*\))?[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*)?",
     re.IGNORECASE,
 )
 

@@ -10,10 +10,10 @@ ORDINALES = r'PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOV
 SECCION = re.compile(r'^\s*DISPOSICI[OÓ]N(?:ES)?\s+(TRANSITORIA|FINAL|DEROGATORIA|ABROGATORIA|ADICIONAL)(?:S|ES)?\b', re.I)
 ORDINAL = re.compile(r'^\s*(' + ORDINALES + r')\s*(?:[.\-–:(]|$)', re.I)
 SUFIJOS = r'bis|ter|qu[aá]ter|quinquies|sexies|septies|octies|nonies|decies'
-ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO\.?|ART\.)\s+([UÚ]NICO|\d+(?:[ \t.°º–-]*(?:' + SUFIJOS + r')\b)?)\s*(?:[°º.\-–:(]|$)', re.I)
+ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO\.?|ART\.)\s+([UÚ]NICO|\d+(?:[ \t.°º–-]*(?:\([ \t]*)?(?:' + SUFIJOS + r')\b(?:[ \t]*\))?)?)\s*(?:[°º.\-–:(]|$)', re.I)
 
 def numero_literal(numero):
-    return normalizar(re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', re.sub(r'[.°º–-]+', ' ', numero))).replace('quáter', 'quater').replace('Quáter', 'Quater')
+    return normalizar(re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', re.sub(r'[().°º–-]+', ' ', numero))).replace('quáter', 'quater').replace('Quáter', 'Quater')
 
 ESTRUCTURA = {'type': 'object', 'additionalProperties': False, 'required': ['unidades'], 'properties': {
     'unidades': {'type': 'array', 'maxItems': 24, 'items': {'type': 'object', 'additionalProperties': False,
@@ -71,6 +71,7 @@ def consultar_fragmentado(instruccion, texto, esquema, campo, profundidad=0):
 
 def normalizar_referencias(texto):
     # Corregir solo la copia de análisis: algunos PDF juntan «389 Bisde la Ley».
+    texto = re.sub(r'(\d+)\s*\(\s*(' + SUFIJOS + r')\s*\)', r'\1 \2', texto, flags=re.I)
     texto = re.sub(r'\b(Art[ií]culos?)(?=\d)', r'\1 ', texto, flags=re.I)
     return re.sub(r'(\d+[ \t.°º–-]*(?:' + SUFIJOS + r'))(?=de(?:l)?\b)', r'\1 ', texto, flags=re.I)
 
@@ -282,7 +283,7 @@ def reconstruir(unidades, lineas, extraer_titulo):
         if not 0 <= pos < len(lineas) or pos in posiciones or not numero:
             raise ValueError('Qwen devolvió una ubicación duplicada o inexistente.')
         # Validar la identidad contra la cabecera, no contra cualquier cifra del cuerpo.
-        cabecera = normalizar(re.sub(r'[.°º–-]', ' ', lineas[pos])).upper()
+        cabecera = normalizar(re.sub(r'[().°º–-]', ' ', lineas[pos])).upper()
         if not re.search(r'(?<!\w)' + re.escape(normalizar(numero).upper()) + r'(?!\w)', cabecera):
             raise ValueError('El número extraído no coincide con la cabecera original.')
         posiciones.add(pos)
@@ -296,6 +297,9 @@ def reconstruir(unidades, lineas, extraer_titulo):
         primera, separador, resto = cuerpo.partition('\n')
         resto = re.split(r'(?im)^\s*(?:DISPOSICI[OÓ]N(?:ES)?\s+|Rem[íi]tase\s+|Por\s+tanto,?\s+la\s+promulgo)', resto)[0]
         cuerpo = (primera + separador + resto).strip()
+        if unidad['tipo'] == 'articulo':
+            from .carga_pdf_service import _quitar_encabezado_colgante
+            cuerpo = _quitar_encabezado_colgante(cuerpo)
         resultados.append({'numero': clave, 'tipo_unidad': unidad['tipo'],
                            'id_unidad': f'{unidad["tipo"]}:{clave}:{pos}', 'linea_inicio': pos,
                            'titulo': extraer_titulo(numero, cuerpo) if unidad['tipo'] == 'articulo' else lineas[pos].strip()[:500],

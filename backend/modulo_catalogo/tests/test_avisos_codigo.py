@@ -59,3 +59,35 @@ class AvisosCodigoTests(SimpleTestCase):
     def test_referencia_en_cuerpo_no_declara_derogado_articulo_propio(self):
         unidad = {'numero': '1', 'texto': 'Artículo 1. Este procedimiento cita el Artículo 25, derogado por Ley 100. Otra regla.'}
         self.assertFalse(indica_derogacion(unidad))
+
+
+class SufijosParenteticosTests(SimpleTestCase):
+    def test_129_y_129_bis_son_distintos_sin_capitulo_en_cuerpo(self):
+        from modulo_catalogo.services.lectura_normativa_service import extraer_unidades
+        from modulo_catalogo.services.compilaciones_service import resolver_alternativas
+        texto = ('Artículo 129. (Ultraje a los símbolos nacionales). Texto original.\n'
+                 'Artículo 129 (Bis). Separatismo. Texto del delito.\n'
+                 'Incorporado por disposición de la Ley No. 170 de 9 de septiembre de 2011.\n'
+                 'CAPÍTULO III\nDELITOS CONTRA LA TRANQUILIDAD PÚBLICA\n'
+                 'Artículo 130. (Instigación). Otro texto.')
+        for motor in ['clasico', 'qwen']:
+            with self.subTest(motor=motor), patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}):
+                unidades = extraer_unidades(texto, motor)
+                unidades, ambiguas = resolver_alternativas(unidades)
+                self.assertEqual([u['numero'].casefold() for u in unidades], ['129', '129 bis', '130'])
+                self.assertEqual(ambiguas, [])
+                self.assertNotIn('CAPÍTULO III', unidades[1]['texto'])
+                self.assertNotIn('DELITOS CONTRA LA TRANQUILIDAD PÚBLICA', unidades[1]['texto'])
+                self.assertIn('Ley No. 170', unidades[1]['texto'])
+
+    def test_parentesis_de_titulo_no_es_sufijo(self):
+        from modulo_catalogo.services.lectura_normativa_service import extraer_unidades
+        unidades = extraer_unidades('Artículo 129. (Ultraje). Texto suficiente del artículo.', 'clasico')
+        self.assertEqual(unidades[0]['numero'], '129')
+
+    def test_derogacion_con_bis_parentetico_no_afecta_articulo_base(self):
+        from modulo_catalogo.services.lectura_normativa_service import detectar_cambios
+        unidad = {'numero': 'DD ÚNICA', 'tipo_unidad': 'derogatoria',
+                  'texto': 'ÚNICA. Se deroga el Artículo 129 (Bis) del Código Penal.'}
+        for detector in [detectar_cambios, detectar_cambios_literales]:
+            self.assertEqual([c['unidad'] for c in detector([unidad])], ['129 BIS'])

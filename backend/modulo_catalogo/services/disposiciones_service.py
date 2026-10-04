@@ -45,5 +45,9 @@ def recuperar_unidades_seleccionadas(documento, texto):
     texto, _ = elegir_seccion(texto, secciones, seleccion, documento.norma)
     unidades = [u for u in extraer_unidades(texto, 'clasico')
                 if u.get('tipo_unidad', 'articulo') in {'articulo', *TIPOS_IMPORTADOS}]
-    unidades, _ = resolver_alternativas(unidades, analisis.get('variantes_unidades', {}))
+    # Una cabecera corregida puede dejar de requerir alternativas.
+    _, ambiguas = resolver_alternativas(unidades)
+    claves = {u['clave'] for u in ambiguas}
+    elecciones = {k: v for k, v in analisis.get('variantes_unidades', {}).items() if k in claves}
+    unidades, _ = resolver_alternativas(unidades, elecciones)
     return unidades
