@@ -1,3 +1,4 @@
+import logging
 import threading
 import uuid
 from django.core.cache import cache
@@ -8,6 +9,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from core.permissions.roles_permission import EsOperativo
 from .revision_carga_view import RevisionCargaPDFView
+
+logger = logging.getLogger(__name__)
 
 PREFIJO = 'tarea_normativa:'
 _gaceta_lock = threading.Lock()
@@ -39,7 +42,10 @@ class RevisionAsincronaView(APIView):
         from django.core.files.uploadedfile import SimpleUploadedFile
         from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
         validacion = CargaArticulosPDFSerializer(data=request.data, context={'request': request, 'solo_revision': True})
-        validacion.is_valid(raise_exception=True)
+        if not validacion.is_valid():
+            logger.warning('Revisión PDF rechazada antes de iniciar. usuario=%s errores=%s',
+                           request.user.pk, validacion.errors)
+            raise serializers.ValidationError(validacion.errors)
         original = request.data.copy()
         archivo = request.FILES['archivo']
         archivo.seek(0)

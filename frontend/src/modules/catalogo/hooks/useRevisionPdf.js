@@ -1,6 +1,7 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import useAuthStore from '../../auth/store/authStore'
 import cargaArticulosApi from '../../../api/cargaArticulosApi'
+import { mensajeErrorRevision } from '../utils/errorRevision'
 
 const VACIA = { revision: null, revisando: false, pasoRevision: '', errorRevision: '', documento: '' }
 const sesiones = new Map()
@@ -43,10 +44,8 @@ export function useRevisionPdf() {
       if (vigente()) publicar(usuario, { ...snapshot, revisando: false, revision: { ...data, payload } })
     } catch (err) {
       if (!vigente()) return
-      const datos = err.response?.data
-      const mensaje = datos?.detail || (datos && Object.values(datos).flat()[0]) || err.message
       publicar(usuario, { ...snapshot, revisando: false,
-        errorRevision: typeof mensaje === 'string' ? mensaje : 'No se pudo revisar el PDF.' })
+        errorRevision: mensajeErrorRevision(err) })
     }
   }, [usuario])
   return { ...estado, revisarPdf, limpiarRevision }

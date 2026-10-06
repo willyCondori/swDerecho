@@ -57,3 +57,18 @@ it('no entrega archivos ni resultados a otra sesión de usuario', async () => {
   expect(segunda.result.current.revision).toBeNull()
   expect(segunda.result.current.revisando).toBe(false)
 })
+
+it('muestra todos los campos rechazados por el servidor y permite reintentar', async () => {
+  cargaArticulosApi.revisarAsincrono.mockRejectedValueOnce({ response: { status: 400,
+    data: { rama_id: ['La rama seleccionada no existe.'], metadatos: { fecha_norma: ['Fecha inválida.'] } } } })
+  const { result } = renderHook(() => useRevisionPdf())
+  const payload = { archivo: new File(['pdf'], 'ley.pdf'), motorLectura: 'clasico' }
+  await act(async () => { await result.current.revisarPdf(payload) })
+  expect(result.current.errorRevision).toContain('Rama de derecho: La rama seleccionada no existe.')
+  expect(result.current.errorRevision).toContain('Datos de la norma / fecha_norma: Fecha inválida.')
+  expect(result.current.revisando).toBe(false)
+  cargaArticulosApi.revisarAsincrono.mockResolvedValueOnce({ data: { articulos: [], revision_token: 'reintento' } })
+  await act(async () => { await result.current.revisarPdf(payload) })
+  expect(result.current.errorRevision).toBe('')
+  expect(result.current.revision.revision_token).toBe('reintento')
+})

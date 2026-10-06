@@ -159,3 +159,16 @@ class NormativaEndpointsTests(APITestCase):
         self.assertEqual(resp.status_code, 200)
         dato = next(n for n in resp.data if n['id'] == norma.pk)
         self.assertEqual(dato['ramas'], [{'id': self.rama.pk, 'nombre': self.rama.nombre}])
+
+    @patch('modulo_catalogo.views.tareas_normativas_view.iniciar')
+    def test_revision_rechazada_informa_campos_y_registra_motivo_sin_iniciar(self, iniciar):
+        with self.assertLogs('modulo_catalogo.views.tareas_normativas_view', level='WARNING') as logs:
+            resp = self.client.post('/api/catalogo/cargar-articulos/revisar-iniciar/', {
+                'archivo': self.archivo(), 'rama_id': self.rama.pk,
+                'nombre_documento': 'Norma inválida', 'metadatos': '{"fecha_norma":"incorrecta"}'
+            }, format='multipart')
+        self.assertEqual(resp.status_code, 400)
+        self.assertIn('metadatos', resp.data)
+        self.assertIn('Fecha inválida', str(resp.data))
+        self.assertIn('metadatos', logs.output[0])
+        iniciar.assert_not_called()
