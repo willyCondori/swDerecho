@@ -1,4 +1,4 @@
-.panel { margin: 1rem 0; padding: 1.25rem; border: 1px solid #8696ab55; border-radius: 12px; background: var(--bg-card, transparent); }
+.panel { margin: 1rem 0; padding: 1.25rem; border: 1px solid #8696ab55; border-radius: 12px; background: var(--c-bg-elevated, #282a32); color: var(--c-text-primary, #f5f5f7); }
 .panel h2 { margin-top: 0; font-size: 1.15rem; }
 .controles { display: flex; flex-wrap: wrap; gap: .9rem; align-items: end; margin: 1rem 0; }
 .controles label { display: grid; gap: .3rem; }
@@ -20,9 +20,19 @@
 .tabla details { min-width: 12rem; max-width: 55rem; }
 .tablaContenedor { overflow-x: auto; }
 
-.avisos select { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: inherit; background: var(--bg-card, #fff); }
+.avisos select { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); }
 .tipoAviso { font-weight: 600; }
 .aviso_deroga, .aviso_abroga { border-left-color: #c65850; background: #c6585012; }
 .aviso_historico { border-left-color: #6285b9; background: #6285b912; }
 .aviso_judicial { border-left-color: #9472b5; background: #9472b512; }
 .aviso_temporal, .aviso_general { border-left-color: #8696ab; background: #8696ab12; }
+
+.controles input, .controles select, .panel textarea, .avisos select {
+  color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e);
+  border-color: var(--c-border-default, #727785); min-height: 42px; font: inherit;
+}
+.controles select option, .avisos select option { color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-elevated, #282a32); }
+.panel button, .avisos button { color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); min-height: 40px; font: inherit; }
+.panel button:hover:not(:disabled), .avisos button:hover:not(:disabled) { background: var(--c-bg-hover, #383c48); border-color: var(--c-purple-300, #b8a4ff); }
+.panel button:disabled, .avisos button:disabled { opacity: .65; cursor: not-allowed; }
+.panel :is(button, select, input, textarea):focus-visible, .avisos :is(button, select):focus-visible { outline: 2px solid var(--c-purple-300, #b8a4ff); outline-offset: 3px; }

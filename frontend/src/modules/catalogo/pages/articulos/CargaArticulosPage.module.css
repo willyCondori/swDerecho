@@ -633,3 +633,10 @@
   .formGrid  { grid-template-columns: 1fr; }
   .statsGrid { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* Controles de revisión: colores explícitos para evitar texto claro sobre fondo blanco. */
+.root :is(fieldset, section) > button { color: var(--c-text-primary); background: var(--c-bg-surface); border: 1px solid var(--c-border-default, #727785); border-radius: 6px; padding: .6rem .9rem; margin: .3rem .4rem .3rem 0; cursor: pointer; }
+.root :is(fieldset, section) > button:hover:not(:disabled) { background: var(--c-bg-hover); }
+.root :is(fieldset, section) > button:disabled { opacity: .65; cursor: not-allowed; }
+.root fieldset :is(input:not([type=radio]):not([type=checkbox]), select), .root section label select { color: var(--c-text-primary); background: var(--c-bg-surface); border: 1px solid var(--c-border-default, #727785); border-radius: 6px; padding: .55rem; }
+.root select option { color: var(--c-text-primary); background: var(--c-bg-elevated); }

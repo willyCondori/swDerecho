@@ -147,3 +147,22 @@ def resolver_alternativas(unidades, elecciones=None):
     if set(elecciones) - validas:
         raise ValueError('Una selección de alternativas no pertenece a las unidades del PDF.')
     return resueltas, ambiguas
+
+
+def identificar_documento_seccion(texto, titulo=''):
+    """Datos de la cabecera fuente, separados de la norma destinataria del extracto."""
+    from .algoritmos_normativos_service import extraer_metadatos_literales
+    cabecera = re.split(r'(?im)^\s*(?:ART[IÍ]CULO|ART\.)\s+', texto, maxsplit=1)[0][:2400]
+    nombre = titulo
+    for linea in cabecera.splitlines():
+        literal = linea.strip()
+        modificacion = re.match(r'^MODIFICACI[ÓO]N\s+DE\s+(?:LA|EL)\s+(.+)$', literal, re.I)
+        if modificacion:
+            nombre = modificacion.group(1).strip()
+            break
+        if re.match(r'^(?:LEY|C[ÓO]DIGO|REGLAMENTO)\s+', literal, re.I) and not re.match(r'^LEY\s+(?:N[°ºoO.]|DE\s+\d)', literal, re.I):
+            nombre = literal
+    if nombre.isupper():
+        menores = {'de', 'del', 'la', 'el', 'las', 'los', 'y', 'para', 'contra'}
+        nombre = ' '.join(p.lower() if p.lower() in menores and i else p.capitalize() for i, p in enumerate(nombre.split()))
+    return {'nombre': nombre, 'titulo_cabecera': titulo, **extraer_metadatos_literales(texto)}

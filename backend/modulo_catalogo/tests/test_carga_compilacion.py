@@ -109,3 +109,24 @@ class CargaCompilacionTests(APITestCase):
         Norma.objects.create(nombre='Ley Electoral', tipo_norma='Ley', numero_norma='26')
         _, plan = self.revisar(texto=TEXTO.replace('1333', '026'))
         self.assertEqual(Norma.objects.get(numero_norma='26').pk, plan['anexos'][0]['norma_id'])
+
+    def test_fecha_y_titulo_fuente_se_conservan_al_identificar_norma_destinataria(self):
+        import json
+        texto = ('LEY N° 900\nLEY DE 10 DE ENERO DE 2020\nARTÍCULO 1. Texto principal.\n'
+                 'Ley Nº 1582\nLEY DE 01 DE OCTUBRE DE 2024\nMODIFICACIÓN DE LA LEY DE PENSIONES\n'
+                 'ARTÍCULO 119. Delito de pensiones.\nARTÍCULO 120. Otro delito de pensiones.')
+        for motor in ['clasico', 'qwen']:
+            with self.subTest(motor=motor):
+                respuesta, plan = self.revisar(motor, texto=texto, identidades_secciones=json.dumps({
+                    '1': {'nombre': 'Ley de Pensiones', 'tipo_norma': 'Ley', 'numero_norma': '065', 'fecha_norma': '2010-12-10'}
+                }))
+                anexo = respuesta['anexos'][0]
+                self.assertEqual(anexo['documento_fuente']['nombre'], 'Ley de Pensiones')
+                self.assertEqual(anexo['documento_fuente']['numero_norma'], '1582')
+                self.assertEqual(anexo['documento_fuente']['fecha_norma'], '2024-10-01')
+                self.assertEqual(anexo['metadatos']['fecha_norma'], '2010-12-10')
+                self.assertEqual(plan['anexos'][0]['metadatos']['documento_fuente'], anexo['documento_fuente'])
+        self.cargar(plan)
+        documento = DocumentoNorma.objects.get(norma__numero_norma='065')
+        self.assertEqual(documento.metadatos['documento_fuente']['fecha_norma'], '2024-10-01')
+        self.assertEqual(documento.metadatos['documento_fuente']['nombre'], 'Ley de Pensiones')

@@ -104,6 +104,9 @@ class RevisionCargaPDFView(APIView):
             from modulo_catalogo.services.algoritmos_normativos_service import detectar_cambios_literales, extraer_metadatos_literales
             cambios = detectar_cambios(unidades_importadas, progreso) if motor == 'qwen' else detectar_cambios_literales(unidades_importadas, progreso)
             metadatos = {**(extraer_metadatos(texto) if motor == 'qwen' else extraer_metadatos_literales(texto)), **data.get('metadatos', {})}
+            from modulo_catalogo.services.compilaciones_service import identificar_documento_seccion
+            documento_fuente = identificar_documento_seccion(texto, seccion['titulo'])
+            metadatos['documento_fuente'] = documento_fuente
             oficial_id = data.get('documento_oficial_id')
             if oficial_id:
                 from modulo_catalogo.models import DocumentoOficial
@@ -139,7 +142,7 @@ class RevisionCargaPDFView(APIView):
             data['norma'].nombre if data.get('norma') else data['nombre_documento'])
         respuesta = {'revision_token': token, 'norma': data['norma'].nombre if data.get('norma') else data['nombre_documento'],
                          'secciones_documento': secciones, 'seccion_activa': seccion['id'], 'fragmento_normativo': fragmento, 'identidad_por_verificar': identidad_por_verificar, 'unidades_ambiguas': ambiguas,
-                         'disposiciones': disposiciones, 'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
+                         'documento_fuente': documento_fuente, 'disposiciones': disposiciones, 'motor': motor, 'cambios_normativos': avisos_revision, 'metadatos': metadatos, 'advertencias_lectura': advertencias,
                          **comparar_articulos(articulos, filas)}
 
         if data.get('incluir_anexos') and len(secciones) > 1:

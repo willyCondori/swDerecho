@@ -34,6 +34,11 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
         {revision.secciones_documento.map((s) => <option key={s.id} value={s.id}>{s.titulo || revision.norma}</option>)}
       </select></label>
     </section>}
+    {revision.documento_fuente && <section className={styles.reviewSummary} aria-label="Identidad del documento fuente">
+      <strong>Documento fuente: {revision.documento_fuente.nombre || revision.documento_fuente.titulo_cabecera}</strong>
+      <p>{revision.documento_fuente.tipo_norma} {revision.documento_fuente.numero_norma} · Fecha del documento: {revision.documento_fuente.fecha_norma || 'por verificar'}</p>
+      {revision.identidad_por_verificar && <p>Esta fecha pertenece a la ley modificatoria. La norma destinataria conserva su propio número y fecha.</p>}
+    </section>}
     {revision.identidad_por_verificar && <fieldset>
       <legend>Identificar la norma destinataria del extracto</legend>
       <p>El título puede corresponder a una ley modificatoria. Contrasta la norma a la que pertenecen estos artículos con la fuente antes de continuar.</p>
