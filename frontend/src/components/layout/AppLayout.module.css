@@ -365,3 +365,27 @@
 @media (max-width: 480px) {
   .main { padding: var(--sp-3); }
 }
+
+.navSectionToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+  width: 100%;
+  padding: .65rem .75rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font: inherit;
+  font-size: .7rem;
+  letter-spacing: .08em;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.navSectionToggle:hover { color: var(--c-text-primary); background: var(--c-bg-hover); }
+.navSectionToggle:focus-visible { outline: 2px solid var(--c-purple-300); outline-offset: 2px; }
+.navSectionToggle i { flex-shrink: 0; font-size: .9rem; transition: transform .15s ease; }
+.navSectionToggle .sectionExpanded { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .navSectionToggle i { transition: none; } }

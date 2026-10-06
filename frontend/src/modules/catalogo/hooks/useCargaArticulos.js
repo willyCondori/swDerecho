@@ -123,7 +123,7 @@ export function useCargaArticulos() {
           setEstado(avance.estado)
           setProgreso(avance.progreso ?? 0)
           setPaso(avance.paso || '')
-          if (avance.estado === 'SUCCESS') { setResumen(avance.resumen); setProgreso(100) }
+          if (avance.estado === 'SUCCESS') { setResumen(recordada.resumen || avance.resumen); setProgreso(100) }
           else if (avance.estado === 'FAILURE') setError(avance.error || 'El procesamiento falló.')
           else pollEstado(recordada.task_id)
           return
@@ -232,11 +232,22 @@ export function useCargaArticulos() {
     setAdvertencias([])
   }, [usuario])
 
+  const actualizarAviso = useCallback((aviso) => {
+    setResumen((previo) => {
+      if (!previo?.revision) return previo
+      const actualizado = { ...previo, revision: { ...previo.revision,
+        avisos: previo.revision.avisos.map((a) => a.id === aviso.id ? aviso : a) } }
+      const recordada = cargasRecordadas.get(usuario)
+      if (recordada) recordada.resumen = actualizado
+      return actualizado
+    })
+  }, [usuario])
+
   const procesando = estado === 'PENDING' || estado === 'STARTED'
 
   return {
     jerarquias, ramas, normas, loadingOpts,
-    cargar, reset,
+    cargar, reset, actualizarAviso,
     enviando, procesando,
     taskId, estado, progreso, paso, resumen, error, advertencias,
     cargaRetomada, otrasCargas, verificandoCargas,

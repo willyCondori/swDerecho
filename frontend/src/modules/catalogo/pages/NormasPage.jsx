@@ -1,5 +1,4 @@
 // modules/catalogo/pages/NormasPage.jsx
-import CambiosNormativosPanel from '../components/administrar/CambiosNormativosPanel'
 import NormasSection from '../components/administrar/NormasSection'
 import styles from './AdministrarCatalogoPage.module.css'
 
@@ -19,7 +18,6 @@ export default function NormasPage() {
       </header>
 
       <NormasSection />
-      <CambiosNormativosPanel />
     </div>
   )
 }

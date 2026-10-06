@@ -1,41 +1,25 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
-import normativaApi from '../../../../api/normativaApi'
 import CambiosNormativosPanel from './CambiosNormativosPanel'
-
-vi.mock('../../../../api/normativaApi', () => ({ default: { cambios: vi.fn(), revisarCambio: vi.fn() } }))
-vi.mock('../../../../api/catalogoApi', () => ({ default: {
-  normas: vi.fn().mockResolvedValue({ data: [{ id: 10, nombre: 'Ley 11080' }] }), actualizarNorma: vi.fn(),
-} }))
-afterEach(() => { cleanup(); vi.clearAllMocks() })
-const base = { id: 1, operacion: 'abroga', estado_revision: 'pendiente',
-  norma_causante: 'Ley 2298', fuente_nombre: 'Ley 2298', fecha_norma_causante: '2001-12-20',
-  disposicion_fuente: 'disposición final tercera', referencia: { norma: 'Ley 11080', unidad: '', alcance: 'total' },
-  cita: 'Queda abrogada la Ley 11080.' }
-
-it('el destino ausente tiene solo aviso y no ofrece confirmar abrogación', async () => {
-  normativaApi.cambios.mockResolvedValue({ data: [{ ...base,
-    destino_catalogo: { encontrado: false, mensaje: 'Solo aviso: la norma no está cargada.' } }] })
+const mocks = vi.hoisted(() => ({ cambios: vi.fn() }))
+vi.mock('../../../../api/normativaApi', () => ({ default: { cambios: mocks.cambios } }))
+vi.mock('../../../../api/catalogoApi', () => ({ default: { normas: vi.fn().mockResolvedValue({ data: [] }) } }))
+afterEach(cleanup)
+it('comparte fundamento sin fusionar los destinos y distingue las notas históricas', async () => {
+  const base = { fuente: 1, norma_causante: 'Ley 1636', unidad_fuente: 'DD ÚNICA', disposicion_fuente: 'disposición derogatoria única',
+    fecha_norma_causante: '2025-09-10', estado_revision: 'pendiente', origen: 'clausula', operacion: 'deroga',
+    cita: 'Se derogan el parágrafo III del 323 Bis y el 281 Quater.', destino_catalogo: { encontrado: true } }
+  mocks.cambios.mockResolvedValue({ data: { results: [
+    { ...base, id: 1, referencia: { norma: 'Código Penal', unidad: '323 BIS', alcance: 'Parágrafo III' } },
+    { ...base, id: 2, referencia: { norma: 'Código Penal', unidad: '281 QUATER', alcance: 'total' } },
+    { ...base, id: 3, unidad_fuente: '179', operacion: 'modifica', cita: 'Modificado por Ley 037.',
+      referencia: { unidad: '179', alcance: 'total' }, aviso: { nota_historica: true, mensaje: 'Texto ya incorporado al PDF.' } },
+  ] } })
   render(<CambiosNormativosPanel />)
-  expect(await screen.findByText('Solo aviso: la norma no está cargada.')).toBeTruthy()
-  expect(screen.getByText(/Disposición de origen: disposición final tercera/)).toBeTruthy()
-  expect(screen.queryByRole('button', { name: 'Confirmar abrogación' })).toBeNull()
-  expect(normativaApi.revisarCambio).not.toHaveBeenCalled()
-})
-
-it('el destino cargado se aplica únicamente después de confirmar con fundamento', async () => {
-  normativaApi.cambios.mockResolvedValue({ data: [{ ...base, norma_afectada: 10,
-    destino_catalogo: { encontrado: true, norma_id: 10, mensaje: 'Destino encontrado. Requiere confirmación.' } }] })
-  normativaApi.revisarCambio.mockResolvedValue({ data: {} })
-  render(<CambiosNormativosPanel />)
-  const boton = await screen.findByRole('button', { name: 'Confirmar abrogación' })
-  expect(boton.disabled).toBe(true)
-  expect(normativaApi.revisarCambio).not.toHaveBeenCalled()
-  fireEvent.change(screen.getByPlaceholderText('Verificación de fecha, alcance, competencia y vigencia'),
-    { target: { value: 'Fuente y alcance verificados.' } })
-  expect(boton.disabled).toBe(false)
-  fireEvent.click(boton)
-  await waitFor(() => expect(normativaApi.revisarCambio).toHaveBeenCalledWith(1, expect.objectContaining({
-    descartar: false, norma_afectada_id: 10, observacion: 'Fuente y alcance verificados.', fecha_efecto: '2001-12-20',
-  })))
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Confirmar derogación' })).toHaveLength(2))
+  expect(screen.getAllByText(base.cita)).toHaveLength(1)
+  expect(screen.getByText(/323 BIS/)).toBeTruthy()
+  expect(screen.getByText(/281 QUATER/)).toBeTruthy()
+  expect(screen.getByText('Nota histórica del texto incorporado')).toBeTruthy()
+  expect(screen.queryByRole('button', { name: 'Confirmar afectación' })).toBeNull()
 })

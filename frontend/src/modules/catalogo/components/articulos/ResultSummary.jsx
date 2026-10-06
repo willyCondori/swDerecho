@@ -3,7 +3,7 @@ import AvisosVigencia from './AvisosVigencia'
 import { useNavigate } from 'react-router-dom'
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
-export default function ResultSummary({ resumen, onReiniciar }) {
+export default function ResultSummary({ resumen, onReiniciar, onAvisoActualizado }) {
   const navigate = useNavigate()
   return (
     <div className={styles.resultCard}>
@@ -32,7 +32,7 @@ export default function ResultSummary({ resumen, onReiniciar }) {
       </p>}
       {resumen.revision?.disposiciones > 0 && <p>{resumen.revision.disposiciones} disposiciones guardadas en su tabla propia.</p>}
       {resumen.revision?.avisos?.length > 0 && <p>Los avisos siguientes documentan efectos detectados en la fuente. Subir este PDF no confirma automáticamente derogaciones ni abrogaciones.</p>}
-      <AvisosVigencia avisos={resumen.revision?.avisos || []} />
+      <AvisosVigencia avisos={resumen.revision?.avisos || []} permitirRevision onActualizado={onAvisoActualizado} />
       <div className={styles.statsGrid}>
         <div className={styles.statBox}>
           <p className={styles.statValue}>{resumen.total_encontrados}</p>

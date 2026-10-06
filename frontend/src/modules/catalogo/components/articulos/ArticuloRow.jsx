@@ -1,6 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useId, useState } from 'react'
 import TextoVigencia from './TextoVigencia'
-import AvisosVigencia from './AvisosVigencia'
 import catalogoApi from '../../../../api/catalogoApi'
 import { getRamaKey } from '../../utils/rama'
 import JerarquiaNivel from './JerarquiaNivel'
@@ -68,7 +68,10 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
         nombre={articulo.norma?.jerarquia?.nombre ?? articulo.jerarquia_nombre} /></td>
     </tr>
     <tr className={styles.articleBodyRow}><td colSpan={5}>
-      <AvisosVigencia avisos={articulo.avisos_vigencia} />
+      {articulo.avisos_vigencia?.length > 0 && <p className={styles.articleNotice}>
+        {articulo.estado_vigencia === 'derogado_parcialmente' ? 'Derogado parcialmente · ' : articulo.estado_vigencia === 'derogado' ? 'Derogado · ' : articulo.estado_vigencia === 'abrogado' ? 'Abrogado · ' : ''}
+        <Link to={`/catalogo/avisos?articulo=${articulo.id}`}>Consultar avisos de este artículo</Link>
+      </p>}
       <div id={textoId} hidden={!expandido}>
       <div hidden={!expandido} className={styles.articleText}>
         {expandido && <TextoVigencia texto={contenido || 'Sin texto disponible.'} avisos={articulo.avisos_vigencia} busqueda={busqueda} />}

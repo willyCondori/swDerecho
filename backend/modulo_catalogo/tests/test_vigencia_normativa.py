@@ -1,6 +1,6 @@
 from datetime import date
 from django.test import TestCase
-from modulo_catalogo.models import Norma, RamaDerecho, Articulo, DocumentoNorma, CambioNormativo, VersionArticulo
+from modulo_catalogo.models import Norma, RamaDerecho, Articulo, DocumentoNorma, CambioNormativo, VersionArticulo, HistorialArticulo
 from modulo_catalogo.models.jerarquia import jerarquia
 from modulo_catalogo.services.vigencia_service import registrar_cambios, confirmar, conservar_version, avisos_visibles, aviso
 from modulo_catalogo.serializers.catalogo_serializer import ArticuloListSerializer
@@ -37,6 +37,71 @@ class VigenciaNormativaTests(TestCase):
         self.assertEqual(data['avisos_vigencia'][0]['estado'], 'confirmado')
         self.assertIn('Ley 2298', data['avisos_vigencia'][0]['mensaje'])
         self.assertEqual(data['avisos_vigencia'][0]['documento_id'], self.doc.pk)
+
+    def test_confirma_sin_exigir_fundamento_escrito(self):
+        c = self.registrar()
+        c = confirmar(c, {'fecha_efecto': '2001-12-21'}, self.usuario)
+        self.assertEqual(c.estado_revision, 'confirmado')
+        self.assertEqual(c.observacion, '')
+        self.assertEqual(c.revisado_por, self.usuario)
+
+    def confirmar_parcial(self, **extra):
+        self.articulo.contenido = 'I. Texto vigente.\nII. Parte derogada.\nIII. Otra parte vigente.'
+        self.articulo.save()
+        c = self.registrar(operacion='deroga', unidad='25', alcance='Parágrafo II',
+            cita='Queda derogado el Parágrafo II del Artículo 25.')
+        return confirmar(c, self.datos_revision(**extra), self.usuario)
+
+    def test_historial_parcial_retira_solo_fragmento_y_conserva_antes_despues(self):
+        c = self.confirmar_parcial()
+        self.articulo.refresh_from_db()
+        historial = HistorialArticulo.objects.get(cambio=c, articulo=self.articulo)
+        self.assertIn('II. Parte derogada.', historial.texto_antes)
+        self.assertNotIn('II. Parte derogada.', self.articulo.contenido)
+        self.assertIn('III. Otra parte vigente.', self.articulo.contenido)
+        self.assertEqual(historial.texto_despues, self.articulo.contenido)
+        self.assertTrue(historial.aplicado)
+        self.assertEqual(historial.parte_afectada['partes'][0]['fragmento'], 'II. Parte derogada.')
+
+    def test_aplicar_historial_es_idempotente(self):
+        from modulo_catalogo.services.historial_articulos_service import aplicar_texto_confirmado
+        c = self.confirmar_parcial()
+        aplicar_texto_confirmado(c)
+        self.assertEqual(HistorialArticulo.objects.count(), 1)
+        self.assertEqual(VersionArticulo.objects.count(), 2)
+
+    def test_fecha_futura_no_retira_texto_hasta_fecha_de_efecto(self):
+        from unittest.mock import patch
+        from modulo_catalogo.services.historial_articulos_service import aplicar_texto_confirmado
+        c = self.confirmar_parcial(fecha_efecto='2099-01-01')
+        self.articulo.refresh_from_db()
+        self.assertIn('II. Parte derogada.', self.articulo.contenido)
+        self.assertFalse(HistorialArticulo.objects.get(cambio=c).aplicado)
+        with patch('modulo_catalogo.services.historial_articulos_service.timezone.localdate', return_value=date(2099, 1, 1)):
+            aplicar_texto_confirmado(c)
+        self.articulo.refresh_from_db()
+        self.assertNotIn('II. Parte derogada.', self.articulo.contenido)
+        self.assertTrue(HistorialArticulo.objects.get(cambio=c).aplicado)
+
+    def test_fallo_actualizando_busqueda_revierte_texto_historial_y_confirmacion(self):
+        from unittest.mock import patch
+        with patch('modulo_catalogo.services.historial_articulos_service.actualizar_busqueda', side_effect=ValueError('Fallo de vectorización')):
+            with self.assertRaisesMessage(ValueError, 'vectorización'):
+                self.confirmar_parcial()
+        self.articulo.refresh_from_db()
+        self.assertIn('II. Parte derogada.', self.articulo.contenido)
+        self.assertEqual(CambioNormativo.objects.get().estado_revision, 'pendiente')
+        self.assertEqual(HistorialArticulo.objects.count(), 0)
+
+    def test_recarga_no_restaura_fragmento_derogado_confirmado(self):
+        c = self.confirmar_parcial()
+        historial = HistorialArticulo.objects.get(cambio=c)
+        self.articulo.contenido = historial.texto_antes
+        self.articulo.save()
+        self.registrar(operacion='deroga', unidad='25', alcance='Parágrafo II', cita=c.cita)
+        self.articulo.refresh_from_db()
+        self.assertEqual(self.articulo.contenido, historial.texto_despues)
+        self.assertEqual(HistorialArticulo.objects.count(), 1)
 
     def test_no_confirma_norma_causante_anterior(self):
         self.metadatos['fecha_norma'] = '1970-01-01'
@@ -257,3 +322,41 @@ class VigenciaNormativaTests(TestCase):
         self.assertEqual(dato['categoria_aviso'], 'historico')
         self.assertTrue(dato['requiere_verificacion_fuente'])
         self.assertIn('varias reformas', dato['mensaje'])
+
+    def test_resubir_pdf_no_repite_afectacion_ni_reabre_descartada(self):
+        evento = self.registrar()
+        evento.estado_revision = 'descartado'
+        evento.save(update_fields=['estado_revision'])
+        otro = DocumentoNorma.objects.create(norma=self.nueva, rama=self.rama, nombre_original='otra-copia.pdf', ruta_archivo='otra-copia.pdf', tamano=10)
+        c = {'operacion': 'abroga', 'norma': 'Decreto Ley No 11080', 'unidad': '', 'alcance': 'total',
+             'cita': 'Queda abrogado el Decreto Ley No 11080.', 'origen': 'clausula',
+             'causante': '', 'fecha_causante': '', 'unidad_fuente': 'DF TERCERA'}
+        registrar_cambios(otro, [], [c], self.metadatos)
+        self.assertEqual(CambioNormativo.objects.count(), 1)
+        evento.refresh_from_db()
+        self.assertEqual(evento.estado_revision, 'descartado')
+
+    def test_deduplicacion_conserva_alcances_distintos_y_prefiere_revision_existente(self):
+        from modulo_catalogo.services.vigencia_service import afectaciones_unicas
+        e = self.registrar()
+        copia = CambioNormativo.objects.create(fuente=self.doc, operacion=e.operacion, unidad_fuente=e.unidad_fuente,
+            referencia=e.referencia, cita=e.cita, origen=e.origen, norma_causante=e.norma_causante,
+            fecha_norma_causante=e.fecha_norma_causante, estado_revision='confirmado', huella='copia-revisada')
+        parcial = CambioNormativo.objects.create(fuente=self.doc, operacion=e.operacion, unidad_fuente=e.unidad_fuente,
+            referencia={**e.referencia, 'alcance': 'Parágrafo III'}, cita=e.cita, origen=e.origen,
+            norma_causante=e.norma_causante, fecha_norma_causante=e.fecha_norma_causante, huella='otro-alcance')
+        self.assertEqual([x.pk for x in afectaciones_unicas([e, copia, parcial])], [copia.pk, parcial.pk])
+
+    def test_avisos_cacheados_no_reaparecen_duplicados_por_otra_copia_del_pdf(self):
+        dato = aviso(self.registrar())
+        copia = {**dato, 'id': 999, 'documento_id': 999}
+        diferente = {**dato, 'alcance': 'Parágrafo III'}
+        self.assertEqual(len(avisos_visibles([dato, copia, diferente])), 2)
+
+    def test_textos_parecidos_con_distinta_puntuacion_no_se_unifican(self):
+        from modulo_catalogo.services.vigencia_service import afectaciones_unicas
+        e = self.registrar()
+        otro = CambioNormativo(fuente=self.doc, operacion=e.operacion, unidad_fuente=e.unidad_fuente,
+            referencia=e.referencia, cita=e.cita.replace('.', ';'), origen=e.origen,
+            norma_causante=e.norma_causante, fecha_norma_causante=e.fecha_norma_causante)
+        self.assertEqual(len(afectaciones_unicas([e, otro])), 2)

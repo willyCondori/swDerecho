@@ -136,11 +136,11 @@ def aplicar_carga_revisada(norma, rama, articulos, modo, seleccion, huella, docu
         resultado.revision['normas_guardadas'] = 1
         cambios = [c for c in analisis.get('cambios', [])
                    if numero_clave(c['unidad_fuente']) in {numero_clave(a['numero']) for a in elegidos + disposiciones}]
-        registrar_cambios(fuente, elegidos + disposiciones, cambios, fuente.metadatos)
+        eventos = registrar_cambios(fuente, elegidos + disposiciones, cambios, fuente.metadatos)
         resultado.revision['disposiciones'] = len(disposiciones)
         resultado.revision['avisos_normativos'] = len(cambios)
         from .vigencia_service import aviso
-        resultado.revision['avisos'] = [aviso(c) for c in fuente.cambios_detectados.select_related(
-            'fuente__norma', 'articulo_afectado').exclude(estado_revision='descartado')]
+        resultado.revision['avisos'] = [aviso(c) for c in eventos if c.estado_revision != 'descartado']
         _update_task(task, 98, 'Publicando la versión revisada...')
+
     return resultado

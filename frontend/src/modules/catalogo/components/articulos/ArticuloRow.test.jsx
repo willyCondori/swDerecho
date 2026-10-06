@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest'
 import ArticuloRow from './ArticuloRow'
+import { MemoryRouter } from 'react-router-dom'
 
 it('oculta todo el contenido y permite mostrarlo y ocultarlo sin duplicar el texto', () => {
   const contenido = 'Texto jurídico completo. '.repeat(100)
@@ -37,4 +38,12 @@ it('copia el contenido original, incluidos saltos de línea e incisos', async ()
   fireEvent.click(screen.getAllByRole('button', { name: 'Copiar artículo' }).at(-1))
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(contenido))
   expect(await screen.findByText('Artículo copiado')).toBeTruthy()
+})
+
+it('muestra un acceso breve a los avisos sin repetir su fundamento en la tabla', () => {
+  render(<MemoryRouter><table><tbody><ArticuloRow articulo={{ id: 88, numero_articulo: '323 BIS', estado_vigencia: 'derogado_parcialmente',
+    contenido: 'I. Texto vigente.', avisos_vigencia: [{ id: 1, estado: 'confirmado', operacion: 'deroga', mensaje: 'Fundamento repetido de la ley.', cita: 'Texto de la disposición derogatoria.' }] }} /></tbody></table></MemoryRouter>)
+  expect(screen.getByRole('link', { name: 'Consultar avisos de este artículo' }).getAttribute('href')).toBe('/catalogo/avisos?articulo=88')
+  expect(screen.queryByText('Fundamento repetido de la ley.')).toBeNull()
+  expect(screen.queryByText('Texto de la disposición derogatoria.')).toBeNull()
 })

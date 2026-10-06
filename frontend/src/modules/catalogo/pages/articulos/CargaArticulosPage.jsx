@@ -28,7 +28,7 @@ import styles from './CargaArticulosPage.module.css'
 export default function CargaArticulosPage() {
   const {
     jerarquias, ramas, normas, loadingOpts,
-    cargar, reset,
+    cargar, reset, actualizarAviso,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
     cargaRetomada, otrasCargas, verificandoCargas,
@@ -327,7 +327,7 @@ export default function CargaArticulosPage() {
         />
       )}
 
-      {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} />}
+      {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} onAvisoActualizado={actualizarAviso} />}
 
       {error && !procesando && <ErrorPanel mensaje={error} onReintentar={handleReiniciar} />}
 

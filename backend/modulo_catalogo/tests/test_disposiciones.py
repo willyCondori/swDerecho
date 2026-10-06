@@ -147,3 +147,93 @@ class DisposicionesTests(APITestCase):
         self.assertEqual(CambioNormativo.objects.filter(estado_revision='pendiente').count(), 2)
         self.assertEqual(CambioNormativo.objects.filter(estado_revision='confirmado').count(), 0)
         self.assertEqual(DisposicionNormativa.objects.count(), 2)
+
+    def nuevo_documento(self):
+        return DocumentoNorma.objects.create(norma=self.norma, rama=self.rama, nombre_original='1636-repetida.pdf',
+            ruta_archivo='1636-repetida.pdf', tamano=10, metadatos=self.documento.metadatos)
+
+    def test_recarga_revisada_muestra_avisos_existentes_sin_duplicarlos(self):
+        primera = self.cargar_disposiciones()
+        ids = {a['id'] for a in primera.revision['avisos']}
+        self.documento = self.nuevo_documento()
+        segunda = self.cargar_disposiciones()
+        avisos = segunda.resumen()['revision']['avisos']
+        self.assertEqual({a['id'] for a in avisos}, ids)
+        self.assertEqual(len(avisos), 2)
+        self.assertEqual(CambioNormativo.objects.count(), 2)
+        self.assertTrue(all(a['estado'] == 'pendiente' for a in avisos))
+        self.assertTrue(all(a['destino_catalogo']['encontrado'] for a in avisos))
+        self.assertEqual({a['alcance'] for a in avisos}, {'Parágrafo III', 'total'})
+
+    def test_recarga_clasica_conserva_estado_y_fuente_de_los_avisos_reutilizados(self):
+        from modulo_catalogo.services.disposiciones_service import importar_disposiciones_expresas
+        from modulo_catalogo.services.vigencia_service import confirmar
+        self.cargar_disposiciones()
+        original = self.documento.pk
+        admin = crear_usuario('disposiciones.admin', rol=crear_rol('Administrador'))
+        evento = CambioNormativo.objects.get(referencia__unidad='281 QUATER')
+        confirmar(evento, {'fecha_efecto': '2025-09-10'}, admin)
+        resultado = importar_disposiciones_expresas(self.nuevo_documento(), TEXTO)
+        self.assertEqual(len(resultado['avisos']), 2)
+        self.assertEqual(CambioNormativo.objects.count(), 2)
+        self.assertTrue(all(a['documento_id'] == original for a in resultado['avisos']))
+        self.assertEqual({a['estado'] for a in resultado['avisos']}, {'pendiente', 'confirmado'})
+
+    def test_recarga_no_reabre_detecciones_descartadas(self):
+        self.cargar_disposiciones()
+        CambioNormativo.objects.update(estado_revision='descartado')
+        self.documento = self.nuevo_documento()
+        resultado = self.cargar_disposiciones()
+        self.assertEqual(resultado.revision['avisos'], [])
+        self.assertEqual(CambioNormativo.objects.count(), 2)
+        self.assertFalse(CambioNormativo.objects.filter(estado_revision='pendiente').exists())
+
+    def test_historial_consultable_muestra_antes_despues_y_es_solo_lectura(self):
+        from modulo_catalogo.services.vigencia_service import confirmar
+        self.cargar_disposiciones()
+        evento = CambioNormativo.objects.get(referencia__unidad='323 BIS')
+        admin = crear_usuario('historial.admin', rol=crear_rol('Administrador'))
+        confirmar(evento, {'fecha_efecto': '2025-09-10'}, admin)
+        resp = self.client.get('/api/catalogo/historial-articulos/', {'norma': self.penal.pk})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 1)
+        item = resp.data['results'][0]
+        self.assertEqual(item['texto_antes'], 'I. Texto intacto.\nIII. Parte derogada.')
+        self.assertEqual(item['texto_despues'], 'I. Texto intacto.')
+        self.assertTrue(item['aplicado'])
+        self.assertEqual(item['documento_id'], self.documento.pk)
+        self.assertEqual(item['disposicion_fuente'], 'disposición derogatoria única')
+        resp = self.client.post('/api/catalogo/historial-articulos/', {'texto_antes': 'Alterado'})
+        self.assertEqual(resp.status_code, 405)
+
+    def test_lista_de_avisos_agrupa_disposicion_sin_separar_destinos(self):
+        self.cargar_disposiciones()
+        resp = self.client.get('/api/catalogo/cambios-normativos/grupos/')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 1)
+        grupo = resp.data['results'][0]
+        self.assertEqual(len(grupo['afectaciones']), 2)
+        self.assertEqual({c['referencia']['unidad'] for c in grupo['afectaciones']}, {'323 BIS', '281 QUATER'})
+        self.assertIn('Código Penal', grupo['cita'])
+
+    def test_lista_de_avisos_busca_y_filtra_destinos_y_estado(self):
+        self.cargar_disposiciones()
+        resp = self.client.get('/api/catalogo/cambios-normativos/grupos/', {'buscar': '323 BIS', 'tipo': 'deroga', 'norma': self.penal.pk})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 1)
+        # La búsqueda también encuentra el fundamento común completo.
+        self.assertEqual(len(resp.data['results'][0]['afectaciones']), 2)
+        articulo = Articulo.objects.get(norma=self.penal, numero_articulo='323 Bis')
+        resp = self.client.get('/api/catalogo/cambios-normativos/grupos/', {'articulo': articulo.pk})
+        self.assertEqual(len(resp.data['results'][0]['afectaciones']), 1)
+        self.assertEqual(resp.data['results'][0]['afectaciones'][0]['referencia']['unidad'], '323 BIS')
+        resp = self.client.get('/api/catalogo/cambios-normativos/grupos/', {'estado_revision': 'confirmado'})
+        self.assertEqual(resp.data['count'], 0)
+
+    def test_lista_de_avisos_reimportados_no_repite_destinos(self):
+        self.cargar_disposiciones()
+        self.documento = self.nuevo_documento()
+        self.cargar_disposiciones()
+        resp = self.client.get('/api/catalogo/cambios-normativos/grupos/', {'fuente_norma': self.norma.pk})
+        self.assertEqual(resp.data['count'], 1)
+        self.assertEqual(len(resp.data['results'][0]['afectaciones']), 2)

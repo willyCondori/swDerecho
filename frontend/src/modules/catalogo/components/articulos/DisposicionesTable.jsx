@@ -1,6 +1,6 @@
+import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import api from '../../../../api/axiosInstance'
-import AvisosVigencia from './AvisosVigencia'
 import styles from './Normativa.module.css'
 
 export default function DisposicionesTable({ normaId, ramaId }) {
@@ -19,9 +19,9 @@ export default function DisposicionesTable({ normaId, ramaId }) {
   return <section className={styles.panel} aria-label="Disposiciones del catálogo">
     <h2>Disposiciones finales, derogatorias y abrogatorias</h2>
     {error && <p role="alert">{error}</p>}
-    <div className={styles.tablaContenedor}><table className={styles.tabla}><thead><tr><th>Norma</th><th>Tipo</th><th>Disposición</th><th>Texto y avisos</th></tr></thead>
+    <div className={styles.tablaContenedor}><table className={styles.tabla}><thead><tr><th>Norma</th><th>Tipo</th><th>Disposición</th><th>Texto</th></tr></thead>
       <tbody>{filas.map((d) => <tr key={d.id}><td>{d.norma_nombre}</td><td>{d.tipo}</td><td>{d.numero}</td>
-        <td><AvisosVigencia avisos={d.avisos} /><details><summary>Ver disposición</summary>
+        <td><Link to={`/catalogo/avisos?fuente_norma=${d.norma_id}`}>Consultar avisos de la norma</Link><details><summary>Ver disposición</summary>
           <p style={{ whiteSpace: 'pre-wrap' }}>{d.contenido}</p></details></td></tr>)}</tbody>
     </table></div>
     {!filas.length && !error && <p>No hay disposiciones cargadas para estos filtros.</p>}

@@ -21,11 +21,10 @@ def importar_disposiciones_expresas(documento, texto):
     _, disposiciones = separar_unidades(recuperar_unidades_seleccionadas(documento, texto))
     cambios = detectar_derogaciones_expresas(disposiciones)
     guardar_disposiciones(documento, disposiciones)
-    registrar_cambios(documento, disposiciones, cambios, documento.metadatos)
+    eventos = registrar_cambios(documento, disposiciones, cambios, documento.metadatos)
     return {'actualizar': 0, 'nuevo': 0, 'retirados': 0, 'derogados_indicados': 0,
             'disposiciones': len(disposiciones), 'avisos_normativos': len(cambios),
-            'avisos': [aviso(c) for c in documento.cambios_detectados.select_related('fuente__norma',
-                      'articulo_afectado').exclude(estado_revision='descartado')]}
+            'avisos': [aviso(c) for c in eventos if c.estado_revision != 'descartado']}
 
 
 def recuperar_unidades_seleccionadas(documento, texto):

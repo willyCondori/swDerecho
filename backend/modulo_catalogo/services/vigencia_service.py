@@ -125,7 +125,9 @@ def aviso(cambio):
         descripcion += f'. Alcance: {parcial}'
     descripcion += f". Fuente: {describir_unidad_fuente(cambio.unidad_fuente)}"
     descripcion += f". Fecha de la norma: {fecha_norma.strftime('%d/%m/%Y') if fecha_norma else 'por verificar'}."
-    if cambio.estado_revision != 'confirmado':
+    if cambio.estado_revision == 'revertido':
+        descripcion = f'Confirmación revertida en el sistema para {ref.get("unidad") or ref.get("norma") or "la norma"}. La fuente original y la revisión anterior se conservan en el historial.'
+    elif cambio.estado_revision != 'confirmado':
         descripcion = 'Afectación detectada, pendiente de verificación. ' + descripcion
     if cambio.operacion in ['modifica', 'incorpora']:
         descripcion += ' Consulte la fuente modificatoria; el texto mostrado puede requerir consolidación.'
@@ -156,9 +158,34 @@ def aviso(cambio):
             'url_fuente': cambio.fuente.url_fuente, 'documento_id': cambio.fuente_id}
 
 
+def literal_evidencia(valor):
+    # Solo ignorar saltos y espacios de maquetación; conservar palabras, signos y números.
+    return ' '.join(str(valor or '').split())
+
+
+def clave_afectacion(evento):
+    ref = evento.referencia
+    return (evento.fuente.norma_id, literal_evidencia(evento.norma_causante), str(evento.fecha_norma_causante or ''),
+            evento.operacion, literal_evidencia(evento.unidad_fuente), evento.origen,
+            literal_evidencia(ref.get('norma', '')), literal_evidencia(ref.get('unidad', '')),
+            literal_evidencia(ref.get('alcance', '')), literal_evidencia(evento.cita))
+
+
+def afectaciones_unicas(eventos):
+    elegidos = {}
+    prioridad = {'revertido': 4, 'confirmado': 3, 'descartado': 2, 'pendiente': 1}
+    for evento in eventos:
+        key = clave_afectacion(evento)
+        anterior = elegidos.get(key)
+        if anterior is None or prioridad.get(evento.estado_revision, 0) > prioridad.get(anterior.estado_revision, 0):
+            elegidos[key] = evento
+    return list(elegidos.values())
+
+
 def actualizar_avisos(norma):
     eventos = list(CambioNormativo.objects.filter(norma_afectada=norma).exclude(estado_revision='descartado')
                    .select_related('articulo_afectado', 'fuente__norma').order_by('created_at'))
+    eventos = [e for e in afectaciones_unicas(eventos) if e.estado_revision != 'revertido']
     Norma.objects.filter(pk=norma.pk).update(avisos_vigencia=[aviso(e) for e in eventos if not e.articulo_afectado_id])
     por_articulo = {}
     for evento in eventos:
@@ -183,6 +210,7 @@ def registrar_cambios(documento, unidades, cambios, metadatos):
         if valor and not getattr(norma, campo):
             setattr(norma, campo, valor)
             norma.save(update_fields=[campo])
+    registrados = set()
     for c in cambios:
         objetivo = documento.norma if c['origen'] == 'nota_editorial' and not c['norma'] else resolver_norma(c['norma'])
         numero = c.get('unidad', '')
@@ -200,12 +228,24 @@ def registrar_cambios(documento, unidades, cambios, metadatos):
         from .alcance_normativo_service import identificar_parte
         parte = identificar_parte(evidencia_de_alcance(c['cita'], c['origen'], c['operacion']), c['alcance'], articulo, c['operacion'], numero)
         referencia = {'norma': c['norma'], 'unidad': numero, 'alcance': parte['descripcion'] if parte['tipo'] == 'parcial' else c['alcance'], 'parte_afectada': parte}
-        digest = hashlib.sha256(json.dumps([documento.pk, c], sort_keys=True, ensure_ascii=False).encode()).hexdigest()
-        CambioNormativo.objects.get_or_create(huella=digest, defaults={
+        candidato = CambioNormativo(fuente=documento, operacion=c['operacion'], unidad_fuente=c['unidad_fuente'],
+            origen=c['origen'], referencia=referencia, cita=c['cita'], norma_causante=causante, fecha_norma_causante=fechac)
+        key = clave_afectacion(candidato)
+        previos = CambioNormativo.objects.filter(fuente__norma=documento.norma, operacion=c['operacion']).select_related('fuente')
+        coincidentes = [e for e in previos if clave_afectacion(e) == key]
+        if coincidentes:
+            registrados.add(afectaciones_unicas(coincidentes)[0].pk)
+            continue
+        digest = hashlib.sha256(json.dumps(key, ensure_ascii=False).encode()).hexdigest()
+        evento, _ = CambioNormativo.objects.get_or_create(huella=digest, defaults={
             'fuente': documento, 'norma_afectada': objetivo, 'articulo_afectado': articulo,
             'operacion': c['operacion'], 'unidad_fuente': c['unidad_fuente'], 'referencia': referencia,
             'cita': c['cita'], 'origen': c['origen'], 'norma_causante': causante,
             'fecha_norma_causante': fechac})
+        registrados.add(evento.pk)
+    from .historial_articulos_service import aplicar_texto_confirmado
+    for revisado in CambioNormativo.objects.filter(pk__in=registrados, estado_revision='confirmado'):
+        aplicar_texto_confirmado(revisado)
     # Resolver también eventos importados antes que la norma afectada.
     afectadas = {norma.pk}
     for evento in CambioNormativo.objects.filter(estado_revision='pendiente', norma_afectada__isnull=True):
@@ -225,6 +265,9 @@ def registrar_cambios(documento, unidades, cambios, metadatos):
                      .values_list('norma_afectada_id', flat=True))
     for objetivo in Norma.objects.filter(pk__in=afectadas):
         actualizar_avisos(objetivo)
+    # Las detecciones reutilizadas conservan su fuente original y su revisión.
+    return afectaciones_unicas(CambioNormativo.objects.filter(pk__in=registrados)
+        .select_related('fuente__norma', 'articulo_afectado', 'norma_afectada'))
 
 
 @transaction.atomic
@@ -301,14 +344,15 @@ def confirmar(cambio, datos, usuario):
                 and fuente.jerarquia.nivel > destino.jerarquia.nivel
                 and cambio.operacion in ['abroga', 'deroga', 'modifica', 'incorpora']):
             raise ValueError('La fuente tiene menor jerarquía; requiere evaluar el efecto jurídico, no una derogación automática.')
-        if not datos.get('observacion', '').strip():
-            raise ValueError('Registra el fundamento de la verificación de alcance, competencia y vigencia.')
         cambio.estado_revision = 'confirmado'
         cambio.fecha_efecto = efecto
-        cambio.observacion = datos['observacion'].strip()
+        cambio.observacion = datos.get('observacion', '').strip()
     cambio.revisado_por = usuario
     cambio.revisado_at = timezone.now()
     cambio.save()
+    if cambio.estado_revision == 'confirmado':
+        from .historial_articulos_service import aplicar_texto_confirmado
+        aplicar_texto_confirmado(cambio)
     if cambio.norma_afectada:
         actualizar_avisos(cambio.norma_afectada)
     return cambio
@@ -318,7 +362,12 @@ def avisos_visibles(avisos):
     from zoneinfo import ZoneInfo
     hoy = timezone.now().astimezone(ZoneInfo('America/La_Paz')).date()
     resultado = []
+    vistos = set()
     for original in avisos:
+        identidad = tuple(literal_evidencia(original.get(k, '')) for k in ['operacion', 'norma_causante', 'fecha', 'unidad_fuente', 'alcance', 'cita', 'mensaje', 'estado'])
+        if identidad in vistos:
+            continue
+        vistos.add(identidad)
         dato = dict(original)
         efecto = fecha(dato.get('fecha_efecto'))
         if dato.get('estado') == 'confirmado' and efecto and efecto > hoy:

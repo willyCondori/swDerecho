@@ -36,3 +36,20 @@
 .panel button:hover:not(:disabled), .avisos button:hover:not(:disabled) { background: var(--c-bg-hover, #383c48); border-color: var(--c-purple-300, #b8a4ff); }
 .panel button:disabled, .avisos button:disabled { opacity: .65; cursor: not-allowed; }
 .panel :is(button, select, input, textarea):focus-visible, .avisos :is(button, select):focus-visible { outline: 2px solid var(--c-purple-300, #b8a4ff); outline-offset: 3px; }
+
+.revision { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--c-border-default, #727785); }
+.revision > label { display: grid; gap: .3rem; margin: .75rem 0; }
+.revision input, .revision textarea { padding: .5rem; border: 1px solid var(--c-border-default, #727785); border-radius: 6px; color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); font: inherit; min-height: 42px; }
+.revision textarea { width: 100%; box-sizing: border-box; min-height: 85px; }
+.revision :is(input, textarea):focus-visible { outline: 2px solid var(--c-purple-300, #b8a4ff); outline-offset: 3px; }
+
+.comparacionHistorial { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; margin: 1rem 0; }
+.comparacionHistorial section { min-width: 0; padding: 1rem; border: 1px solid var(--c-border-default, #727785); border-radius: 8px; }
+.comparacionHistorial pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+
+.textoRetirado { color: var(--c-text-primary, #f5f5f7); background: #c6585033; text-decoration-color: #f18d85; text-decoration-thickness: 2px; }
+.textoAgregado { color: var(--c-text-primary, #f5f5f7); background: #4d9f7033; text-decoration-color: #81dca4; text-decoration-thickness: 2px; }
+.estadoCambio, .estadoAnterior, .estadoRecuperado { padding: .5rem .65rem; border: 1px solid var(--c-border-default, #727785); border-radius: 6px; font-weight: 600; }
+.estadoCambio { border-left: 4px solid #c65850; background: #c658501a; }
+.estadoRecuperado { border-left: 4px solid #4d9f70; background: #4d9f701a; }
+.cambioResumen { font-weight: 600; }

@@ -12,7 +12,7 @@ class CambioNormativo(models.Model):
     operacion = models.CharField(max_length=20, choices=[(x, x) for x in
         ['abroga', 'deroga', 'modifica', 'incorpora', 'general', 'temporal']])
     estado_revision = models.CharField(max_length=20, default='pendiente', choices=[
-        ('pendiente', 'Pendiente'), ('confirmado', 'Confirmado'), ('descartado', 'Descartado')])
+        ('pendiente', 'Pendiente'), ('confirmado', 'Confirmado'), ('descartado', 'Descartado'), ('revertido', 'Restaurado')])
     unidad_fuente = models.CharField(max_length=80, blank=True)
     referencia = models.JSONField(default=dict)
     cita = models.TextField()
@@ -25,6 +25,8 @@ class CambioNormativo(models.Model):
     revisado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
                                      null=True, blank=True, related_name='+')
     revisado_at = models.DateTimeField(null=True, blank=True)
+    restaurado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    restaurado_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -66,3 +68,18 @@ class DocumentoOficial(models.Model):
 
     class Meta:
         ordering = ['-fecha_publicacion', '-pk']
+
+
+class HistorialArticulo(models.Model):
+    cambio = models.ForeignKey(CambioNormativo, on_delete=models.PROTECT, related_name='historial_articulos')
+    articulo = models.ForeignKey('Articulo', on_delete=models.PROTECT, related_name='historial_cambios')
+    titulo = models.CharField(max_length=500, blank=True)
+    texto_antes = models.TextField()
+    texto_despues = models.TextField()
+    parte_afectada = models.JSONField(default=dict)
+    aplicado = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        constraints = [models.UniqueConstraint(fields=['cambio', 'articulo'], name='historial_cambio_articulo_unico')]

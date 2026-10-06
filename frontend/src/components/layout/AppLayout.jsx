@@ -15,15 +15,26 @@ const NAV_ITEMS = [
     ],
   },
   {
-    section: 'Catálogo',
+    section: 'Catálogo jurídico',
     items: [
-      { to: '/catalogo/articulos', icon: 'ti-book',      label: 'Artículos' },
-//      { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
-//      { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
-      { to: '/catalogo/gaceta', icon: 'ti-building-bank', label: 'Gaceta Oficial' },
-      { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Cargar Documentos' },
-      { to: '/catalogo/administrar', icon: 'ti-adjustments', label: 'Ramas y jerarquías', adminOnly: true },
+      { to: '/catalogo/articulos', icon: 'ti-book', label: 'Artículos' },
       { to: '/catalogo/normas', icon: 'ti-books', label: 'Normas', adminOnly: true },
+      { to: '/catalogo/administrar', icon: 'ti-adjustments', label: 'Ramas y jerarquías', adminOnly: true },
+    ],
+  },
+  {
+    section: 'Fuentes y documentos',
+    items: [
+      { to: '/catalogo/gaceta', icon: 'ti-building-bank', label: 'Gaceta Oficial' },
+      { to: '/catalogo/cargar', icon: 'ti-file-upload', label: 'Cargar documentos' },
+    ],
+  },
+  {
+    section: 'Vigencia normativa',
+    items: [
+      { to: '/catalogo/avisos', icon: 'ti-bell', label: 'Avisos normativos' },
+      { to: '/catalogo/historial', icon: 'ti-history', label: 'Historial de cambios', adminOnly: true },
+      { to: '/catalogo/restaurar', icon: 'ti-restore', label: 'Restaurar cambios', adminOnly: true },
     ],
   },
   {
@@ -50,6 +61,13 @@ export default function AppLayout() {
   const { user, logout, isAdmin } = useAuthStore()
   const admin = isAdmin()
   const { pathname } = useLocation()
+  const seccionActual = NAV_ITEMS.find((s) => s.items.some((item) =>
+    (!item.adminOnly || admin) && (pathname === item.to || pathname.startsWith(item.to + '/'))))?.section
+  const [seccionesAbiertas, setSeccionesAbiertas] = useState(() => Object.fromEntries(NAV_ITEMS.map((s) => [s.section, true])))
+
+  useEffect(() => {
+    if (seccionActual) setSeccionesAbiertas((actual) => ({ ...actual, [seccionActual]: true }))
+  }, [seccionActual])
 
   // En pantallas chicas el menú lateral es un panel que se abre con el botón
   // de la barra superior.
@@ -108,14 +126,22 @@ export default function AppLayout() {
         </div>
 
         <nav className={styles.sidebarNav}>
-          {NAV_ITEMS.map((section) => {
+          {NAV_ITEMS.map((section, indice) => {
             const visible = section.items.filter(
               (item) => !item.adminOnly || admin,
             )
             if (!visible.length) return null
+            const abierta = Boolean(seccionesAbiertas[section.section])
+            const submodulosId = `sidebar-submodulos-${indice}`
             return (
               <div key={section.section} className={styles.navSection}>
-                <p className={styles.navSectionLabel}>{section.section}</p>
+                <button type="button" className={styles.navSectionToggle}
+                  aria-expanded={abierta} aria-controls={submodulosId}
+                  onClick={() => setSeccionesAbiertas((actual) => ({ ...actual, [section.section]: !actual[section.section] }))}>
+                  <span>{section.section}</span>
+                  <i className={`ti ti-chevron-right ${abierta ? styles.sectionExpanded : ''}`} aria-hidden="true" />
+                </button>
+                <div id={submodulosId} hidden={!abierta}>
                 {visible.map((item) => (
                   <NavLink
                     key={item.to}
@@ -139,6 +165,7 @@ export default function AppLayout() {
                     )}
                   </NavLink>
                 ))}
+                </div>
               </div>
             )
           })}

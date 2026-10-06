@@ -1,6 +1,8 @@
 import { useId, useState } from 'react'
 import catalogoApi from '../../../../api/catalogoApi'
 import styles from './Normativa.module.css'
+import RevisionAviso from './RevisionAviso'
+import useAuthStore from '../../../auth/store/authStore'
 
 const TIPOS = { todos: 'Todos', deroga: 'Derogaciones', abroga: 'Abrogaciones', historico: 'Históricos', modifica: 'Modificaciones', incorpora: 'Incorporaciones', judicial: 'Referencias judiciales', temporal: 'Vigencia y plazos', general: 'Otros avisos' }
 function categoria(a) {
@@ -16,7 +18,8 @@ function estadoAviso(a) {
   return a.estado || 'pendiente'
 }
 
-export default function AvisosVigencia({ avisos = [] }) {
+export default function AvisosVigencia({ avisos = [], permitirRevision = false, onActualizado }) {
+  const admin = useAuthStore((s) => s.isAdmin())
   const listaId = useId()
   const [vista, setVista] = useState({ avisos: null, tipo: 'todos', estado: 'todos', cantidad: 0 })
   const actual = vista.avisos === avisos ? vista : { tipo: 'todos', estado: 'todos', cantidad: 0 }
@@ -40,7 +43,7 @@ export default function AvisosVigencia({ avisos = [] }) {
         {Object.entries(TIPOS).map(([id, titulo]) => <option key={id} value={id}>{titulo} ({id === 'todos' ? avisos.length : avisos.filter((a) => categoria(a) === id).length})</option>)}
       </select></label>
       <label>Estado del aviso <select value={actual.estado} onChange={(e) => cambiar({ estado: e.target.value, cantidad: 0 })}>
-        <option value="todos">Todos los estados</option><option value="pendiente">Pendientes de confirmación</option><option value="confirmado">Confirmados</option><option value="futuro">Efectos futuros</option><option value="informativo">Informativos e históricos</option><option value="fuente">Fuente o fecha por verificar</option>
+        <option value="todos">Todos los estados</option><option value="pendiente">Pendientes de confirmación</option><option value="confirmado">Confirmados</option><option value="descartado">Descartados</option><option value="revertido">Restaurados</option><option value="futuro">Efectos futuros</option><option value="informativo">Informativos e históricos</option><option value="fuente">Fuente o fecha por verificar</option>
       </select></label>
     </div>
     <p role="status">Mostrando {visibles} de {filtrados.length} avisos del filtro · {avisos.length} en total.</p>
@@ -51,15 +54,17 @@ export default function AvisosVigencia({ avisos = [] }) {
     {!filtrados.length && <p>No hay avisos que coincidan con estos filtros.</p>}
     <div id={listaId} hidden={visibles === 0}>
     {filtrados.slice(0, visibles).map((a) => <aside key={a.id} role="note" className={`${styles.aviso} ${styles['aviso_' + categoria(a)] || ''}`}>
-      <p className={styles.tipoAviso}>{TIPOS[categoria(a)]}{a.operacion === 'deroga' || a.operacion === 'abroga' ? ` · ${a.estado === 'confirmado' ? 'Confirmado' : a.estado === 'futuro' ? 'Efecto futuro' : 'Detectado, pendiente'}` : ''}</p>
+      <p className={styles.tipoAviso}>{TIPOS[categoria(a)]}{a.operacion === 'deroga' || a.operacion === 'abroga' ? ` · ${a.estado === 'confirmado' ? 'Confirmado' : a.estado === 'futuro' ? 'Efecto futuro' : a.estado === 'revertido' ? 'Restaurado' : a.estado === 'descartado' ? 'Descartado' : 'Detectado, pendiente'}` : ''}</p>
       {estadoAviso(a) === 'fuente' && <p>Fuente o fecha por verificar: contrasta la nota con la publicación oficial.</p>}
-      <strong>{a.nota_historica ? 'Nota histórica de la versión del PDF' : ['temporal', 'general'].includes(a.operacion) ? 'Aviso informativo' : a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : 'Revisión pendiente'}</strong>
+      <strong>{a.nota_historica ? 'Nota histórica de la versión del PDF' : ['temporal', 'general'].includes(a.operacion) ? 'Aviso informativo' : a.estado === 'confirmado' ? (a.operacion === 'deroga' ? (a.parte_afectada?.tipo === 'parcial' ? 'Derogación parcial confirmada' : 'Derogación confirmada') : a.operacion === 'abroga' ? 'Abrogación confirmada' : 'Afectación verificada') : a.estado === 'futuro' ? 'Efecto futuro' : a.estado === 'revertido' ? 'Confirmación revertida' : a.estado === 'descartado' ? 'Detección descartada' : 'Revisión pendiente'}</strong>
       <p>{['temporal', 'general'].includes(a.operacion)
         ? (a.operacion === 'temporal' ? `Regla de vigencia o plazo de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.` : (a.mensaje || `Aviso para revisión de ${a.norma_causante || 'la fuente'}. No confirma la derogación de un artículo concreto.`))
         : categoria(a) === 'historico' && /norma causante por verificar/.test(a.mensaje || '') ? 'Antecedente histórico por revisar: la nota no identifica una fuente inequívoca o cita varias reformas. Verifica la secuencia de cambios en las publicaciones originales.' : a.mensaje}</p>
       {!a.nota_historica && !['temporal', 'general'].includes(a.operacion) && a.estado === 'pendiente' && <p>
         {a.destino_catalogo?.encontrado === false ? 'Solo aviso: el destino exacto no está cargado. Para aplicar el cambio, primero incorpore esa norma o artículo y luego revise el efecto en Catálogo → Normas.'
-          : 'El aviso no cambia automáticamente la vigencia. Un usuario autorizado debe revisar la fuente y confirmar el efecto en Catálogo → Normas.'}
+          : permitirRevision && admin && ['deroga', 'abroga'].includes(a.operacion)
+            ? 'El aviso no cambia automáticamente la vigencia. Revisa la fuente y confirma el efecto aquí.'
+            : 'El aviso no cambia automáticamente la vigencia. Un usuario autorizado debe revisar la fuente y confirmar el efecto en Catálogo → Normas.'}
       </p>}
       {a.disposicion_fuente && <p>Disposición de origen: {a.disposicion_fuente}</p>}
       {!a.nota_historica && !['temporal', 'general'].includes(a.operacion) && a.parte_afectada?.tipo === 'parcial' && <div>
@@ -74,6 +79,8 @@ export default function AvisosVigencia({ avisos = [] }) {
         {a.url_fuente && <a href={a.url_fuente} target="_blank" rel="noopener noreferrer">Publicación de origen</a>}
         {a.documento_id && <button type="button" onClick={() => descargar(a.documento_id)}>Descargar PDF de respaldo</button>}
       </details>
+      {permitirRevision && admin && a.id && !a.nota_historica && ['deroga', 'abroga'].includes(a.operacion) && a.estado === 'pendiente' && a.destino_catalogo?.encontrado &&
+        <RevisionAviso aviso={a} onActualizado={onActualizado} />}
     </aside>)}
     </div>
   </div>
