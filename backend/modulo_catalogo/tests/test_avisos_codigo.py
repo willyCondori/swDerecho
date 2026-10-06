@@ -108,3 +108,26 @@ class SufijosParenteticosTests(SimpleTestCase):
             with patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}):
                 u = extraer_unidades('Artículo 177. Quáter (Alteración). Texto del primer delito.\nArtículo 181. Bis. Texto de otro delito.', motor)
                 self.assertEqual([x['numero'].casefold() for x in u], ['177 quater', '181 bis'])
+
+    def test_177_y_177_ter_derogado_no_son_versiones_del_mismo_articulo(self):
+        from modulo_catalogo.services.lectura_normativa_service import extraer_unidades
+        from modulo_catalogo.services.compilaciones_service import resolver_alternativas
+        texto = ('Artículo 177. (Defraudación Tributaria). El que dolosamente no pague la deuda tributaria será sancionado.\n'
+                 'Artículo 177. Ter Derogado (Emisión De Facturas, Notas Fiscales Y Documentos Equivalentes Sin Hecho Generador). '
+                 'El que comercialice facturas sin hecho generador será sancionado.\n'
+                 'Declarado Inconstitucional por Sentencia Constitucional SC 0100/2014, de 10 de enero.\n'
+                 'Artículo 178. (Defraudación Aduanera). Texto de la siguiente unidad.')
+        for motor in ['clasico', 'qwen']:
+            with self.subTest(motor=motor), patch('modulo_catalogo.services.lectura_normativa_service.consultar', return_value={'unidades': []}):
+                unidades, ambiguas = resolver_alternativas(extraer_unidades(texto, motor))
+                self.assertEqual([u['numero'].casefold() for u in unidades], ['177', '177 ter', '178'])
+                self.assertEqual(ambiguas, [])
+                self.assertNotIn('Emisión De Facturas', unidades[0]['texto'])
+                self.assertIn('SC 0100/2014', unidades[1]['texto'])
+
+    def test_sufijos_antes_de_estado_editorial_se_conservan(self):
+        from modulo_catalogo.services.lectura_normativa_service import ARTICULO, numero_literal
+        for sufijo in ['Bis', 'Ter', 'Quáter', 'Quinquies']:
+            with self.subTest(sufijo=sufijo):
+                cabecera = ARTICULO.match(f'Artículo 177. {sufijo} Derogado (Título). Texto.')
+                self.assertEqual(numero_literal(cabecera.group(1)).casefold(), f'177 {sufijo}'.casefold().replace('quáter', 'quater'))

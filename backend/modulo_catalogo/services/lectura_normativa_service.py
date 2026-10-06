@@ -10,7 +10,7 @@ ORDINALES = r'PRIMERA|SEGUNDA|TERCERA|CUARTA|QUINTA|SEXTA|S[EÉ]PTIMA|OCTAVA|NOV
 SECCION = re.compile(r'^\s*DISPOSICI[OÓ]N(?:ES)?\s+(TRANSITORIA|FINAL|DEROGATORIA|ABROGATORIA|ADICIONAL)(?:S|ES)?\b', re.I)
 ORDINAL = re.compile(r'^\s*(' + ORDINALES + r')\s*(?:[.\-–:(]|$)', re.I)
 SUFIJOS = r'bis|ter|qu[aá]ter|quinquies|sexies|septies|octies|nonies|decies'
-ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO\.?|ART\.)\s+([UÚ]NICO|\d+(?:[ \t.°º–-]*(?:\([ \t]*)?(?:' + SUFIJOS + r')\b(?:[ \t]*\))?)?)\s*(?:[°º.\-–:(]|$)', re.I)
+ARTICULO = re.compile(r'^\s*(?:ART[IÍ]CULO\.?|ART\.)\s+([UÚ]NICO|\d+(?:[ \t.°º–-]*(?:\([ \t]*)?(?:' + SUFIJOS + r')\b(?:[ \t]*\))?)?)\s*(?:[°º.\-–:(]|$|(?=(?:Derogad[oa]|Abrogad[oa]|Inconstitucional|Modificad[oa])\b))', re.I)
 
 def numero_literal(numero):
     return normalizar(re.sub(r'(?<=\d)(?=[A-Za-z])', ' ', re.sub(r'[().°º–-]+', ' ', numero))).replace('quáter', 'quater').replace('Quáter', 'Quater')
