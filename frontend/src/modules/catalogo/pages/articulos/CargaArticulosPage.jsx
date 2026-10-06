@@ -1,7 +1,7 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
 import { useCallback, useEffect, useState } from 'react'
 import { useRevisionPdf } from '../../hooks/useRevisionPdf'
-import GacetaPanel from '../../components/articulos/GacetaPanel'
+import { FORM_INICIAL } from '../../utils/formCargaInicial'
 import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
 import { useBorradorCarga } from '../../hooks/useBorradorCarga'
@@ -24,13 +24,6 @@ import styles from './CargaArticulosPage.module.css'
 // texto. Ya no hay un <select> fijo de "Civil / Penal / Laboral / CPE": el
 // nombre que escribas (ej. "Código de Procedimiento Penal") crea o
 // reutiliza la Norma automáticamente en el backend.
-const FORM_INICIAL = {
-  incluirAnexos: true,
-  modo: 'nueva', // 'nueva' | 'existente'
-  normaId: '',
-  nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '',
-  motorLectura: 'clasico', tipoNorma: '', numeroNorma: '', fechaNorma: '', fechaPublicacion: '', urlFuente: '', documentoOficialId: null,
-}
 
 export default function CargaArticulosPage() {
   const {
@@ -109,18 +102,6 @@ export default function CargaArticulosPage() {
     }
     setRevisionRetomada(false)
     await revisarPdf(payload)
-  }
-
-  const elegirOficial = (documento, pdf) => {
-    seleccionar(pdf)
-    setForm({ ...FORM_INICIAL, motorLectura: form.motorLectura, nombreDocumento: documento.titulo, tipoNorma: documento.tipo,
-      numeroNorma: documento.numero, fechaPublicacion: documento.fecha_publicacion || '',
-      urlFuente: documento.url_fuente, documentoOficialId: documento.id,
-      ramaId: ramas.find((r) => /penal/i.test(r.nombre))?.id || '',
-      jerarquiaId: jerarquias.find((j) => j.nombre.toLowerCase() === documento.tipo.toLowerCase())?.id || '',
-    })
-    setFieldErrors({}); limpiarRevision()
-    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   const handleReiniciar = () => {
@@ -350,7 +331,6 @@ export default function CargaArticulosPage() {
 
       {error && !procesando && <ErrorPanel mensaje={error} onReintentar={handleReiniciar} />}
 
-      {mostrandoFormulario && !revision && <GacetaPanel onElegir={elegirOficial} />}
       {!resumen && !error && <WarningsList advertencias={advertencias} />}
     </div>
   )

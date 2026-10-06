@@ -20,6 +20,7 @@ const NAV_ITEMS = [
       { to: '/catalogo/articulos', icon: 'ti-book',      label: 'Artículos' },
 //      { to: '/documentos',  icon: 'ti-file-text', label: 'Documentos' },
 //      { to: '/plantillas',  icon: 'ti-template',  label: 'Plantillas' },
+      { to: '/catalogo/gaceta', icon: 'ti-building-bank', label: 'Gaceta Oficial' },
       { to: '/catalogo/cargar', icon: 'ti-book',      label: 'Cargar Documentos' },
       { to: '/catalogo/administrar', icon: 'ti-adjustments', label: 'Ramas y jerarquías', adminOnly: true },
       { to: '/catalogo/normas', icon: 'ti-books', label: 'Normas', adminOnly: true },

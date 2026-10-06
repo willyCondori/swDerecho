@@ -54,13 +54,13 @@ export default function GacetaPanel({ onElegir }) {
     try {
       const { data } = await normativaApi.descargar(documento.id)
       const archivo = new File([data], `${documento.tipo}-${documento.numero || documento.identificador}.pdf`, { type: 'application/pdf' })
-      if (importar) onElegir(documento, archivo)
+      if (importar) await onElegir(documento, archivo)
       else {
         const url = URL.createObjectURL(data)
         const a = document.createElement('a'); a.href = url; a.download = archivo.name; a.click()
         setTimeout(() => URL.revokeObjectURL(url), 1000)
       }
-    } catch { setError('No se pudo descargar el PDF original.') }
+    } catch (e) { setError(e.message || 'No se pudo descargar el PDF original.') }
     finally { setOcupado(false) }
   }
   return <section className={styles.panel} aria-label="Gaceta Oficial de Bolivia">

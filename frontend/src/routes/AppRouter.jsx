@@ -17,6 +17,7 @@ const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'
 const SeguimientoCasoPage = lazy(() => import('../modules/casos/pages/SeguimientoCasoPage'))
 const EditarCasoPage = lazy(() => import('../modules/casos/pages/EditarCasoPage'))
 const PapeleraCasosPage = lazy(() => import('../modules/casos/pages/PapeleraCasosPage'))
+const GacetaOficialPage = lazy(() => import('../modules/catalogo/pages/GacetaOficialPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
 const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
@@ -149,6 +150,9 @@ export default function AppRouter() {
             {/* Carga de PDFs de normas — espeja EsOperativo en
                 carga_articulos_view.py: Admin y Abogado pueden cargar
                 y sobrescribir el catálogo, Asistente no. */}
+            <Route path="/catalogo/gaceta" element={
+              <Suspense fallback={<PageLoader />}><GacetaOficialPage /></Suspense>
+            } />
             <Route path="/catalogo/cargar" element={
               <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
             } />
