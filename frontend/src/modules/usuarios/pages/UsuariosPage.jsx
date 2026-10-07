@@ -1,3 +1,8 @@
+import { dialogs } from '../../../components/ui/dialogs'
+import PageHeader from '../../../components/ui/PageHeader'
+import Pagination from '../../../components/ui/Pagination'
+import FilterTabs from '../../../components/ui/FilterTabs'
+import SearchField from '../../../components/ui/SearchField'
 // modules/usuarios/pages/UsuariosPage.jsx
 import { useNavigate } from 'react-router-dom'
 import useUsuarios from '../hooks/useUsuarios'
@@ -30,33 +35,29 @@ export default function UsuariosPage() {
 
   const handleEliminar = async (usuario) => {
     const nombre = usuario.perfil?.nombres || usuario.usuario || 'este usuario'
-    if (!window.confirm(`¿Eliminar a ${nombre}? Podrás recuperarlo luego desde la pestaña "Eliminados".`)) return
+    if (!await dialogs.confirm(`¿Eliminar a ${nombre}? Podrás recuperarlo luego desde la pestaña "Eliminados".`)) return
     try {
       await eliminarUsuario(usuario.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar el usuario.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo eliminar el usuario.')
     }
   }
 
   const handleRecuperar = async (usuario) => {
     const nombre = usuario.perfil?.nombres || usuario.usuario || 'este usuario'
-    if (!window.confirm(`¿Recuperar a ${nombre}? Volverá a poder iniciar sesión.`)) return
+    if (!await dialogs.confirm(`¿Recuperar a ${nombre}? Volverá a poder iniciar sesión.`)) return
     try {
       await recuperarUsuario(usuario.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo recuperar el usuario.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo recuperar el usuario.')
     }
   }
 
   return (
     <div className={styles.root}>
       {/* ── Encabezado ─────────────────────────── */}
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Usuarios</h1>
-          <p className={styles.subtitle}>Gestiona las cuentas y roles del sistema.</p>
-        </div>
-        <div className={styles.headerActions}>
+      <PageHeader classes={styles} title="Usuarios" subtitle="Gestiona las cuentas y roles del sistema.">
+
           <button
             className={styles.btnSecondary}
             onClick={() => navigate('/usuarios/roles')}
@@ -71,34 +72,15 @@ export default function UsuariosPage() {
             <i className="ti ti-user-plus" aria-hidden="true" />
             Crear usuario
           </button>
-        </div>
-      </header>
+
+</PageHeader>
 
       {/* ── Toolbar ────────────────────────────── */}
       <div className={styles.toolbar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3, 16px)', flexWrap: 'wrap' }}>
-          <div className={styles.tabs}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.value}
-                className={`${styles.tab} ${estadoFiltro === tab.value ? styles.tabActive : ''}`}
-                onClick={() => setEstadoFiltro(tab.value)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <FilterTabs classes={styles} options={TABS} value={estadoFiltro} onChange={setEstadoFiltro} />
 
-          <div className={styles.searchBox}>
-            <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Buscar por nombre o email..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchField classes={styles} placeholder="Buscar por nombre o email..." value={search} onChange={setSearch} />
         </div>
 
         {!loading && !error && (
@@ -123,27 +105,7 @@ export default function UsuariosPage() {
         />
 
         {!loading && !error && usuarios.length > 0 && totalPages > 1 && (
-          <div className={styles.pagination}>
-            <span className={styles.pageInfo}>
-              Página {page} de {totalPages}
-            </span>
-            <div className={styles.pageControls}>
-              <button
-                className={styles.btnSecondary}
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <i className="ti ti-chevron-left" aria-hidden="true" />
-              </button>
-              <button
-                className={styles.btnSecondary}
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                <i className="ti ti-chevron-right" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+          <Pagination classes={styles} variant="simple" page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
       </div>
     </div>

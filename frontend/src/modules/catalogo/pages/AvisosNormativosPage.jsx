@@ -1,3 +1,4 @@
+import Modal from '../../../components/ui/Modal'
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import normativaApi from '../../../api/normativaApi'
@@ -11,6 +12,7 @@ const ESTADOS = { pendiente: 'Pendiente', confirmado: 'Confirmado', descartado: 
 
 function Destino({ cambio, admin, normas, actualizar }) {
   const [abierto, setAbierto] = useState(false)
+  const [ocupado, setOcupado] = useState(false)
   const historico = cambio.aviso?.nota_historica
   const informativo = historico || ['general', 'temporal'].includes(cambio.operacion)
   return <li>
@@ -21,7 +23,15 @@ function Destino({ cambio, admin, normas, actualizar }) {
     {cambio.referencia.parte_afectada?.tipo === 'parcial' && <p>Parte afectada: {cambio.referencia.parte_afectada.descripcion}</p>}
     {admin && cambio.estado_revision === 'pendiente' && !informativo && <>
       <button type="button" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>{abierto ? 'Cerrar revisión' : 'Revisar este destino'}</button>
-      {abierto && <RevisionCambioForm cambio={cambio} normas={normas} onActualizado={actualizar} />}
+      {abierto && <Modal open busy={ocupado} onClose={() => setAbierto(false)}
+        title={cambio.operacion === 'abroga' ? 'Revisar abrogación' : 'Revisar derogación'}
+        description="Comprueba la fuente y el antes y después previsto antes de confirmar.">
+        <details><summary>Fuente del cambio</summary><blockquote>{cambio.cita}</blockquote>
+          {cambio.url_fuente && <a href={cambio.url_fuente} target="_blank" rel="noopener noreferrer">Ver publicación oficial</a>}
+        </details>
+        <RevisionCambioForm cambio={cambio} normas={normas} onBusy={setOcupado}
+          onPendiente={() => setAbierto(false)} onActualizado={actualizar} />
+      </Modal>}
     </>}
   </li>
 }

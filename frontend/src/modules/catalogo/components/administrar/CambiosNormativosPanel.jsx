@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
-import catalogoApi from '../../../../api/catalogoApi'
 import normativaApi from '../../../../api/normativaApi'
-import RevisionCambioForm from '../articulos/RevisionCambioForm'
+import RevisionAviso from '../articulos/RevisionAviso'
 import styles from '../articulos/Normativa.module.css'
 
-function Cambio({ cambio, normas, onActualizado, fundamentoCompartido = false }) {
+function Cambio({ cambio, onActualizado, fundamentoCompartido = false }) {
   const historico = Boolean(cambio.aviso?.nota_historica)
   const informativo = historico || ['general', 'temporal'].includes(cambio.operacion)
   return <li>
@@ -16,13 +15,12 @@ function Cambio({ cambio, normas, onActualizado, fundamentoCompartido = false })
     {cambio.url_fuente && <a href={cambio.url_fuente} target="_blank" rel="noopener noreferrer">Ver fuente oficial</a>}
     <p>{historico ? 'Nota histórica del texto incorporado' : informativo ? 'Aviso informativo' : cambio.estado_revision === 'pendiente' ? 'Pendiente de verificación' : cambio.estado_revision}</p>
     {historico && <p>{cambio.aviso.mensaje}</p>}
-    <RevisionCambioForm cambio={cambio} normas={normas} onActualizado={onActualizado} />
+    {!informativo && cambio.estado_revision === 'pendiente' && ['deroga', 'abroga'].includes(cambio.operacion) &&
+      <RevisionAviso aviso={{ ...cambio.aviso, id: cambio.id, operacion: cambio.operacion }} onActualizado={onActualizado} />}
   </li>
 }
 export default function CambiosNormativosPanel() {
   const [cambios, setCambios] = useState([])
-  const [normas, setNormas] = useState([])
-  useEffect(() => { catalogoApi.normas().then(({ data }) => setNormas(data.results || data)).catch(() => {}) }, [])
   const [pagina, setPagina] = useState(1)
   const [siguiente, setSiguiente] = useState(false)
   const [estado, setEstado] = useState('pendiente')
@@ -50,7 +48,7 @@ export default function CambiosNormativosPanel() {
       {grupo.length > 1 && <><h3>{grupo[0].norma_causante || grupo[0].fuente_nombre} · {grupo[0].disposicion_fuente || grupo[0].unidad_fuente}</h3>
         <p>{grupo.length} destinos distintos. Cada afectación se revisa por separado.</p>
         <details><summary>Ver fundamento común</summary><blockquote>{grupo[0].cita}</blockquote></details></>}
-      <ul className={styles.lista}>{grupo.map((c) => <Cambio key={c.id} cambio={c} normas={normas} onActualizado={refrescar} fundamentoCompartido={grupo.length > 1} />)}</ul>
+      <ul className={styles.lista}>{grupo.map((c) => <Cambio key={c.id} cambio={c} onActualizado={refrescar} fundamentoCompartido={grupo.length > 1} />)}</ul>
     </section>)}
     {!cambios.length && <p>No hay afectaciones en este estado.</p>}
     <button type="button" disabled={pagina <= 1} onClick={() => setPagina((p) => p-1)}>Anterior</button><span>Página {pagina}</span>

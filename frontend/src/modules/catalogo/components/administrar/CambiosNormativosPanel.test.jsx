@@ -16,7 +16,7 @@ it('comparte fundamento sin fusionar los destinos y distingue las notas históri
       referencia: { unidad: '179', alcance: 'total' }, aviso: { nota_historica: true, mensaje: 'Texto ya incorporado al PDF.' } },
   ] } })
   render(<CambiosNormativosPanel />)
-  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Confirmar derogación' })).toHaveLength(2))
+  await waitFor(() => expect(screen.getAllByRole('button', { name: 'Revisar y confirmar derogación' })).toHaveLength(2))
   expect(screen.getAllByText(base.cita)).toHaveLength(1)
   expect(screen.getByText(/323 BIS/)).toBeTruthy()
   expect(screen.getByText(/281 QUATER/)).toBeTruthy()

@@ -1,5 +1,9 @@
+import { dialogs } from '../../../components/ui/dialogs'
+import FilterTabs from '../../../components/ui/FilterTabs'
+import SearchField from '../../../components/ui/SearchField'
 // modules/catalogo/pages/AdministrarCatalogoPage.jsx
 import { useState } from 'react'
+import CatalogoNavigation from '../components/administrar/CatalogoNavigation'
 import useGestionRamas from '../hooks/useGestionRamas'
 import useGestionJerarquias from '../hooks/useGestionJerarquias'
 import useGestionEntidades from '../hooks/useGestionEntidades'
@@ -53,19 +57,7 @@ export default function AdministrarCatalogoPage() {
         </div>
       </header>
 
-      <div className={styles.tabs}>
-        {TABS.map((t) => (
-          <button
-            key={t.value}
-            className={`${styles.tab} ${tab === t.value ? styles.tabActive : ''}`}
-            onClick={() => setTab(t.value)}
-            type="button"
-          >
-            <i className={`ti ${t.icon}`} aria-hidden="true" />
-            {t.label}
-          </button>
-        ))}
-      </div>
+      <CatalogoNavigation tabs={TABS} value={tab} onChange={setTab} />
 
       {tab === 'ramas' && <RamasSection />}
       {tab === 'jerarquias' && <JerarquiasSection />}
@@ -134,38 +126,27 @@ function RamasSection() {
   }
 
   const handleEliminar = async (rama) => {
-    if (!window.confirm(`¿Eliminar la rama "${rama.nombre}"? Los artículos ya cargados con esta rama no se ven afectados, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
+    if (!await dialogs.confirm(`¿Eliminar la rama "${rama.nombre}"? Los artículos ya cargados con esta rama no se ven afectados, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarRama(rama.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar la rama de derecho.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo eliminar la rama de derecho.')
     }
   }
 
   const handleRecuperar = async (rama) => {
-    if (!window.confirm(`¿Recuperar la rama "${rama.nombre}"? Volverá a estar disponible como opción al cargar artículos.`)) return
+    if (!await dialogs.confirm(`¿Recuperar la rama "${rama.nombre}"? Volverá a estar disponible como opción al cargar artículos.`)) return
     try {
       await activarRama(rama.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la rama de derecho.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo recuperar la rama de derecho.')
     }
   }
 
   return (
     <>
       <div className={styles.sectionToolbar}>
-        <div className={styles.tabs}>
-          {ESTADO_TABS.map((t) => (
-            <button
-              key={t.value}
-              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
-              onClick={() => setEstadoFiltro(t.value)}
-              type="button"
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <FilterTabs classes={styles} options={ESTADO_TABS} value={estadoFiltro} onChange={setEstadoFiltro} />
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -275,7 +256,7 @@ function JerarquiasSection() {
       const data = err?.response?.data
       if (err?.response?.status === 409 && data?.conflicto) {
         const siguienteNivel = data.nivel + 1
-        const confirmar = window.confirm(
+        const confirmar = await dialogs.confirm(
           `Esta jerarquía es mayor que "${data.existente.nombre}".\n\n` +
           `Si continúas, "${data.existente.nombre}" y las jerarquías con nivel ${data.nivel} en adelante ` +
           `pasarán al siguiente nivel (nivel ${data.nivel} → ${siguienteNivel}, ${siguienteNivel} → ${siguienteNivel + 1}, y así sucesivamente).\n\n` +
@@ -318,21 +299,21 @@ function JerarquiasSection() {
   }
 
   const handleEliminar = async (jerarquia) => {
-    if (!window.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las jerarquías con nivel mayor bajarán un puesto (por ejemplo, si eliminas el nivel ${jerarquia.nivel}, el nivel ${jerarquia.nivel + 1} pasará a ser ${jerarquia.nivel}). Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
+    if (!await dialogs.confirm(`¿Eliminar la jerarquía "${jerarquia.nombre}"? Las jerarquías con nivel mayor bajarán un puesto (por ejemplo, si eliminas el nivel ${jerarquia.nivel}, el nivel ${jerarquia.nivel + 1} pasará a ser ${jerarquia.nivel}). Las normas que ya la tienen asignada no se ven afectadas, pero dejará de aparecer como opción al cargar nuevos documentos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarJerarquia(jerarquia.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar la jerarquía.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo eliminar la jerarquía.')
     }
   }
 
   const handleRecuperar = async (jerarquia) => {
-    if (!window.confirm(`¿Recuperar la jerarquía "${jerarquia.nombre}"? Volverá a estar disponible en su nivel original (nivel ${jerarquia.nivel}) como opción al cargar artículos.`)) return
+    if (!await dialogs.confirm(`¿Recuperar la jerarquía "${jerarquia.nombre}"? Volverá a estar disponible en su nivel original (nivel ${jerarquia.nivel}) como opción al cargar artículos.`)) return
     try {
       await guardarConConfirmacionDeNivel((p) => activarJerarquia(jerarquia.id, p), {})
     } catch (e) {
       if (!e?.cancelado) {
-        window.alert(e?.response?.data?.detail || 'No se pudo recuperar la jerarquía.')
+        dialogs.alert(e?.response?.data?.detail || 'No se pudo recuperar la jerarquía.')
       }
     }
   }
@@ -340,18 +321,7 @@ function JerarquiasSection() {
   return (
     <>
       <div className={styles.sectionToolbar}>
-        <div className={styles.tabs}>
-          {ESTADO_TABS.map((t) => (
-            <button
-              key={t.value}
-              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
-              onClick={() => setEstadoFiltro(t.value)}
-              type="button"
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
+        <FilterTabs classes={styles} options={ESTADO_TABS} value={estadoFiltro} onChange={setEstadoFiltro} />
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />
@@ -455,48 +425,28 @@ function EntidadesSection() {
   }
 
   const handleEliminar = async (entidad) => {
-    if (!window.confirm(`¿Eliminar la entidad "${entidad.nombre}"? Los artículos que ya la tienen vinculada no se ven afectados, pero dejará de considerarse en nuevos análisis de casos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
+    if (!await dialogs.confirm(`¿Eliminar la entidad "${entidad.nombre}"? Los artículos que ya la tienen vinculada no se ven afectados, pero dejará de considerarse en nuevos análisis de casos. Podrás recuperarla luego desde la pestaña "Eliminadas".`)) return
     try {
       await eliminarEntidad(entidad.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo eliminar la entidad jurídica.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo eliminar la entidad jurídica.')
     }
   }
 
   const handleRecuperar = async (entidad) => {
-    if (!window.confirm(`¿Recuperar la entidad "${entidad.nombre}"? Volverá a considerarse en el análisis de nuevos casos.`)) return
+    if (!await dialogs.confirm(`¿Recuperar la entidad "${entidad.nombre}"? Volverá a considerarse en el análisis de nuevos casos.`)) return
     try {
       await activarEntidad(entidad.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo recuperar la entidad jurídica.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo recuperar la entidad jurídica.')
     }
   }
 
   return (
     <>
       <div className={styles.sectionToolbar}>
-        <div className={styles.tabs}>
-          {ESTADO_TABS.map((t) => (
-            <button
-              key={t.value}
-              className={`${styles.tab} ${estadoFiltro === t.value ? styles.tabActive : ''}`}
-              onClick={() => setEstadoFiltro(t.value)}
-              type="button"
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-        <div className={styles.searchBox}>
-          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar entidad por nombre o descripción..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <FilterTabs classes={styles} options={ESTADO_TABS} value={estadoFiltro} onChange={setEstadoFiltro} />
+        <SearchField classes={styles} placeholder="Buscar entidad por nombre o descripción..." value={search} onChange={setSearch} />
         {panel === 'cerrado' && (
           <button className={styles.btnPrimary} onClick={abrirCrear}>
             <i className="ti ti-plus" aria-hidden="true" />

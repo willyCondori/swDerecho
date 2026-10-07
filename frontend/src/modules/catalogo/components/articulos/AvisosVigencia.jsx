@@ -1,3 +1,4 @@
+import { dialogs } from '../../../../components/ui/dialogs'
 import { useId, useState } from 'react'
 import catalogoApi from '../../../../api/catalogoApi'
 import styles from './Normativa.module.css'
@@ -34,7 +35,7 @@ export default function AvisosVigencia({ avisos = [], permitirRevision = false, 
       const a = document.createElement('a')
       a.href = url; a.download = `fuente-normativa-${id}.pdf`; a.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch { window.alert('No se pudo descargar la fuente. Vuelve a intentarlo.') }
+    } catch { dialogs.alert('No se pudo descargar la fuente. Vuelve a intentarlo.') }
   }
   return <div className={styles.avisos} aria-label="Avisos de vigencia normativa">
     <h3>{avisos.length} avisos normativos</h3>

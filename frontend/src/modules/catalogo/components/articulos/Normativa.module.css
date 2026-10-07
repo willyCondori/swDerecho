@@ -53,3 +53,21 @@
 .estadoCambio { border-left: 4px solid #c65850; background: #c658501a; }
 .estadoRecuperado { border-left: 4px solid #4d9f70; background: #4d9f701a; }
 .cambioResumen { font-weight: 600; }
+
+
+.panel, .avisos, .aviso, .tablaContenedor { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.controles label { flex: 1 1 200px; min-width: 0; max-width: 100%; }
+.controles :is(input, select), .revision input { width: 100%; min-width: 0; }
+.controles :is(button, label), .aviso button { max-width: 100%; white-space: normal; }
+.tablaContenedor { -webkit-overflow-scrolling: touch; }
+@media (max-width: 640px) {
+  .panel { padding: .85rem; }
+  .controles label { flex-basis: 100%; }
+  .aviso { padding: .65rem; }
+}
+
+.revision dl { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: .5rem 1rem; }
+.revision dt { font-weight: 600; }
+.revision dd { margin: 0; overflow-wrap: anywhere; }
+.revision button { margin: .5rem .5rem .5rem 0; max-width: 100%; }
+@media (max-width: 520px) { .revision dl { grid-template-columns: minmax(0, 1fr); } .revision button { width: 100%; } }

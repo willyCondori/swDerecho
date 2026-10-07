@@ -198,7 +198,7 @@ def actualizar_avisos(norma):
 @transaction.atomic
 def registrar_cambios(documento, unidades, cambios, metadatos):
     documento.analisis_normativo = {**documento.analisis_normativo, 'cambios_aplicados': cambios}
-    documento.metadatos = metadatos or {}
+    documento.metadatos = {**documento.metadatos, **(metadatos or {})}
     documento.url_fuente = (metadatos or {}).get('url_fuente', '')
     documento.save(update_fields=['analisis_normativo', 'metadatos', 'url_fuente'])
     norma = documento.norma

@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
+import ThemeToggle from '../../../components/ui/ThemeToggle'
 import styles from './LoginPage.module.css'
 
 export default function LoginPage() {
@@ -46,6 +47,7 @@ export default function LoginPage() {
 
   return (
     <div className={styles.root}>
+      <div className={styles.themeControl}><ThemeToggle /></div>
       {/* ── Panel izquierdo decorativo ───────────────────── */}
       <aside className={styles.panel} aria-hidden="true">
         <div className={styles.panelGrid} />

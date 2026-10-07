@@ -14,6 +14,8 @@ export default function useClientes() {
 
   const buscando = search.trim().length >= 2
 
+  const paginaServidor = buscando ? 1 : page
+
   const load = useCallback(async () => {
     setLoading(true)
     setError(null)
@@ -24,7 +26,7 @@ export default function useClientes() {
         setClientes(data ?? [])
         setCount(data?.length ?? 0)
       } else {
-        const { data } = await clientesApi.listar({ page, page_size: PAGE_SIZE })
+        const { data } = await clientesApi.listar({ page: paginaServidor, page_size: PAGE_SIZE })
         if (Array.isArray(data)) {
           setClientes(data)
           setCount(data.length)
@@ -39,13 +41,13 @@ export default function useClientes() {
     } finally {
       setLoading(false)
     }
-  }, [page, search, buscando])
+  }, [paginaServidor, search, buscando])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const totalPages = buscando ? 1 : Math.max(1, Math.ceil(count / PAGE_SIZE))
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
 
   const setSearch = (value) => {
     setPage(1)
@@ -59,7 +61,7 @@ export default function useClientes() {
   }
 
   return {
-    clientes,
+    clientes: buscando ? clientes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : clientes,
     loading,
     error,
     search,

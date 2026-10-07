@@ -8,6 +8,7 @@ const normativaApi = {
   gruposAvisos: (params = {}) => api.get(`${BASE}/cambios-normativos/grupos/`, { params }),
   cambios: (params = {}) => api.get(`${BASE}/cambios-normativos/`, { params }),
   cambio: (id) => api.get(`${BASE}/cambios-normativos/${id}/`),
+  prepararRevision: (id, datos) => api.post(`${BASE}/cambios-normativos/${id}/preparar-revision/`, datos),
   prepararRestauracion: (id) => api.get(`${BASE}/cambios-normativos/${id}/preparar-restauracion/`),
   restaurarCambio: (id) => api.post(`${BASE}/cambios-normativos/${id}/restaurar/`, { confirmar: true }),
   revisarCambio: (id, datos) => api.post(`${BASE}/cambios-normativos/${id}/revisar/`, datos),

@@ -3,9 +3,9 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 import AvisosVigencia from './AvisosVigencia'
 
-const mocks = vi.hoisted(() => ({ admin: true, cambio: vi.fn(), revisar: vi.fn() }))
+const mocks = vi.hoisted(() => ({ admin: true, cambio: vi.fn(), revisar: vi.fn(), preview: vi.fn() }))
 vi.mock('../../../auth/store/authStore', () => ({ default: (selector) => selector({ isAdmin: () => mocks.admin }) }))
-vi.mock('../../../../api/normativaApi', () => ({ default: { cambio: mocks.cambio, revisarCambio: mocks.revisar } }))
+vi.mock('../../../../api/normativaApi', () => ({ default: { cambio: mocks.cambio, revisarCambio: mocks.revisar, prepararRevision: mocks.preview } }))
 vi.mock('../../../../api/catalogoApi', () => ({ default: { normas: vi.fn().mockResolvedValue({ data: [{ id: 5, nombre: 'Código Penal' }] }) } }))
 const aviso = { id: 12, operacion: 'deroga', estado: 'pendiente', destino_catalogo: { encontrado: true },
   disposicion_fuente: 'disposición derogatoria única', cita: 'Se deroga el Parágrafo III del artículo 323 Bis.', mensaje: 'Afectación detectada.' }
@@ -19,6 +19,7 @@ function Resultado({ inicial = aviso, permitirRevision = true }) {
 beforeEach(() => {
   vi.clearAllMocks(); mocks.admin = true
   mocks.cambio.mockResolvedValue({ data: cambio })
+  mocks.preview.mockResolvedValue({ data: { articulos: [] } })
 })
 afterEach(cleanup)
 it('confirma solo la parte identificada y actualiza el aviso después de la respuesta del servidor', async () => {
@@ -27,9 +28,10 @@ it('confirma solo la parte identificada y actualiza el aviso después de la resp
   fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
   fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar derogación' }))
   const confirmar = await screen.findByRole('button', { name: 'Confirmar derogación' })
-  expect(confirmar.disabled).toBe(false)
+  await waitFor(() => expect(confirmar.disabled).toBe(false))
   expect(screen.queryByLabelText('Fundamento de la revisión')).toBeNull()
   expect(screen.getByText('III. Texto que se deroga.')).toBeTruthy()
+  await waitFor(() => expect(confirmar.disabled).toBe(false))
   fireEvent.click(confirmar)
   await waitFor(() => expect(mocks.revisar).toHaveBeenCalledWith(12, {
     descartar: false, fecha_efecto: '2025-09-10', fecha_norma_causante: '2025-09-10', norma_afectada_id: 5
@@ -55,6 +57,7 @@ it('conserva pendiente el aviso si el backend rechaza la revisión', async () =>
   fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
   fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar derogación' }))
   const confirmar = await screen.findByRole('button', { name: 'Confirmar derogación' })
+  await waitFor(() => expect(confirmar.disabled).toBe(false))
   fireEvent.click(confirmar)
   expect((await screen.findByRole('alert')).textContent).toContain('debe ser posterior')
   expect(screen.getByText('Revisión pendiente')).toBeTruthy()
@@ -79,6 +82,7 @@ it('envía la confirmación de abrogación del destino y muestra el resultado', 
   fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
   fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar abrogación' }))
   const confirmar = await screen.findByRole('button', { name: 'Confirmar abrogación' })
+  await waitFor(() => expect(confirmar.disabled).toBe(false))
   fireEvent.click(confirmar)
   await waitFor(() => expect(mocks.revisar).toHaveBeenCalledWith(12, expect.objectContaining({ descartar: false, norma_afectada_id: 5 })))
   fireEvent.click(await screen.findByRole('button', { name: 'Ver todos' }))
@@ -89,8 +93,28 @@ it('permite descartar la detección sin aplicar el efecto al catálogo', async (
   render(<Resultado />)
   fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
   fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar derogación' }))
-  fireEvent.click(await screen.findByRole('button', { name: 'Descartar detección' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Descartar aviso' }))
   await waitFor(() => expect(mocks.revisar).toHaveBeenCalledWith(12, { descartar: true }))
   fireEvent.click(await screen.findByRole('button', { name: 'Ver todos' }))
   expect(screen.getByText('Detección descartada')).toBeTruthy()
+})
+
+it('dejar pendiente cierra la revisión sin guardar una decisión', async () => {
+  render(<Resultado />)
+  fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar derogación' }))
+  fireEvent.click(await screen.findByRole('button', { name: 'Dejar pendiente' }))
+  expect(screen.queryByRole('dialog')).toBeNull()
+  expect(mocks.revisar).not.toHaveBeenCalled()
+  expect(screen.getByText('Revisión pendiente')).toBeTruthy()
+})
+
+it('bloquea la confirmación si no se puede calcular el antes y después', async () => {
+  mocks.preview.mockRejectedValue({ response: { data: { detail: 'Fragmento ambiguo.' } } })
+  render(<Resultado />)
+  fireEvent.click(screen.getByRole('button', { name: 'Ver todos' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Revisar y confirmar derogación' }))
+  expect(await screen.findByText('Fragmento ambiguo.')).toBeTruthy()
+  expect(screen.getByRole('button', { name: 'Confirmar derogación' }).disabled).toBe(true)
+  expect(mocks.revisar).not.toHaveBeenCalled()
 })

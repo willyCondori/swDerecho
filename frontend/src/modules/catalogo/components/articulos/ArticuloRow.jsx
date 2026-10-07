@@ -61,6 +61,8 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
     <tr className={styles.tr}>
       <td className={styles.td}><span className={styles.numPill}>{articulo.tipo_unidad && articulo.tipo_unidad !== 'articulo' ? 'Disp. ' : 'Art. '}{articulo.numero_articulo}</span></td>
       <td className={styles.td}><h2 className={styles.articleTitle}><TextoResaltado texto={titulo} busqueda={busqueda} /></h2>
+        <span className={styles.vigenciaBadge} data-vigencia={articulo.estado_vigencia}>{({ vigente: 'Vigente', sin_derogacion_confirmada: 'Vigente en catálogo', derogado_parcialmente: 'Derogado parcialmente',
+          derogado: 'Derogado', abrogado: 'Abrogado' })[articulo.estado_vigencia] || 'Vigencia por verificar'}</span>
         {derogado && <span className={styles.legalStatus}>El PDF indica derogación o abrogación</span>}</td>
       <td className={styles.td}><span className={`${styles.ramaBadge} ${styles[getRamaKey(rama)]}`}>{rama}</span></td>
       <td className={styles.td}><div className={styles.normaCell}><span>{norma}</span>{sigla && <small>{sigla}</small>}</div></td>
@@ -72,6 +74,10 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
         {articulo.estado_vigencia === 'derogado_parcialmente' ? 'Derogado parcialmente · ' : articulo.estado_vigencia === 'derogado' ? 'Derogado · ' : articulo.estado_vigencia === 'abrogado' ? 'Abrogado · ' : ''}
         <Link to={`/catalogo/avisos?articulo=${articulo.id}`}>Consultar avisos de este artículo</Link>
       </p>}
+      <div className={styles.articleActions}>
+        <Link to={`/catalogo/avisos?articulo=${articulo.id}`}>Ver avisos normativos</Link>
+        <Link to={`/catalogo/historial?articulo=${articulo.id}`}>Ver historial de cambios</Link>
+      </div>
       <div id={textoId} hidden={!expandido}>
       <div hidden={!expandido} className={styles.articleText}>
         {expandido && <TextoVigencia texto={contenido || 'Sin texto disponible.'} avisos={articulo.avisos_vigencia} busqueda={busqueda} />}

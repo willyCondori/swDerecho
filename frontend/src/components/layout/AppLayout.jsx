@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import useAuthStore from '../../modules/auth/store/authStore'
+import ThemeToggle from '../ui/ThemeToggle'
 import NotificacionesBell from './NotificacionesBell'
 import styles from './AppLayout.module.css'
 
@@ -209,6 +210,7 @@ export default function AppLayout() {
           </nav>
         </div>
         <div className={styles.topbarRight}>
+          <ThemeToggle />
           <NotificacionesBell />
           <button className={styles.topbarBtn} aria-label="Ayuda">
             <i className="ti ti-help-circle" aria-hidden="true" />

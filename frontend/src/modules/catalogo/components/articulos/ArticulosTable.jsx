@@ -1,3 +1,4 @@
+import ListState from '../../../../components/ui/ListState'
 // modules/catalogo/components/articulos/ArticulosTable.jsx
 import SkeletonRows from './SkeletonRows'
 import ArticuloRow from './ArticuloRow'
@@ -60,30 +61,17 @@ export default function ArticulosTable({
           ) : error ? (
             <tr className={styles.tr}>
               <td colSpan={5} className={styles.td}>
-                <div className={styles.emptyState}>
-                  <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-                  <p className={styles.emptyTitle}>Error de conexión</p>
-                  <p className={styles.emptyText}>{error}</p>
-                  <button className={styles.btnSecondary} onClick={onReintentar}>
+                <ListState classes={styles} icon="ti-wifi-off" title={'Error de conexión'} text={error} action={<button className={styles.btnSecondary} onClick={onReintentar}>
                     <i className="ti ti-refresh" aria-hidden="true" /> Reintentar
-                  </button>
-                </div>
+                  </button>} />
               </td>
             </tr>
           ) : articulos.length === 0 ? (
             <tr className={styles.tr}>
               <td colSpan={5} className={styles.td}>
-                <div className={styles.emptyState}>
-                  <i className={`ti ti-article-off ${styles.emptyIcon}`} aria-hidden="true" />
-                  <p className={styles.emptyTitle}>
-                    {hayFiltros ? 'Sin resultados' : 'Catálogo vacío'}
-                  </p>
-                  <p className={styles.emptyText}>
-                    {hayFiltros
+                <ListState classes={styles} icon="ti-article-off" title={hayFiltros ? 'Sin resultados' : 'Catálogo vacío'} text={hayFiltros
                       ? 'Ningún artículo coincide con los filtros aplicados.'
-                      : 'Aún no hay artículos cargados. Sube un PDF para comenzar.'}
-                  </p>
-                  {hayFiltros ? (
+                      : 'Aún no hay artículos cargados. Sube un PDF para comenzar.'} action={hayFiltros ? (
                     <button className={styles.btnSecondary} onClick={onLimpiarFiltros}>
                       Limpiar filtros
                     </button>
@@ -91,8 +79,7 @@ export default function ArticulosTable({
                     <button className={styles.btnPrimary} onClick={onCargarPdf}>
                       <i className="ti ti-file-upload" aria-hidden="true" /> Cargar PDF
                     </button>
-                  )}
-                </div>
+                  )} />
               </td>
             </tr>
           ) : (

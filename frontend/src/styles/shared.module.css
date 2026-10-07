@@ -194,8 +194,8 @@
 }
 
 .tabActive {
-  background: var(--c-bg-surface);
-  color: var(--c-text-primary);
+  background: var(--c-selection-bg);
+  color: var(--c-selection-text);
 }
 
 /* ── Cards ──────────────────────────────────────────────── */
@@ -332,8 +332,9 @@
 .pageBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .pageBtnActive,
 .pageBtnActive:hover:not(:disabled) {
-  border-color: var(--c-border-focus);
-  color: var(--c-text-primary);
+  background: var(--c-selection-bg);
+  border-color: var(--c-selection-border);
+  color: var(--c-selection-text);
   cursor: default;
 }
 
@@ -381,7 +382,7 @@
 
 .formGrid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--sp-3);
 }
 
@@ -551,4 +552,33 @@
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
+}
+
+
+.root, .card, .cardPadded, .formCard, .field, .mainCol, .sideCol, .tableScroll { min-width: 0; }
+.headerActions, .submitRow, .pagination, .pageControls { flex-wrap: wrap; gap: var(--sp-2); }
+.searchBox { min-width: min(220px, 100%); }
+.formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.detailGrid { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+.tab { color: var(--c-text-secondary); min-width: 0; white-space: normal; }
+.btnPrimary, .btnSecondary { height: auto; min-height: 36px; white-space: normal; justify-content: center; padding-block: .45rem; }
+@media (max-width: 860px) { .detailGrid { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .formGrid { grid-template-columns: minmax(0, 1fr); }
+  .tabs { display: flex; width: 100%; }
+  .tab { flex: 1 1 calc(50% - 4px); }
+  .tabActive { order: -1; flex-basis: 100%; }
+  .pagination { justify-content: center; }
+  .formCard, .cardPadded { padding: var(--sp-3); }
+}
+
+/* Selector compartido de tamaño de página. */
+.pageSizeSelect {
+  background: var(--c-bg-surface);
+  color: var(--c-text-primary);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  min-height: 34px;
+  padding: 0 .5rem;
+  max-width: 100%;
 }

@@ -1,3 +1,4 @@
+import { MemoryRouter } from 'react-router-dom'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 import HistorialArticulosPanel from './HistorialArticulosPanel'
@@ -10,7 +11,7 @@ it('muestra el antes y después, fuente y alcance y permite filtrar por norma y 
     norma_causante: 'LEY 1636', fecha_efecto: '2025-09-10', disposicion_fuente: 'disposición derogatoria única', aplicado: true,
     parte_afectada: { tipo: 'parcial', descripcion: 'Parágrafo III' }, texto_antes: 'I. Texto vigente. III. Texto derogado.', texto_despues: 'I. Texto vigente.',
     revisado_por: 'Administrador', cita: 'Se deroga el Parágrafo III.' }], next: null } })
-  render(<HistorialArticulosPanel />)
+  render(<MemoryRouter><HistorialArticulosPanel /></MemoryRouter>)
   expect(await screen.findByText('Código Penal · Artículo 323 BIS')).toBeTruthy()
   expect(screen.getByText('Parte derogada retirada del texto activo.')).toBeTruthy()
   expect(screen.getByRole('region', { name: 'Texto antes del cambio' }).querySelector('pre').textContent).toBe('I. Texto vigente. III. Texto derogado.')
@@ -22,7 +23,15 @@ it('muestra el antes y después, fuente y alcance y permite filtrar por norma y 
 it('distingue una derogación programada sin decir que ya retiró el texto', async () => {
   mocks.historial.mockResolvedValue({ data: { results: [{ id: 2, norma: 'Ley anterior', numero_articulo: '1', operacion: 'abroga', aplicado: false,
     fecha_efecto: '2099-01-01', parte_afectada: {}, texto_antes: 'Texto original.', texto_despues: 'Texto original.' }] } })
-  render(<HistorialArticulosPanel />)
+  render(<MemoryRouter><HistorialArticulosPanel /></MemoryRouter>)
   expect(await screen.findByText('Programado: todavía no aplicado al texto activo.')).toBeTruthy()
   expect(screen.getByText('Después previsto')).toBeTruthy()
+})
+
+it('el acceso desde un artículo consulta solo su historial y permite limpiar ese filtro', async () => {
+  mocks.historial.mockResolvedValue({ data: { results: [] } })
+  render(<MemoryRouter initialEntries={['/catalogo/historial?articulo=88']}><HistorialArticulosPanel /></MemoryRouter>)
+  await waitFor(() => expect(mocks.historial).toHaveBeenLastCalledWith({ articulo: '88', page: 1 }))
+  fireEvent.click(screen.getByRole('button', { name: 'Ver todos los artículos' }))
+  await waitFor(() => expect(mocks.historial).toHaveBeenLastCalledWith({ page: 1 }))
 })

@@ -3,8 +3,6 @@
 import logging
 import os
 
-from django.conf import settings
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -105,46 +103,19 @@ class CargaArticulosView(APIView):
         # GUARDAR PDF
         # ─────────────────────────────
         try:
-            from django.utils.text import slugify
-            carpeta_norma = f'{norma.pk}-' + (slugify(norma.sigla or norma.nombre) or 'norma')
-
-            ruta_carpeta = os.path.join(
-                settings.MEDIA_ROOT,
-                "documentos_normativas",
-                carpeta_norma,
-            )
-
-            os.makedirs(ruta_carpeta, exist_ok=True)
-
-            nombre_archivo = f"{carpeta_norma}_{archivo.name}"
-            ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
-            # Si ya hay un PDF con ese nombre (p. ej. se vuelve a subir el
-            # mismo archivo), no lo pisamos: el DocumentoNorma anterior
-            # apunta a él y debe seguir siendo el PDF histórico.
-            if os.path.exists(ruta_archivo):
-                base, ext = os.path.splitext(nombre_archivo)
-                nombre_archivo = f"{base}_{timezone.now():%Y%m%d%H%M%S%f}{ext}"
-                ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
-
-            with open(ruta_archivo, "wb+") as destino:
-                for chunk in archivo.chunks():
-                    destino.write(chunk)
-
-            # Ruta relativa a MEDIA_ROOT, igual que en modulo_documentos,
-            # para poder servir el archivo después (descargar/eliminar)
-            # sin depender de la ruta absoluta del servidor.
-            ruta_relativa = os.path.join(
-                "documentos_normativas", carpeta_norma, nombre_archivo
-            )
+            from modulo_catalogo.services.archivo_norma_service import guardar_pdf_norma
+            guardado = guardar_pdf_norma(archivo, norma)
+            ruta_archivo = guardado['ruta']
+            ruta_relativa = guardado['ruta_relativa']
             documento_norma = DocumentoNorma.objects.create(
                 norma=norma,
                 rama=rama,
-                nombre_original=archivo.name,
+                nombre_original=guardado['nombre'],
                 ruta_archivo=ruta_relativa,
                 tamano=archivo.size,
                 subido_por=usuario,
                 vigente=not bool(revision),
-                metadatos=revision.get('metadatos', {}) if revision else data.get('metadatos', {}),
+                metadatos={**(revision.get('metadatos', {}) if revision else data.get('metadatos', {})), **guardado['metadatos']},
                 analisis_normativo={'cambios': revision.get('cambios', []), 'motor': revision.get('motor'),
                                   'seccion': revision.get('seccion'), 'secciones': revision.get('secciones'),
                                   'variantes_unidades': revision.get('destino', {}).get('variantes_unidades', {})} if revision else {},

@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom'
 it('oculta todo el contenido y permite mostrarlo y ocultarlo sin duplicar el texto', () => {
   const contenido = 'Texto jurídico completo. '.repeat(100)
   const articulo = { id: 7, numero_articulo: '7', titulo: 'Artículo de prueba', contenido }
-  const { container } = render(<table><tbody><ArticuloRow articulo={articulo} busqueda="jurídico" /></tbody></table>)
+  const { container } = render(<MemoryRouter><table><tbody><ArticuloRow articulo={articulo} busqueda="jurídico" /></tbody></table></MemoryRouter>)
   const texto = container.querySelector('[class*="articleText"]')
   expect(texto.textContent).toBe('')
   expect(texto.hidden).toBe(true)
@@ -33,7 +33,7 @@ it('copia el contenido original, incluidos saltos de línea e incisos', async ()
   const writeText = vi.fn().mockResolvedValue()
   Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } })
   const contenido = 'ARTÍCULO 1.\nI. Primer inciso.\nII. Segundo inciso.'
-  render(<table><tbody><ArticuloRow articulo={{ id: 1, numero_articulo: '1', contenido }} /></tbody></table>)
+  render(<MemoryRouter><table><tbody><ArticuloRow articulo={{ id: 1, numero_articulo: '1', contenido }} /></tbody></table></MemoryRouter>)
   fireEvent.click(screen.getAllByRole('button', { name: 'Ver más' }).at(-1))
   fireEvent.click(screen.getAllByRole('button', { name: 'Copiar artículo' }).at(-1))
   await waitFor(() => expect(writeText).toHaveBeenCalledWith(contenido))

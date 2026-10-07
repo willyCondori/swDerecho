@@ -240,7 +240,7 @@
   color: var(--c-text-muted);
   margin-top: var(--sp-1);
 }
-.formGrid { display: grid; grid-template-columns: repeat(2, 1fr); gap: var(--sp-3); }
+.formGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--sp-3); }
 .fullWidth { grid-column: 1 / -1; }
 .field { display: flex; flex-direction: column; gap: var(--sp-2); }
 .label { font-size: var(--fs-xs); font-weight: var(--fw-medium); color: var(--c-text-secondary); }
@@ -297,3 +297,8 @@
   transition: background var(--transition-fast);
 }
 .backBtn:hover { background: var(--c-bg-hover); }
+
+.field { min-width: 0; }
+.formGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.btnPrimary, .btnSecondary { white-space: normal; min-height: 36px; height: auto; padding-block: .45rem; }
+@media (max-width: 640px) { .formGrid { grid-template-columns: minmax(0, 1fr); } }

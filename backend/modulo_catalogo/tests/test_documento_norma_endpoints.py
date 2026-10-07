@@ -254,7 +254,9 @@ class CargaArticulosCreaDocumentoNormaTests(APITestCase):
             documento = DocumentoNorma.objects.get(pk=documento_id)
             self.assertEqual(documento.norma.nombre, "Código de prueba para carga")
             self.assertEqual(documento.rama_id, self.rama.id)
-            self.assertEqual(documento.nombre_original, "codigo.pdf")
+            self.assertRegex(documento.nombre_original, r'^Código de prueba para carga - \d{4}-\d{2}-\d{2}\.pdf$')
+            self.assertEqual(os.path.basename(documento.ruta_archivo), documento.nombre_original)
+            self.assertEqual(documento.metadatos['nombre_archivo_subido'], 'codigo.pdf')
             self.assertEqual(documento.tamano, len(PDF_MINIMO_1_PAGINA))
             self.assertEqual(documento.subido_por_id, self.abogado.id)
             self.assertTrue(os.path.exists(os.path.join(self.media, documento.ruta_archivo)))
@@ -279,7 +281,7 @@ class CargaArticulosCreaDocumentoNormaTests(APITestCase):
             listado = self.client.get(f"{URL_LISTAR}por_norma/", {"norma_id": norma_id})
             self.assertEqual(listado.status_code, status.HTTP_200_OK)
             self.assertEqual(len(listado.data), 1)
-            self.assertEqual(listado.data[0]["nombre_original"], "codigo2.pdf")
+            self.assertRegex(listado.data[0]["nombre_original"], r'^Otro código de prueba - \d{4}-\d{2}-\d{2}\.pdf$')
 
 
 class DocumentoNormaVigenteTests(APITestCase):

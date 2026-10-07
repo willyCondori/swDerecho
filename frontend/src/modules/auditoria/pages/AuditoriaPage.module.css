@@ -23,13 +23,13 @@
 /* ── Filtros ────────────────────────────────────────────── */
 .filtros {
   display: grid;
-  grid-template-columns: repeat(4, 1fr) auto;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
   gap: var(--sp-3);
   align-items: end;
 }
 
 @media (max-width: 960px) {
-  .filtros { grid-template-columns: repeat(2, 1fr); }
+  .filtros { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .btnLimpiar {
@@ -63,3 +63,5 @@
   font-size: var(--fs-xs);
   white-space: nowrap;
 }
+
+@media (max-width: 640px) { .filtros { grid-template-columns: minmax(0, 1fr); } }

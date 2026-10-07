@@ -1,3 +1,4 @@
+import SearchField from '../../../../components/ui/SearchField'
 // modules/catalogo/components/articulos/FiltersBar.jsx
 import styles from '../../pages/articulos/VerArticulos.module.css'
 
@@ -10,26 +11,9 @@ export default function FiltersBar({
 }) {
   return (
     <div className={styles.filtersBar}>
-      <div className={styles.searchWrapper}>
-        <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder="Buscar por número, título o contenido..."
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
-          aria-label="Buscar artículos"
-        />
-        {search && (
-          <button
-            className={styles.searchClear}
-            onClick={() => onSearchChange('')}
-            aria-label="Limpiar búsqueda"
-          >
-            <i className="ti ti-x" aria-hidden="true" />
-          </button>
-        )}
-      </div>
+      <SearchField classes={{ ...styles, searchBox: styles.searchWrapper }}
+        value={search} onChange={onSearchChange} clearable label="Buscar artículos"
+        placeholder="Buscar por número, título o contenido..." />
 
       <div className={styles.filtersDivider} />
       <input className={styles.filterSelect} value={numeroArticulo} onChange={(e) => onNumeroChange(e.target.value)}

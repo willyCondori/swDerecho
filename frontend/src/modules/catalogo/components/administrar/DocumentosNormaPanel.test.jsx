@@ -1,3 +1,4 @@
+import { dialogs } from '../../../../components/ui/dialogs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 
@@ -30,7 +31,7 @@ const DOC = {
 beforeEach(() => {
   vi.clearAllMocks()
   esAdmin = true
-  window.confirm = vi.fn(() => true)
+  dialogs.confirm = vi.fn(() => true)
 })
 afterEach(() => {
   cleanup()
@@ -86,13 +87,13 @@ describe('DocumentosNormaPanel', () => {
 
     fireEvent.click(screen.getByTitle('Eliminar'))
 
-    expect(window.confirm).toHaveBeenCalled()
+    expect(dialogs.confirm).toHaveBeenCalled()
     await waitFor(() => expect(catalogoApi.eliminarDocumentoNorma).toHaveBeenCalledWith(1))
     await waitFor(() => expect(screen.queryByText('ley.pdf')).toBeNull())
   })
 
   it('si se cancela la confirmación, no se llama a eliminar', async () => {
-    window.confirm = vi.fn(() => false)
+    dialogs.confirm = vi.fn(() => false)
     catalogoApi.documentosPorNorma.mockResolvedValue({ data: [DOC] })
     montar()
     await screen.findByText('ley.pdf')

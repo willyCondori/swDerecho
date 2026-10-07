@@ -1,3 +1,7 @@
+import { dialogs } from '../../../components/ui/dialogs'
+import PageHeader from '../../../components/ui/PageHeader'
+import FilterTabs from '../../../components/ui/FilterTabs'
+import SearchField from '../../../components/ui/SearchField'
 // modules/usuarios/pages/RolesPage.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -99,20 +103,20 @@ export default function RolesPage() {
   }
 
   const handleEliminar = async (rol) => {
-    if (!window.confirm(`¿Desactivar el rol "${rol.nombre}"? Podrás recuperarlo luego desde la pestaña "Eliminados".`)) return
+    if (!await dialogs.confirm(`¿Desactivar el rol "${rol.nombre}"? Podrás recuperarlo luego desde la pestaña "Eliminados".`)) return
     try {
       await eliminarRol(rol.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo desactivar el rol.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo desactivar el rol.')
     }
   }
 
   const handleRecuperar = async (rol) => {
-    if (!window.confirm(`¿Reactivar el rol "${rol.nombre}"? Volverá a estar disponible para asignar a usuarios.`)) return
+    if (!await dialogs.confirm(`¿Reactivar el rol "${rol.nombre}"? Volverá a estar disponible para asignar a usuarios.`)) return
     try {
       await activarRol(rol.id)
     } catch (e) {
-      window.alert(e?.response?.data?.detail || 'No se pudo reactivar el rol.')
+      dialogs.alert(e?.response?.data?.detail || 'No se pudo reactivar el rol.')
     }
   }
 
@@ -128,22 +132,16 @@ export default function RolesPage() {
         >
           <i className="ti ti-arrow-left" aria-hidden="true" />
         </button>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>Roles</h1>
-            <p className={styles.subtitle}>
-              Define los roles disponibles y el nivel de acceso que otorgan a los usuarios del sistema.
-            </p>
-          </div>
-          <div className={styles.headerActions}>
+        <PageHeader classes={styles} title="Roles" subtitle="Define los roles disponibles y el nivel de acceso que otorgan a los usuarios del sistema.">
+
             {panel === 'cerrado' && (
               <button className={styles.btnPrimary} onClick={abrirCrear}>
                 <i className="ti ti-shield-plus" aria-hidden="true" />
                 Nuevo rol
               </button>
             )}
-          </div>
-        </header>
+
+</PageHeader>
       </div>
 
       {/* ── Panel de creación/edición ──────────────────── */}
@@ -162,28 +160,9 @@ export default function RolesPage() {
       {/* ── Toolbar ────────────────────────────── */}
       <div className={styles.toolbar}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3, 16px)', flexWrap: 'wrap' }}>
-          <div className={styles.tabs}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.value}
-                className={`${styles.tab} ${estadoFiltro === tab.value ? styles.tabActive : ''}`}
-                onClick={() => setEstadoFiltro(tab.value)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+          <FilterTabs classes={styles} options={TABS} value={estadoFiltro} onChange={setEstadoFiltro} />
 
-          <div className={styles.searchBox}>
-            <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-            <input
-              type="text"
-              className={styles.searchInput}
-              placeholder="Buscar por nombre o descripción..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+          <SearchField classes={styles} placeholder="Buscar por nombre o descripción..." value={search} onChange={setSearch} />
         </div>
 
         {!loading && !error && (

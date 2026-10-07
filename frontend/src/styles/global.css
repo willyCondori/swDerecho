@@ -80,3 +80,44 @@ img             { max-width: 100%; display: block; }
   border: 0;
 }
 
+
+
+/* Bases de los controles nativos, también para formularios sin CSS propio. */
+#root { min-width: 0; min-height: 100vh; }
+button, input, select, textarea { font: inherit; max-width: 100%; }
+button { color: var(--c-text-primary); background-color: var(--c-bg-elevated); }
+input, select, textarea {
+  min-width: 0;
+  color: var(--c-text-primary);
+  background-color: var(--c-bg-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius);
+}
+select { text-overflow: ellipsis; }
+option { color: var(--c-text-primary); background: var(--c-bg-surface); }
+input[type=checkbox], input[type=radio] { accent-color: var(--c-selection-indicator); }
+::placeholder { color: var(--c-text-muted); opacity: 1; }
+button:disabled { cursor: not-allowed; }
+fieldset { min-width: 0; }
+h1, h2, h3, h4, p, blockquote, summary { overflow-wrap: anywhere; }
+pre { max-width: 100%; overflow-x: auto; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
+/* Una misma selección neutra en todo el sistema, por estado semántico.
+   La especificidad supera a las clases de cada módulo, incluso al pasar el mouse. */
+:root:not([data-theme="light"]) :is(
+  button[aria-pressed="true"],
+  button[aria-selected="true"],
+  [role="tab"][aria-selected="true"],
+  a[aria-current="page"],
+  button[aria-current="page"]
+) {
+  background-color: var(--c-selection-bg);
+  color: var(--c-selection-text);
+  border-color: var(--c-selection-border);
+}
+:root:not([data-theme="light"]) :is(button[aria-pressed="true"], a[aria-current="page"]) i {
+  color: inherit;
+}

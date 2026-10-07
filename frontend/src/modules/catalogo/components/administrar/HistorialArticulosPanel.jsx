@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import normativaApi from '../../../../api/normativaApi'
 import catalogoApi from '../../../../api/catalogoApi'
@@ -5,6 +6,8 @@ import ComparacionCambioArticulo from '../articulos/ComparacionCambioArticulo'
 import styles from '../articulos/Normativa.module.css'
 
 export default function HistorialArticulosPanel() {
+  const [params, setParams] = useSearchParams()
+  const articulo = params.get('articulo') || ''
   const [registros, setRegistros] = useState([])
   const [normas, setNormas] = useState([])
   const [norma, setNorma] = useState('')
@@ -18,13 +21,13 @@ export default function HistorialArticulosPanel() {
   useEffect(() => {
     let cancelado = false
     setLoading(true); setError('')
-    normativaApi.historial({ ...(norma ? { norma } : {}), ...(operacion ? { operacion } : {}), page: pagina })
+    normativaApi.historial({ ...(articulo ? { articulo } : {}), ...(norma ? { norma } : {}), ...(operacion ? { operacion } : {}), page: pagina })
       .then(({ data }) => {
         if (!cancelado) { setRegistros(data.results || data); setSiguiente(Boolean(data.next)) }
       }).catch(() => { if (!cancelado) setError('No se pudo consultar el historial de cambios.') })
       .finally(() => { if (!cancelado) setLoading(false) })
     return () => { cancelado = true }
-  }, [norma, operacion, pagina, revision])
+  }, [norma, operacion, pagina, revision, articulo])
   const descargar = async (id) => {
     try {
       const { data } = await catalogoApi.descargarDocumentoNorma(id)
@@ -37,6 +40,7 @@ export default function HistorialArticulosPanel() {
   return <section className={styles.panel}>
     <h2>Historial de cambios de artículos</h2>
     <p>Consulta los efectos confirmados, la parte afectada y las versiones anterior y posterior. Los textos originales se conservan como respaldo.</p>
+    {articulo && <p>Historial del artículo seleccionado. <button type="button" onClick={() => { setParams({}); setPagina(1) }}>Ver todos los artículos</button></p>}
     <div className={styles.controles}>
       <label>Norma <select value={norma} onChange={(e) => { setNorma(e.target.value); setPagina(1) }}>
         <option value="">Todas las normas</option>{normas.map((n) => <option key={n.id} value={n.id}>{n.nombre}</option>)}

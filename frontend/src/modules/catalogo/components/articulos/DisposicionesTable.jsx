@@ -1,32 +1,48 @@
+import DisposicionesList from './DisposicionesList'
+import Pagination from '../../../../components/ui/Pagination'
 import { Link } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import api from '../../../../api/axiosInstance'
 import styles from './Normativa.module.css'
 
+const PAGE_SIZE = 10
+
 export default function DisposicionesTable({ normaId, ramaId }) {
-  const [filas, setFilas] = useState([])
-  const [pagina, setPagina] = useState(1)
-  const [siguiente, setSiguiente] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => { setPagina(1) }, [normaId, ramaId])
+  const filtersKey = JSON.stringify([normaId || '', ramaId || ''])
+  const [navigation, setNavigation] = useState({ filtersKey, page: 1 })
+  const page = navigation.filtersKey === filtersKey ? navigation.page : 1
+  const setPage = (next) => setNavigation({ filtersKey, page: next })
+  const [result, setResult] = useState(null)
   useEffect(() => {
-    let activo = true
-    api.get('/api/catalogo/disposiciones/', { params: { norma_id: normaId || undefined, rama_id: ramaId || undefined, page: pagina } })
-      .then(({ data }) => { if (activo) { setFilas(data.results || data); setSiguiente(Boolean(data.next)); setError('') } })
-      .catch(() => { if (activo) { setFilas([]); setError('No se pudieron consultar las disposiciones.') } })
-    return () => { activo = false }
-  }, [normaId, ramaId, pagina])
+    let active = true
+    api.get('/api/catalogo/disposiciones/', { params: { norma_id: normaId || undefined,
+      rama_id: ramaId || undefined, page, page_size: PAGE_SIZE } })
+      .then(({ data }) => {
+        if (active) setResult({ filtersKey, page, rows: data.results || data,
+          count: data.count ?? data.length ?? 0, error: '' })
+      }).catch((error) => {
+        if (!active) return
+        if (error.response?.status === 404 && page > 1) {
+          setNavigation({ filtersKey, page: page - 1 })
+        } else setResult({ filtersKey, page, rows: [], count: 0,
+          error: 'No se pudieron consultar las disposiciones.' })
+      })
+    return () => { active = false }
+  }, [normaId, ramaId, filtersKey, page])
+  const current = result?.filtersKey === filtersKey && result.page === page
+  const loading = !current
+  const rows = current ? result.rows : []
+  const count = current ? result.count : 0
+  const error = current ? result.error : ''
   return <section className={styles.panel} aria-label="Disposiciones del catálogo">
     <h2>Disposiciones finales, derogatorias y abrogatorias</h2>
+    {loading && <p role="status">Consultando disposiciones…</p>}
     {error && <p role="alert">{error}</p>}
-    <div className={styles.tablaContenedor}><table className={styles.tabla}><thead><tr><th>Norma</th><th>Tipo</th><th>Disposición</th><th>Texto</th></tr></thead>
-      <tbody>{filas.map((d) => <tr key={d.id}><td>{d.norma_nombre}</td><td>{d.tipo}</td><td>{d.numero}</td>
-        <td><Link to={`/catalogo/avisos?fuente_norma=${d.norma_id}`}>Consultar avisos de la norma</Link><details><summary>Ver disposición</summary>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{d.contenido}</p></details></td></tr>)}</tbody>
-    </table></div>
-    {!filas.length && !error && <p>No hay disposiciones cargadas para estos filtros.</p>}
-    <button type="button" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>Anterior</button>
-    <span> Página {pagina} </span>
-    <button type="button" disabled={!siguiente} onClick={() => setPagina((p) => p + 1)}>Siguiente</button>
+    <DisposicionesList paginate={false} showNorma rows={rows.map((d) => ({ key: d.id, norma: d.norma_nombre,
+      tipo: d.tipo, numero: d.numero, texto: d.contenido, normaId: d.norma_id }))}
+      renderLinks={(row) => <Link to={`/catalogo/avisos?fuente_norma=${row.normaId}`}>Consultar avisos de la norma</Link>} />
+    {!loading && !rows.length && !error && <p>No hay disposiciones cargadas para estos filtros.</p>}
+    {!loading && !error && <Pagination page={page} totalPages={Math.max(1, Math.ceil(count / PAGE_SIZE))}
+      count={count} pageSize={PAGE_SIZE} onPageChange={setPage} itemLabel="disposiciones" />}
   </section>
 }

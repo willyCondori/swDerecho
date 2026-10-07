@@ -119,7 +119,7 @@ def aplicar_compilacion(norma, rama, revision, modo, seleccion, documento_id, ta
         destinos.add(destino.pk)
         doc = DocumentoNorma.objects.create(norma=destino, rama=rama, nombre_original=principal.nombre_original,
             ruta_archivo=principal.ruta_archivo, tamano=principal.tamano, subido_por=principal.subido_por, vigente=False,
-            metadatos=plan['metadatos'], url_fuente=principal.url_fuente,
+            metadatos={**principal.metadatos, **plan['metadatos']}, url_fuente=principal.url_fuente,
             analisis_normativo={'motor': plan['motor'], 'seccion': plan['seccion'], 'secciones': plan['secciones'],
                                'cambios': plan['cambios'], 'variantes_unidades': plan['destino'].get('variantes_unidades', {})})
         elegidos = [a['numero'] for a in plan['articulos'] if a.get('tipo_unidad', 'articulo') == 'articulo']

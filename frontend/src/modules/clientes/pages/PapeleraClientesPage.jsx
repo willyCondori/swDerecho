@@ -1,3 +1,7 @@
+import { dialogs } from '../../../components/ui/dialogs'
+import PageHeader from '../../../components/ui/PageHeader'
+import Pagination from '../../../components/ui/Pagination'
+import SearchField from '../../../components/ui/SearchField'
 // modules/clientes/pages/PapeleraClientesPage.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -32,7 +36,7 @@ export default function PapeleraClientesPage() {
     const aviso = n > 0
       ? ` También volverán ${n === 1 ? 'su caso eliminado con él' : `sus ${n} casos eliminados con él`}.`
       : ''
-    if (!window.confirm(`¿Restaurar a ${cliente.nombre_completo}?${aviso}`)) return
+    if (!await dialogs.confirm(`¿Restaurar a ${cliente.nombre_completo}?${aviso}`)) return
 
     setErrorRestaurar('')
     setRestaurado('')
@@ -100,32 +104,17 @@ export default function PapeleraClientesPage() {
 
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Papelera de clientes</h1>
-          <p className={styles.subtitle}>
-            Clientes eliminados. Al restaurar uno vuelven también los casos que se eliminaron junto con él.
-          </p>
-        </div>
-        <div className={styles.headerActions}>
+      <PageHeader classes={styles} title="Papelera de clientes" subtitle="Clientes eliminados. Al restaurar uno vuelven también los casos que se eliminaron junto con él.">
+
           <button className={styles.btnSecondary} onClick={() => navigate('/clientes')}>
             <i className="ti ti-arrow-left" aria-hidden="true" />
             Volver a clientes
           </button>
-        </div>
-      </header>
+
+</PageHeader>
 
       <div className={styles.toolbar}>
-        <div className={styles.searchBox}>
-          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por nombre o apellido..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchField classes={styles} placeholder="Buscar por nombre o apellido..." value={search} onChange={setSearch} />
         {!loading && !error && (
           <span className={styles.resultCount}>
             {count} {count === 1 ? 'cliente eliminado' : 'clientes eliminados'}
@@ -152,17 +141,7 @@ export default function PapeleraClientesPage() {
         />
 
         {!loading && !error && clientes.length > 0 && totalPages > 1 && (
-          <div className={styles.pagination}>
-            <span className={styles.pageInfo}>Página {page} de {totalPages}</span>
-            <div className={styles.pageControls}>
-              <button className={styles.btnSecondary} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <i className="ti ti-chevron-left" aria-hidden="true" />
-              </button>
-              <button className={styles.btnSecondary} disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                <i className="ti ti-chevron-right" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+          <Pagination classes={styles} variant="simple" page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
       </div>
     </div>

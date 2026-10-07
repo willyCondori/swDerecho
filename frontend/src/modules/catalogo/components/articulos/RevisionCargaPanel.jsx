@@ -1,5 +1,5 @@
+import DisposicionesList from './DisposicionesList'
 import { useId, useState } from 'react'
-import normativaStyles from './Normativa.module.css'
 import styles from '../../pages/articulos/CargaArticulosPage.module.css'
 
 const ACCIONES = { nuevo: 'Nuevo', actualizar: 'Se actualizará', sin_cambios: 'Sin cambios de texto' }
@@ -94,10 +94,8 @@ export default function RevisionCargaPanel({ revision, modo, onModo, seleccion, 
     {disposiciones.length > 0 && <section aria-label="Disposiciones del documento">
       <h3>Disposiciones finales, derogatorias y abrogatorias</h3>
       <p>Se guardarán separadas de los artículos. No se importan disposiciones transitorias.</p>
-      <div className={normativaStyles.tablaContenedor}><table className={normativaStyles.tabla}><thead><tr><th>Tipo</th><th>Disposición</th><th>Texto</th></tr></thead>
-        <tbody>{disposiciones.map((d) => <tr key={d.numero}><td>{d.tipo_unidad}</td><td>{d.numero}</td>
-          <td><details><summary>Ver disposición</summary><p style={{ whiteSpace: 'pre-wrap' }}>{d.texto}</p></details></td></tr>)}</tbody>
-      </table></div>
+      <DisposicionesList rows={disposiciones.map((d, index) => ({ key: `${d.tipo_unidad}-${d.numero}-${index}`,
+        tipo: d.tipo_unidad, numero: d.numero, texto: d.texto }))} />
     </section>}
     <section aria-labelledby={comparacionId}>
       <h3 id={comparacionId}>Comparación de artículos anteriores y nuevos</h3>

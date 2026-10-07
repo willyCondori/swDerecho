@@ -32,7 +32,7 @@ function TextoComparado({ texto, rangos, recuperar = false }) {
   return <pre>{salida}</pre>
 }
 
-export default function ComparacionCambioArticulo({ registro: h, restaurar = false }) {
+export default function ComparacionCambioArticulo({ registro: h, restaurar = false, preview = false }) {
   const antes = h.texto_antes || '', despues = h.texto_despues || ''
   const modificado = antes !== despues
   const parcial = h.parte_afectada?.tipo === 'parcial'
@@ -40,7 +40,7 @@ export default function ComparacionCambioArticulo({ registro: h, restaurar = fal
   const partes = rangosDePartes(antes, h.parte_afectada)
   const retirados = partes.length ? partes : diferencia.retirado
   const tipo = h.operacion === 'abroga' ? 'Abrogación' : parcial ? 'Derogación parcial' : 'Derogación total'
-  const estado = h.aplicado === false ? `${tipo} programada` : `${tipo} confirmada`
+  const estado = preview ? `${tipo} prevista` : h.aplicado === false ? `${tipo} programada` : `${tipo} confirmada`
   const recuperaTexto = restaurar && modificado && h.aplicado !== false
   return <div>
     <p className={styles.cambioResumen}>

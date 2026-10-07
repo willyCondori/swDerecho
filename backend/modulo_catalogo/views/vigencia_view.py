@@ -32,7 +32,7 @@ class CambioNormativoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = CambioSerializer
     queryset = CambioNormativo.objects.select_related('fuente__norma').all()
     def get_permissions(self):
-        return [EsAdmin()] if self.action in ['revisar', 'restaurar', 'preparar_restauracion'] else [EsOperativo()]
+        return [EsAdmin()] if self.action in ['revisar', 'restaurar', 'preparar_restauracion', 'preparar_revision'] else [EsOperativo()]
     def get_queryset(self):
         qs = super().get_queryset().exclude(unidad_fuente__startswith='DT ')
         if self.action in ['list', 'grupos']:
@@ -89,6 +89,14 @@ class CambioNormativoViewSet(viewsets.ReadOnlyModelViewSet):
                     'afectaciones': CambioSerializer(grupo, many=True).data}
         datos = [serializar(g) for g in (pagina if pagina is not None else lista)]
         return self.get_paginated_response(datos) if pagina is not None else Response(datos)
+
+    @action(detail=True, methods=['post'], url_path='preparar-revision')
+    def preparar_revision(self, request, pk=None):
+        from modulo_catalogo.services.preview_normativo_service import preparar_revision
+        try:
+            return Response(preparar_revision(self.get_object(), request.data))
+        except ValueError as error:
+            return Response({'detail': str(error)}, status=400)
 
     @action(detail=True, methods=['get'], url_path='preparar-restauracion')
     def preparar_restauracion(self, request, pk=None):

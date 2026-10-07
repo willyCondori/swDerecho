@@ -1,3 +1,6 @@
+import PageHeader from '../../../components/ui/PageHeader'
+import Pagination from '../../../components/ui/Pagination'
+import SearchField from '../../../components/ui/SearchField'
 // modules/clientes/pages/ClientesPage.jsx
 import { useNavigate } from 'react-router-dom'
 import useClientes from '../hooks/useClientes'
@@ -64,12 +67,8 @@ export default function ClientesPage() {
 
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Clientes</h1>
-          <p className={styles.subtitle}>Datos de contacto de tus clientes.</p>
-        </div>
-        <div className={styles.headerActions}>
+      <PageHeader classes={styles} title="Clientes" subtitle="Datos de contacto de tus clientes.">
+
           {puedeEscribir && (
             <button className={styles.btnSecondary} onClick={() => navigate('/clientes/papelera')}>
               <i className="ti ti-trash" aria-hidden="true" />
@@ -82,20 +81,11 @@ export default function ClientesPage() {
               Nuevo cliente
             </button>
           )}
-        </div>
-      </header>
+
+</PageHeader>
 
       <div className={styles.toolbar}>
-        <div className={styles.searchBox}>
-          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por nombre o apellido..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <SearchField classes={styles} placeholder="Buscar por nombre o apellido..." value={search} onChange={setSearch} />
         {!loading && !error && (
           <span className={styles.resultCount}>
             {count} {count === 1 ? 'cliente' : 'clientes'}
@@ -122,18 +112,8 @@ export default function ClientesPage() {
           }}
         />
 
-        {!loading && !error && !buscando && clientes.length > 0 && totalPages > 1 && (
-          <div className={styles.pagination}>
-            <span className={styles.pageInfo}>Página {page} de {totalPages}</span>
-            <div className={styles.pageControls}>
-              <button className={styles.btnSecondary} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                <i className="ti ti-chevron-left" aria-hidden="true" />
-              </button>
-              <button className={styles.btnSecondary} disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-                <i className="ti ti-chevron-right" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
+        {!loading && !error && clientes.length > 0 && totalPages > 1 && (
+          <Pagination classes={styles} variant="simple" page={page} totalPages={totalPages} onPageChange={setPage} />
         )}
       </div>
     </div>

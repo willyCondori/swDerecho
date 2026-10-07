@@ -1,0 +1,9 @@
+.toggle {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 36px; padding: .35rem .65rem; border: 1px solid var(--c-border);
+  border-radius: var(--radius-md); background: var(--c-bg-elevated); color: var(--c-text-primary);
+  flex-shrink: 0;
+}
+.toggle:hover { background: var(--c-bg-hover); border-color: var(--c-border-focus); }
+.toggle i { font-size: 18px; }
+@media (max-width: 480px) { .toggle span { display: none; } }

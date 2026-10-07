@@ -1,3 +1,4 @@
+import { dialogs } from '../../../components/ui/dialogs'
 // modules/clientes/pages/ClienteCasosPage.jsx
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -113,7 +114,7 @@ export default function ClienteCasosPage() {
       if (apiErrors && typeof apiErrors === 'object') {
         setFieldErrors(apiErrors)
       } else {
-        window.alert('No se pudo actualizar el cliente.')
+        dialogs.alert('No se pudo actualizar el cliente.')
       }
     } finally {
       setEnviando(false)

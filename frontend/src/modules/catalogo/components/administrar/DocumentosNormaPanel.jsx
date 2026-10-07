@@ -1,3 +1,4 @@
+import { dialogs } from '../../../../components/ui/dialogs'
 // modules/catalogo/components/administrar/DocumentosNormaPanel.jsx
 import useDocumentosNorma from '../../hooks/useDocumentosNorma'
 import useAuthStore from '../../../auth/store/authStore'
@@ -20,7 +21,7 @@ export default function DocumentosNormaPanel({ norma, onClose }) {
   } = useDocumentosNorma(norma.id)
 
   const handleEliminar = async (documento) => {
-    const confirmado = window.confirm(
+    const confirmado = await dialogs.confirm(
       `¿Eliminar "${documento.nombre_original}"? No afecta a los artículos ya extraídos de "${norma.nombre}", solo borra este PDF fuente.`
     )
     if (!confirmado) return
