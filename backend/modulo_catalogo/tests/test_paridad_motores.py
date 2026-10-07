@@ -74,53 +74,54 @@ class ParidadMotoresTests(APITestCase):
             self.assertTrue(ollama.called)
         return resultados
 
-    def test_ambos_revisan_separan_publican_y_exigen_confirmacion(self):
-        for motor in ['clasico', 'qwen']:
-            with self.subTest(motor=motor):
-                revision = self.revisar(motor)
-                self.assertEqual(revision['motor'], motor)
-                self.assertEqual([u['numero'] for u in revision['articulos']], ['1'])
-                self.assertEqual({u['tipo_unidad'] for u in revision['disposiciones']}, {'final', 'derogatoria', 'abrogatoria'})
-                plan = cache.get('revision_carga_pdf:' + revision['revision_token'])
-                self.assertEqual({(c['operacion'], c['unidad']) for c in plan['cambios']},
-                                 {('deroga', '323 BIS'), ('deroga', '281 QUATER'), ('abroga', '')})
-                self.assertFalse(CambioNormativo.objects.exists())
-                self.assertFalse(Norma.objects.filter(nombre='Ley 200').exists())
-                serializer = CargaArticulosPDFSerializer(data={'archivo': self.archivo(), 'rama_id': self.rama.pk,
-                    'nombre_documento': 'Ley 200', 'motor_lectura': motor, 'revision_token': revision['revision_token'],
-                    'modo_actualizacion': 'articulos', 'articulos_seleccionados': []}, context={'solo_revision': True})
-                serializer.is_valid(raise_exception=True)
-                datos = serializer.validated_data
-                self.assertEqual(validar_revision(datos, self.usuario.pk)['motor'], motor)
-                datos['motor_lectura'] = 'qwen' if motor == 'clasico' else 'clasico'
-                with self.assertRaises(ValidationError):
-                    validar_revision(datos, self.usuario.pk)
-                fuente = Norma.objects.create(nombre='Ley 200', tipo_norma='Ley', numero_norma='200', jerarquia=self.ley)
-                documento = DocumentoNorma.objects.create(norma=fuente, rama=self.rama, nombre_original='norma.pdf',
-                    ruta_archivo='norma.pdf', tamano=100, vigente=False, metadatos=plan['metadatos'],
-                    analisis_normativo={'motor': motor, 'cambios': plan['cambios']})
-                aplicar_carga_revisada(fuente, self.rama, plan['articulos'], 'articulos', [], plan['huella'], documento.pk)
-                self.assertEqual(documento.disposiciones.count(), 3)
-                eventos = list(CambioNormativo.objects.filter(fuente=documento))
-                self.assertEqual(len(eventos), 3)
-                self.assertTrue(all(e.estado_revision == 'pendiente' for e in eventos))
-                parcial = next(e for e in eventos if e.referencia.get('unidad') == '323 BIS')
-                ausente = next(e for e in eventos if e.referencia.get('unidad') == '281 QUATER')
-                abrogacion = next(e for e in eventos if e.operacion == 'abroga')
-                self.assertTrue(aviso(parcial)['destino_catalogo']['encontrado'])
-                self.assertFalse(aviso(ausente)['destino_catalogo']['encontrado'])
-                with self.assertRaises(ValueError):
-                    confirmar(ausente, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
-                with self.assertRaises(ValueError):
-                    parcial = confirmar(parcial, {'fecha_efecto': '1970-01-01'}, self.usuario)
-                parcial = confirmar(parcial, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
-                abrogacion = confirmar(abrogacion, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
-                self.assertEqual(parcial.estado_revision, 'confirmado')
-                self.assertEqual(abrogacion.estado_revision, 'confirmado')
-                self.articulo.refresh_from_db()
-                self.assertIn('IV. Texto restante.', self.articulo.contenido)
-                # Repetir el mismo escenario sin efectos del primer motor.
-                CambioNormativo.objects.all().delete()
-                documento.disposiciones.all().delete()
-                documento.delete()
-                fuente.delete()
+    def test_clasico_revisa_separa_publica_y_exige_confirmacion(self):
+        self._verificar_revision_y_publicacion('clasico')
+
+    def test_qwen_revisa_separa_publica_y_exige_confirmacion(self):
+        self._verificar_revision_y_publicacion('qwen')
+
+    def _verificar_revision_y_publicacion(self, motor):
+        # Cada motor tiene su propio setUp y rollback de APITestCase.
+        # El historial confirmado conserva sus relaciones protegidas.
+        revision = self.revisar(motor)
+        self.assertEqual(revision['motor'], motor)
+        self.assertEqual([u['numero'] for u in revision['articulos']], ['1'])
+        self.assertEqual({u['tipo_unidad'] for u in revision['disposiciones']}, {'final', 'derogatoria', 'abrogatoria'})
+        plan = cache.get('revision_carga_pdf:' + revision['revision_token'])
+        self.assertEqual({(c['operacion'], c['unidad']) for c in plan['cambios']},
+                         {('deroga', '323 BIS'), ('deroga', '281 QUATER'), ('abroga', '')})
+        self.assertFalse(CambioNormativo.objects.exists())
+        self.assertFalse(Norma.objects.filter(nombre='Ley 200').exists())
+        serializer = CargaArticulosPDFSerializer(data={'archivo': self.archivo(), 'rama_id': self.rama.pk,
+            'nombre_documento': 'Ley 200', 'motor_lectura': motor, 'revision_token': revision['revision_token'],
+            'modo_actualizacion': 'articulos', 'articulos_seleccionados': []}, context={'solo_revision': True})
+        serializer.is_valid(raise_exception=True)
+        datos = serializer.validated_data
+        self.assertEqual(validar_revision(datos, self.usuario.pk)['motor'], motor)
+        datos['motor_lectura'] = 'qwen' if motor == 'clasico' else 'clasico'
+        with self.assertRaises(ValidationError):
+            validar_revision(datos, self.usuario.pk)
+        fuente = Norma.objects.create(nombre='Ley 200', tipo_norma='Ley', numero_norma='200', jerarquia=self.ley)
+        documento = DocumentoNorma.objects.create(norma=fuente, rama=self.rama, nombre_original='norma.pdf',
+            ruta_archivo='norma.pdf', tamano=100, vigente=False, metadatos=plan['metadatos'],
+            analisis_normativo={'motor': motor, 'cambios': plan['cambios']})
+        aplicar_carga_revisada(fuente, self.rama, plan['articulos'], 'articulos', [], plan['huella'], documento.pk)
+        self.assertEqual(documento.disposiciones.count(), 3)
+        eventos = list(CambioNormativo.objects.filter(fuente=documento))
+        self.assertEqual(len(eventos), 3)
+        self.assertTrue(all(e.estado_revision == 'pendiente' for e in eventos))
+        parcial = next(e for e in eventos if e.referencia.get('unidad') == '323 BIS')
+        ausente = next(e for e in eventos if e.referencia.get('unidad') == '281 QUATER')
+        abrogacion = next(e for e in eventos if e.operacion == 'abroga')
+        self.assertTrue(aviso(parcial)['destino_catalogo']['encontrado'])
+        self.assertFalse(aviso(ausente)['destino_catalogo']['encontrado'])
+        with self.assertRaises(ValueError):
+            confirmar(ausente, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
+        with self.assertRaises(ValueError):
+            parcial = confirmar(parcial, {'fecha_efecto': '1970-01-01'}, self.usuario)
+        parcial = confirmar(parcial, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
+        abrogacion = confirmar(abrogacion, {'fecha_efecto': '2025-09-10', 'observacion': 'Fuente, fecha, alcance y jerarquía verificados en la norma original.'}, self.usuario)
+        self.assertEqual(parcial.estado_revision, 'confirmado')
+        self.assertEqual(abrogacion.estado_revision, 'confirmado')
+        self.articulo.refresh_from_db()
+        self.assertIn('IV. Texto restante.', self.articulo.contenido)
