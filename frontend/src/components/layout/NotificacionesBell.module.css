@@ -155,3 +155,6 @@
   border-radius: 50%;
   background: var(--c-purple-400, #a78bfa);
 }
+
+
+@media (max-width: 480px) { .panel { position: fixed; top: var(--topbar-height); right: .5rem; width: calc(100vw - 1rem); max-height: calc(100dvh - var(--topbar-height) - 1rem); overflow-y: auto; } }

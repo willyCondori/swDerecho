@@ -134,6 +134,7 @@ def lanzar_carga_en_background(
     sobrescribir: bool = False,
     info: dict = None,
     on_exito=None,
+    **opciones_revision,
 ) -> str:
     """
     Arranca el procesamiento del PDF en un hilo aparte y devuelve
@@ -168,10 +169,16 @@ def lanzar_carga_en_background(
                 jerarquia_id=jerarquia_id,
                 task=progreso,
                 sobrescribir=sobrescribir,
+                **opciones_revision,
             )
+            resumen = resultado.resumen()
+            if info and 'norma_creada' in info:
+                norma_resultado = {'id': norma_id, 'nombre': info.get('nombre_documento') or resumen.get('norma')}
+                resumen['normas_creadas'] = ([norma_resultado] if info['norma_creada'] else []) + (resumen.get('revision') or {}).get('normas_creadas', [])
+                resumen['normas_reutilizadas'] = ([] if info['norma_creada'] else [norma_resultado]) + (resumen.get('revision') or {}).get('normas_reutilizadas', [])
             cache.set(
                 CACHE_PREFIX + task_id,
-                {"state": "SUCCESS", "meta": {"resumen": resultado.resumen()}},
+                {"state": "SUCCESS", "meta": {"resumen": resumen}},
                 timeout=CACHE_TTL_SEGUNDOS,
             )
             if on_exito is not None:

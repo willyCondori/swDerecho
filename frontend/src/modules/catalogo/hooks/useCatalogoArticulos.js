@@ -13,6 +13,10 @@ export function useCatalogoArticulos() {
 
   const [search, setSearch] = useState('')
   const [searchDebounced, setSearchDebounced] = useState('')
+  const [numeroArticulo, setNumeroArticulo] = useState('')
+  const [numeroDebounced, setNumeroDebounced] = useState('')
+  const solicitudActual = useRef(0)
+  const abortar = useRef(null)
 
   const [ramaId, setRamaId] = useState('')
   const [normaId, setNormaId] = useState('')
@@ -30,7 +34,6 @@ export function useCatalogoArticulos() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
-  const [expanded, setExpanded] = useState(new Set())
 
   const firstLoad = useRef(true)
 
@@ -71,10 +74,11 @@ export function useCatalogoArticulos() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setSearchDebounced(search)
+      setNumeroDebounced(numeroArticulo)
     }, SEARCH_DEBOUNCE)
 
     return () => clearTimeout(timer)
-  }, [search])
+  }, [search, numeroArticulo])
 
   /* ===========================
    * Reset página
@@ -86,6 +90,7 @@ export function useCatalogoArticulos() {
     setPage(1)
   }, [
     searchDebounced,
+    numeroDebounced,
     ramaId,
     normaId,
     ordering,
@@ -98,6 +103,10 @@ export function useCatalogoArticulos() {
    * =========================== */
 
   const fetchArticulos = useCallback(async () => {
+    const solicitud = ++solicitudActual.current
+    abortar.current?.abort()
+    const controller = new AbortController()
+    abortar.current = controller
     setLoading(true)
     setError(null)
 
@@ -111,10 +120,12 @@ export function useCatalogoArticulos() {
         page,
         page_size: pageSize,
         search: searchDebounced || undefined,
+        numero_articulo: numeroDebounced.trim() || undefined,
         rama_id: ramaId || undefined,
         norma_id: normaId || undefined,
         ordering: order,
-      })
+      }, controller.signal)
+      if (solicitud !== solicitudActual.current) return
 
       if (Array.isArray(data)) {
         setArticulos(data)
@@ -131,25 +142,32 @@ export function useCatalogoArticulos() {
         )
       }
     } catch (err) {
+      if (solicitud !== solicitudActual.current || controller.signal.aborted) return
       console.error(err)
       setError('No se pudieron cargar los artículos.')
     } finally {
-      setLoading(false)
-      firstLoad.current = false
+      if (solicitud === solicitudActual.current) {
+        setLoading(false)
+        firstLoad.current = false
+      }
     }
   }, [
     page,
     pageSize,
     searchDebounced,
+    numeroDebounced,
     ramaId,
     normaId,
     ordering,
     orderDir,
   ])
 
+  const invalidarSolicitud = useCallback(() => { solicitudActual.current++ }, [])
   useEffect(() => {
     fetchArticulos()
-  }, [fetchArticulos])
+    const controller = abortar.current
+    return () => { invalidarSolicitud(); controller?.abort() }
+  }, [fetchArticulos, invalidarSolicitud])
 
   /* ===========================
    * Acciones
@@ -167,21 +185,11 @@ export function useCatalogoArticulos() {
     })
   }, [])
 
-  const toggleExpand = useCallback((id) => {
-    setExpanded((prev) => {
-      const next = new Set(prev)
-
-      if (next.has(id))
-        next.delete(id)
-      else
-        next.add(id)
-
-      return next
-    })
-  }, [])
-
   const resetFiltros = useCallback(() => {
     setSearch('')
+    setSearchDebounced('')
+    setNumeroArticulo('')
+    setNumeroDebounced('')
     setRamaId('')
     setNormaId('')
     setOrdering('norma')
@@ -198,8 +206,8 @@ export function useCatalogoArticulos() {
    * =========================== */
 
   const hayFiltros = useMemo(
-    () => Boolean(search || ramaId || normaId),
-    [search, ramaId, normaId]
+    () => Boolean(search || numeroArticulo || ramaId || normaId),
+    [search, numeroArticulo, ramaId, normaId]
   )
 
   const firstItem = useMemo(
@@ -233,6 +241,8 @@ export function useCatalogoArticulos() {
 
     search,
     setSearch,
+    numeroArticulo, setNumeroArticulo,
+    buscando: search !== searchDebounced || numeroArticulo !== numeroDebounced,
 
     ramaId,
     setRamaId,
@@ -257,8 +267,6 @@ export function useCatalogoArticulos() {
     loading,
     error,
 
-    expanded,
-    toggleExpand,
 
     hayFiltros,
     firstItem,

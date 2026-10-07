@@ -1,0 +1,74 @@
+import { act, cleanup, renderHook } from '@testing-library/react'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+import useAuthStore from '../../auth/store/authStore'
+import cargaArticulosApi from '../../../api/cargaArticulosApi'
+import { useRevisionPdf } from './useRevisionPdf'
+vi.mock('../../../api/cargaArticulosApi', () => ({ default: { revisarAsincrono: vi.fn() } }))
+let usuario = 0
+beforeEach(() => { vi.clearAllMocks(); useAuthStore.setState({ user: { id: ++usuario } }) })
+afterEach(cleanup)
+
+it.each(['clasico', 'qwen'])('retoma revisión, progreso y PDF con %s al salir y entrar sin iniciar otra lectura', async (motorLectura) => {
+  let terminar, progreso
+  cargaArticulosApi.revisarAsincrono.mockImplementation((payload, vigente, avance) => {
+    progreso = avance
+    return new Promise((resolve) => { terminar = resolve })
+  })
+  const archivo = new File(['pdf'], 'ley.pdf')
+  const primera = renderHook(() => useRevisionPdf())
+  let promesa
+  act(() => { promesa = primera.result.current.revisarPdf({ archivo, motorLectura }) })
+  primera.unmount()
+  act(() => { progreso({ paso: 'Analizando disposiciones' }) })
+  const segunda = renderHook(() => useRevisionPdf())
+  expect(segunda.result.current.revisando).toBe(true)
+  expect(segunda.result.current.pasoRevision).toBe('Analizando disposiciones')
+  await act(async () => {
+    await segunda.result.current.revisarPdf({ archivo, motorLectura })
+    terminar({ data: { articulos: [], revision_token: 'token' } })
+    await promesa
+  })
+  expect(cargaArticulosApi.revisarAsincrono).toHaveBeenCalledTimes(1)
+  expect(segunda.result.current.revision.payload.archivo).toBe(archivo)
+  expect(segunda.result.current.revisando).toBe(false)
+})
+
+it('conserva el resultado de una revisión que terminó fuera de la pantalla', async () => {
+  cargaArticulosApi.revisarAsincrono.mockResolvedValue({ data: { articulos: [], revision_token: 'token' } })
+  const primera = renderHook(() => useRevisionPdf())
+  await act(async () => { await primera.result.current.revisarPdf({ archivo: new File(['pdf'], 'ley.pdf'), motorLectura: 'clasico' }) })
+  primera.unmount()
+  const segunda = renderHook(() => useRevisionPdf())
+  expect(segunda.result.current.revision.revision_token).toBe('token')
+  act(() => { segunda.result.current.limpiarRevision() })
+  expect(segunda.result.current.revision).toBeNull()
+})
+
+it('no entrega archivos ni resultados a otra sesión de usuario', async () => {
+  let terminar
+  cargaArticulosApi.revisarAsincrono.mockImplementation(() => new Promise((resolve) => { terminar = resolve }))
+  const primera = renderHook(() => useRevisionPdf())
+  let promesa
+  act(() => { promesa = primera.result.current.revisarPdf({ archivo: new File(['pdf'], 'privado.pdf') }) })
+  primera.unmount()
+  act(() => { useAuthStore.setState({ user: { id: ++usuario } }) })
+  const segunda = renderHook(() => useRevisionPdf())
+  await act(async () => { terminar({ data: { articulos: [] } }); await promesa })
+  expect(segunda.result.current.revision).toBeNull()
+  expect(segunda.result.current.revisando).toBe(false)
+})
+
+it('muestra todos los campos rechazados por el servidor y permite reintentar', async () => {
+  cargaArticulosApi.revisarAsincrono.mockRejectedValueOnce({ response: { status: 400,
+    data: { rama_id: ['La rama seleccionada no existe.'], metadatos: { fecha_norma: ['Fecha inválida.'] } } } })
+  const { result } = renderHook(() => useRevisionPdf())
+  const payload = { archivo: new File(['pdf'], 'ley.pdf'), motorLectura: 'clasico' }
+  await act(async () => { await result.current.revisarPdf(payload) })
+  expect(result.current.errorRevision).toContain('Rama de derecho: La rama seleccionada no existe.')
+  expect(result.current.errorRevision).toContain('Datos de la norma / fecha_norma: Fecha inválida.')
+  expect(result.current.revisando).toBe(false)
+  cargaArticulosApi.revisarAsincrono.mockResolvedValueOnce({ data: { articulos: [], revision_token: 'reintento' } })
+  await act(async () => { await result.current.revisarPdf(payload) })
+  expect(result.current.errorRevision).toBe('')
+  expect(result.current.revision.revision_token).toBe('reintento')
+})

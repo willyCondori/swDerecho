@@ -1,0 +1,73 @@
+.panel { margin: 1rem 0; padding: 1.25rem; border: 1px solid #8696ab55; border-radius: 12px; background: var(--c-bg-elevated, #282a32); color: var(--c-text-primary, #f5f5f7); }
+.panel h2 { margin-top: 0; font-size: 1.15rem; }
+.controles { display: flex; flex-wrap: wrap; gap: .9rem; align-items: end; margin: 1rem 0; }
+.controles label { display: grid; gap: .3rem; }
+.controles input, .controles select, .panel textarea { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: inherit; background: transparent; }
+.panel button, .avisos button { padding: .45rem .75rem; margin: .35rem .4rem .35rem 0; border: 1px solid #8696ab; border-radius: 6px; cursor: pointer; color: inherit; background: transparent; }
+.panel button:disabled { opacity: .55; cursor: wait; }
+.lista { list-style: none; padding: 0; }
+.lista > li { border-top: 1px solid #8696ab55; padding: .8rem 0; }
+.avisos { margin: .7rem 0; }
+.aviso { border-left: 4px solid #ce942a; background: #ce942a15; padding: .7rem 1rem; margin: .5rem 0; border-radius: 5px; }
+.aviso p { margin: .35rem 0; }
+.aviso blockquote { margin: .7rem 0; white-space: pre-wrap; }
+.error { color: #dc5e53; }
+.panel textarea { width: 100%; box-sizing: border-box; min-height: 75px; }
+
+.tabla { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+.tabla th, .tabla td { padding: .75rem; border-bottom: 1px solid #8696ab55; text-align: left; vertical-align: top; }
+.tabla th { font-weight: 600; }
+.tabla details { min-width: 12rem; max-width: 55rem; }
+.tablaContenedor { overflow-x: auto; }
+
+.avisos select { padding: .5rem; border: 1px solid #8696ab; border-radius: 6px; color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); }
+.tipoAviso { font-weight: 600; }
+.aviso_deroga, .aviso_abroga { border-left-color: #c65850; background: #c6585012; }
+.aviso_historico { border-left-color: #6285b9; background: #6285b912; }
+.aviso_judicial { border-left-color: #9472b5; background: #9472b512; }
+.aviso_temporal, .aviso_general { border-left-color: #8696ab; background: #8696ab12; }
+
+.controles input, .controles select, .panel textarea, .avisos select {
+  color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e);
+  border-color: var(--c-border-default, #727785); min-height: 42px; font: inherit;
+}
+.controles select option, .avisos select option { color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-elevated, #282a32); }
+.panel button, .avisos button { color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); min-height: 40px; font: inherit; }
+.panel button:hover:not(:disabled), .avisos button:hover:not(:disabled) { background: var(--c-bg-hover, #383c48); border-color: var(--c-purple-300, #b8a4ff); }
+.panel button:disabled, .avisos button:disabled { opacity: .65; cursor: not-allowed; }
+.panel :is(button, select, input, textarea):focus-visible, .avisos :is(button, select):focus-visible { outline: 2px solid var(--c-purple-300, #b8a4ff); outline-offset: 3px; }
+
+.revision { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--c-border-default, #727785); }
+.revision > label { display: grid; gap: .3rem; margin: .75rem 0; }
+.revision input, .revision textarea { padding: .5rem; border: 1px solid var(--c-border-default, #727785); border-radius: 6px; color: var(--c-text-primary, #f5f5f7); background: var(--c-bg-surface, #24262e); font: inherit; min-height: 42px; }
+.revision textarea { width: 100%; box-sizing: border-box; min-height: 85px; }
+.revision :is(input, textarea):focus-visible { outline: 2px solid var(--c-purple-300, #b8a4ff); outline-offset: 3px; }
+
+.comparacionHistorial { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; margin: 1rem 0; }
+.comparacionHistorial section { min-width: 0; padding: 1rem; border: 1px solid var(--c-border-default, #727785); border-radius: 8px; }
+.comparacionHistorial pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; line-height: 1.6; }
+
+.textoRetirado { color: var(--c-text-primary, #f5f5f7); background: #c6585033; text-decoration-color: #f18d85; text-decoration-thickness: 2px; }
+.textoAgregado { color: var(--c-text-primary, #f5f5f7); background: #4d9f7033; text-decoration-color: #81dca4; text-decoration-thickness: 2px; }
+.estadoCambio, .estadoAnterior, .estadoRecuperado { padding: .5rem .65rem; border: 1px solid var(--c-border-default, #727785); border-radius: 6px; font-weight: 600; }
+.estadoCambio { border-left: 4px solid #c65850; background: #c658501a; }
+.estadoRecuperado { border-left: 4px solid #4d9f70; background: #4d9f701a; }
+.cambioResumen { font-weight: 600; }
+
+
+.panel, .avisos, .aviso, .tablaContenedor { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.controles label { flex: 1 1 200px; min-width: 0; max-width: 100%; }
+.controles :is(input, select), .revision input { width: 100%; min-width: 0; }
+.controles :is(button, label), .aviso button { max-width: 100%; white-space: normal; }
+.tablaContenedor { -webkit-overflow-scrolling: touch; }
+@media (max-width: 640px) {
+  .panel { padding: .85rem; }
+  .controles label { flex-basis: 100%; }
+  .aviso { padding: .65rem; }
+}
+
+.revision dl { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(0, 2fr); gap: .5rem 1rem; }
+.revision dt { font-weight: 600; }
+.revision dd { margin: 0; overflow-wrap: anywhere; }
+.revision button { margin: .5rem .5rem .5rem 0; max-width: 100%; }
+@media (max-width: 520px) { .revision dl { grid-template-columns: minmax(0, 1fr); } .revision button { width: 100%; } }

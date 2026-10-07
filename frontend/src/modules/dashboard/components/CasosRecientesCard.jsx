@@ -1,3 +1,4 @@
+import ListState from '../../../components/ui/ListState'
 // modules/dashboard/components/CasosRecientesCard.jsx
 import { useNavigate } from 'react-router-dom'
 import styles from '../pages/DashboardPage.module.css'
@@ -48,21 +49,13 @@ export default function CasosRecientesCard({ casos, loading, error, onRetry }) {
           ))}
         </div>
       ) : error ? (
-        <div className={styles.emptyState}>
-          <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-          <p className={styles.emptyText}>{error}</p>
-          <button className={styles.btnSecondary} onClick={onRetry}>
+        <ListState classes={styles} icon="ti-wifi-off" text={error} action={<button className={styles.btnSecondary} onClick={onRetry}>
             Reintentar
-          </button>
-        </div>
+          </button>} />
       ) : casoRecientes.length === 0 ? (
-        <div className={styles.emptyState}>
-          <i className={`ti ti-folder-off ${styles.emptyIcon}`} aria-hidden="true" />
-          <p className={styles.emptyText}>Sin casos registrados aún.</p>
-          <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
+        <ListState classes={styles} icon="ti-folder-off" text={'Sin casos registrados aún.'} action={<button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
             <i className="ti ti-plus" aria-hidden="true" /> Crear primer caso
-          </button>
-        </div>
+          </button>} />
       ) : (
         <div className={styles.caseList}>
           {casoRecientes.map((caso) => (

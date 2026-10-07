@@ -91,7 +91,19 @@ class RamaDerechoListSerializer(serializers.ModelSerializer):
 # Norma
 # ---------------------------------------------------------------------------
 
-class NormaSerializer(serializers.ModelSerializer):
+class AvisosNormaMixin:
+    def get_estado_vigencia(self, obj):
+        from modulo_catalogo.services.vigencia_service import estado_vigencia
+        return estado_vigencia(obj.avisos_vigencia)
+
+    def get_avisos_vigencia(self, obj):
+        from modulo_catalogo.services.vigencia_service import avisos_visibles
+        return avisos_visibles(obj.avisos_vigencia)
+
+
+class NormaSerializer(AvisosNormaMixin, serializers.ModelSerializer):
+    avisos_vigencia = serializers.SerializerMethodField()
+    estado_vigencia = serializers.SerializerMethodField()
     jerarquia_id = serializers.PrimaryKeyRelatedField(
         queryset=Jerarquia.objects.filter(estado=True),
         source="jerarquia",
@@ -102,10 +114,10 @@ class NormaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Norma
-        fields = ["id", "nombre", "sigla", "jerarquia_id", "jerarquia", "estado"]
+        fields = ["id", "nombre", "sigla", "jerarquia_id", "jerarquia", "estado", "tipo_norma", "numero_norma", "fecha_norma", "fecha_publicacion", "avisos_vigencia", "estado_vigencia"]
         # El estado solo cambia con DELETE (eliminar) y POST /activar/
         # (restaurar, que valida duplicados): no por PATCH.
-        read_only_fields = ["estado"]
+        read_only_fields = ["estado", "avisos_vigencia", "estado_vigencia"]
 
     def validate_sigla(self, value):
         if value:
@@ -126,12 +138,19 @@ class NormaSerializer(serializers.ModelSerializer):
         return value
 
 
-class NormaListSerializer(serializers.ModelSerializer):
+class NormaListSerializer(AvisosNormaMixin, serializers.ModelSerializer):
+    ramas = serializers.SerializerMethodField()
+
+    def get_ramas(self, obj):
+        return self.context.get('ramas_por_norma', {}).get(obj.pk, [])
+
+    avisos_vigencia = serializers.SerializerMethodField()
+    estado_vigencia = serializers.SerializerMethodField()
     jerarquia = JerarquiaListSerializer(read_only=True)
 
     class Meta:
         model  = Norma
-        fields = ["id", "nombre", "sigla", "jerarquia"]
+        fields = ["id", "nombre", "sigla", "jerarquia", "ramas", "tipo_norma", "numero_norma", "fecha_norma", "fecha_publicacion", "avisos_vigencia", "estado_vigencia"]
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +186,19 @@ class EntidadJuridicaListSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 
-class ArticuloReadSerializer(serializers.ModelSerializer):
+class AvisosArticuloMixin:
+    def get_estado_vigencia(self, obj):
+        from modulo_catalogo.services.vigencia_service import estado_vigencia
+        return estado_vigencia(obj.norma.avisos_vigencia + obj.avisos_vigencia, es_articulo=True)
+
+    def get_avisos_vigencia(self, obj):
+        from modulo_catalogo.services.vigencia_service import avisos_visibles
+        return avisos_visibles(obj.norma.avisos_vigencia + obj.avisos_vigencia)
+
+
+class ArticuloReadSerializer(AvisosArticuloMixin, serializers.ModelSerializer):
+    avisos_vigencia = serializers.SerializerMethodField()
+    estado_vigencia = serializers.SerializerMethodField()
     norma     = NormaListSerializer(read_only=True)
     rama      = RamaDerechoListSerializer(read_only=True)
     entidades = EntidadJuridicaListSerializer(many=True, read_only=True)
@@ -175,9 +206,9 @@ class ArticuloReadSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Articulo
         fields = [
-            "id", "numero_articulo", "titulo", "contenido",
+            "id", "numero_articulo", "titulo", "contenido", "tipo_unidad", "avisos_vigencia", "estado_vigencia",
             "norma", "rama", "entidades",
-            "frecuencia_historica", "estado", "created_at",
+            "frecuencia_historica", "estado", "created_at", "documento_norma_id",
         ]
 
 
@@ -252,7 +283,9 @@ class ArticuloWriteSerializer(serializers.ModelSerializer):
         return articulo
 
 
-class ArticuloListSerializer(serializers.ModelSerializer):
+class ArticuloListSerializer(AvisosArticuloMixin, serializers.ModelSerializer):
+    avisos_vigencia = serializers.SerializerMethodField()
+    estado_vigencia = serializers.SerializerMethodField()
     """Versión compacta para resultados del ranking."""
     norma_nombre     = serializers.CharField(source="norma.nombre", read_only=True)
     norma_sigla      = serializers.CharField(source="norma.sigla", read_only=True)
@@ -263,9 +296,9 @@ class ArticuloListSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Articulo
         fields = [
-            "id", "numero_articulo", "titulo", "contenido",
+            "id", "numero_articulo", "titulo", "contenido", "tipo_unidad", "avisos_vigencia", "estado_vigencia",
             "norma_nombre", "norma_sigla", "rama_nombre",
-            "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica",
+            "jerarquia_nivel", "jerarquia_nombre", "frecuencia_historica", "documento_norma_id", "norma_id",
         ]
 
     def get_jerarquia_nivel(self, obj):

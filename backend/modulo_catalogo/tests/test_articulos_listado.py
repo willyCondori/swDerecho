@@ -39,6 +39,13 @@ class ArticulosListadoNormaTests(APITestCase):
         self.assertEqual(fila["norma_nombre"], "Ley de prueba del listado")
         self.assertEqual(fila["norma_sigla"], "LPL")
 
+    def test_filtro_numero_exacto_no_confunde_2_con_20_o_2_bis(self):
+        norma = Norma.objects.create(nombre='Norma filtro número')
+        for numero in ['2', '20', '2 bis']:
+            Articulo.objects.create(numero_articulo=numero, norma=norma, rama=self.rama, contenido='Texto completo.')
+        respuesta = self.client.get('/api/catalogo/articulos/', {'numero_articulo': '2'})
+        self.assertEqual([a['numero_articulo'] for a in respuesta.data['results']], ['2'])
+
     def test_una_norma_sin_sigla_devuelve_solo_el_nombre(self):
         norma = Norma.objects.create(nombre="Norma sin sigla del listado")
         fila = self._fila(self._articulo_de(norma))

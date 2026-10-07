@@ -4,4 +4,8 @@ from .entidad import EntidadJuridica
 from .articulo import Articulo, ArticuloEntidad
 from .documento_norma import DocumentoNorma
 
-__all__ = ["RamaDerecho", "Norma", "EntidadJuridica", "Articulo", "ArticuloEntidad", "DocumentoNorma"]
+from .vigencia import CambioNormativo, VersionArticulo, DocumentoOficial, HistorialArticulo
+
+__all__ = ["RamaDerecho", "Norma", "EntidadJuridica", "Articulo", "ArticuloEntidad", "DocumentoNorma", "DisposicionNormativa"]
+
+from .disposicion import DisposicionNormativa

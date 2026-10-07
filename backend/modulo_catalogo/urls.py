@@ -9,13 +9,22 @@ from .views.catalogo_view import (
     ArticuloViewSet,
 )
 from .views.documento_norma_view import DocumentoNormaViewSet
+from .views.revision_carga_view import RevisionCargaPDFView
 from .views.carga_articulos_view import (
     CargaArticulosView,
     CargasActivasPDFView,
     EstadoCargaPDFView,
 )
 
+from .views.vigencia_view import DisposicionViewSet, CambioNormativoViewSet, DocumentoOficialViewSet, VersionArticuloViewSet, HistorialArticuloViewSet
+from .views.tareas_normativas_view import RevisionAsincronaView, SincronizarGacetaView, EstadoNormativoView
+
 router = DefaultRouter()
+router.register('historial-articulos', HistorialArticuloViewSet, basename='historial-articulos')
+router.register('disposiciones', DisposicionViewSet, basename='disposiciones')
+router.register('cambios-normativos', CambioNormativoViewSet, basename='cambios-normativos')
+router.register('gaceta-documentos', DocumentoOficialViewSet, basename='gaceta-documentos')
+router.register('versiones-articulos', VersionArticuloViewSet, basename='versiones-articulos')
 
 router.register(r"ramas", RamaDerechoViewSet, basename="ramas")
 router.register(r"jerarquias", JerarquiaViewSet, basename="jerarquias")
@@ -25,8 +34,12 @@ router.register(r"articulos", ArticuloViewSet, basename="articulos")
 router.register(r"documentos-norma", DocumentoNormaViewSet, basename="documentos-norma")
 
 urlpatterns = [
+    path('cargar-articulos/revisar-iniciar/', RevisionAsincronaView.as_view()),
+    path('gaceta/sincronizar/', SincronizarGacetaView.as_view()),
+    path('tareas-normativas/<str:task_id>/', EstadoNormativoView.as_view()),
     path("", include(router.urls)),
     path("cargar-articulos/", CargaArticulosView.as_view()),
+    path("cargar-articulos/revisar/", RevisionCargaPDFView.as_view()),
     # Dos rutas para el mismo estado: soporta tanto
     # /cargar-articulos/estado/?task_id=... (query param — la que ya
     # está usando el frontend, según el log) como

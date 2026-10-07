@@ -318,3 +318,24 @@ REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "core.pagination.standard_pagination.StandardResultsPagination",
     "PAGE_SIZE": 25,
 }
+
+
+# Lectura normativa local. La interfaz propone Qwen; el extractor clásico
+# permanece disponible para instalaciones sin Ollama y clientes anteriores.
+LECTURA_NORMATIVA_MOTOR = config('LECTURA_NORMATIVA_MOTOR', default='clasico')
+OLLAMA_NORMATIVO_URL = config('OLLAMA_NORMATIVO_URL', default='http://127.0.0.1:11434')
+OLLAMA_NORMATIVO_MODELO = config('OLLAMA_NORMATIVO_MODELO', default='qwen3.5:2b')
+OLLAMA_NORMATIVO_CONTEXTO = config('OLLAMA_NORMATIVO_CONTEXTO', default=4096, cast=int)
+OLLAMA_NORMATIVO_TIMEOUT = config('OLLAMA_NORMATIVO_TIMEOUT', default=180, cast=int)
+OLLAMA_NORMATIVO_KEEP_ALIVE = config('OLLAMA_NORMATIVO_KEEP_ALIVE', default='5m')
+GACETA_BASE_URL = config('GACETA_BASE_URL', default='http://www.gacetaoficialdebolivia.gob.bo')
+GACETA_PAUSA_SEGUNDOS = config('GACETA_PAUSA_SEGUNDOS', default=0.5, cast=float)
+
+EMBEDDING_DEVICE = config('EMBEDDING_DEVICE', default='cpu')
+
+EMBEDDING_PRELOAD_STARTUP = config('EMBEDDING_PRELOAD_STARTUP', default=True, cast=bool)
+OLLAMA_NORMATIVO_PRELOAD_STARTUP = config('OLLAMA_NORMATIVO_PRELOAD_STARTUP', default=False, cast=bool)
+
+# OCR de CPU opcional para PDFs escaneados, sin Ollama.
+PDF_TESSERACT_CMD = config('PDF_TESSERACT_CMD', default='')
+PDF_OCR_IDIOMA = config('PDF_OCR_IDIOMA', default='spa')

@@ -106,6 +106,7 @@ export default function NuevoCasoPage() {
             <button
               type="button"
               className={`${styles.tab} ${modoCliente === 'nuevo' ? styles.tabActive : ''}`}
+              aria-pressed={modoCliente === 'nuevo'}
               onClick={() => cambiarModoCliente('nuevo')}
             >
               <i className="ti ti-user-plus" aria-hidden="true" /> Cliente nuevo
@@ -113,6 +114,7 @@ export default function NuevoCasoPage() {
             <button
               type="button"
               className={`${styles.tab} ${modoCliente === 'existente' ? styles.tabActive : ''}`}
+              aria-pressed={modoCliente === 'existente'}
               onClick={() => cambiarModoCliente('existente')}
             >
               <i className="ti ti-users" aria-hidden="true" /> Cliente existente
@@ -182,6 +184,7 @@ export default function NuevoCasoPage() {
             <button
               type="button"
               className={`${styles.tab} ${modo === 'texto' ? styles.tabActive : ''}`}
+              aria-pressed={modo === 'texto'}
               onClick={() => cambiarModo('texto')}
             >
               <i className="ti ti-align-left" aria-hidden="true" /> Texto
@@ -189,6 +192,7 @@ export default function NuevoCasoPage() {
             <button
               type="button"
               className={`${styles.tab} ${modo === 'pdf' ? styles.tabActive : ''}`}
+              aria-pressed={modo === 'pdf'}
               onClick={() => cambiarModo('pdf')}
             >
               <i className="ti ti-file-text" aria-hidden="true" /> PDF

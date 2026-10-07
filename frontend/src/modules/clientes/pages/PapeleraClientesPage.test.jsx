@@ -1,3 +1,4 @@
+import { dialogs } from '../../../components/ui/dialogs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -70,7 +71,7 @@ describe('PapeleraClientesPage', () => {
   })
 
   it('restaurar avisa cuántos casos vuelven, restaura y confirma el resultado', async () => {
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmar = vi.spyOn(dialogs, 'confirm').mockReturnValue(true)
     clientesApi.restaurar.mockResolvedValue({ data: { id: 1, casos_restaurados: 2 } })
     montar()
     await screen.findByText('Ana Rojas')
@@ -85,7 +86,7 @@ describe('PapeleraClientesPage', () => {
   })
 
   it('restaurar un cliente sin casos no menciona casos', async () => {
-    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const confirmar = vi.spyOn(dialogs, 'confirm').mockReturnValue(true)
     clientesApi.restaurar.mockResolvedValue({ data: { id: 2, casos_restaurados: 0 } })
     montar()
     await screen.findByText('Luis Mamani')
@@ -95,7 +96,7 @@ describe('PapeleraClientesPage', () => {
   })
 
   it('si el usuario cancela la confirmación no se restaura nada', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(false)
+    vi.spyOn(dialogs, 'confirm').mockReturnValue(false)
     montar()
     await screen.findByText('Ana Rojas')
     fireEvent.click(screen.getAllByRole('button', { name: /Restaurar/ })[0])
@@ -103,7 +104,7 @@ describe('PapeleraClientesPage', () => {
   })
 
   it('si el servidor rechaza la restauración muestra el mensaje', async () => {
-    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    vi.spyOn(dialogs, 'confirm').mockReturnValue(true)
     vi.spyOn(console, 'error').mockImplementation(() => {})
     clientesApi.restaurar.mockRejectedValue({ response: { data: { detail: 'No se pudo restaurar por un conflicto.' } } })
     montar()

@@ -1,7 +1,12 @@
 // modules/catalogo/pages/CargaArticulosPage.jsx
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useRevisionPdf } from '../../hooks/useRevisionPdf'
+import { FORM_INICIAL } from '../../utils/formCargaInicial'
+import RevisionCargaPanel from '../../components/articulos/RevisionCargaPanel'
 import { useCargaArticulos } from '../../hooks/useCargaArticulos'
+import { useBorradorCarga } from '../../hooks/useBorradorCarga'
 import { useArchivoPdf } from '../../hooks/useArchivoPdf'
+import { ramaDeNorma } from '../../utils/ramaNorma'
 import { validarFormulario } from '../../utils/validation'
 import FileDropzone from '../../components/articulos/FileDropzone'
 import FormSelectField from '../../components/articulos/FormSelectField'
@@ -19,49 +24,60 @@ import styles from './CargaArticulosPage.module.css'
 // texto. Ya no hay un <select> fijo de "Civil / Penal / Laboral / CPE": el
 // nombre que escribas (ej. "Código de Procedimiento Penal") crea o
 // reutiliza la Norma automáticamente en el backend.
-const FORM_INICIAL = {
-  modo: 'nueva', // 'nueva' | 'existente'
-  normaId: '',
-  nombreDocumento: '', sigla: '', jerarquiaId: '', ramaId: '', sobrescribir: false,
-}
 
 export default function CargaArticulosPage() {
   const {
     jerarquias, ramas, normas, loadingOpts,
-    cargar, reset,
+    cargar, reset, actualizarAviso,
     enviando, procesando,
     progreso, paso, resumen, error, advertencias,
-    cargaRetomada, otrasCargas,
+    cargaRetomada, otrasCargas, verificandoCargas,
   } = useCargaArticulos()
 
+  const { borrador, actualizar: actualizarBorrador, limpiar: limpiarBorrador } = useBorradorCarga(FORM_INICIAL)
+  const setArchivoBorrador = useCallback((archivo) => actualizarBorrador({ archivo }), [actualizarBorrador])
   const {
     fileInputRef, archivo, dragOver, error: archivoError,
     seleccionar, remover, handleDrop, handleDragOver, handleDragLeave, abrirSelector,
-  } = useArchivoPdf()
+  } = useArchivoPdf({ archivo: borrador.archivo, onArchivo: setArchivoBorrador })
 
-  const [form, setForm] = useState(FORM_INICIAL)
+  const form = borrador.form
+  const setForm = (valor) => actualizarBorrador((b) => ({ form: typeof valor === 'function' ? valor(b.form) : valor }))
   const [fieldErrors, setFieldErrors] = useState({})
+  const { revision, revisando, pasoRevision, errorRevision, documento: documentoRevision, revisarPdf, limpiarRevision } = useRevisionPdf()
+  const [revisionRetomada, setRevisionRetomada] = useState(revisando)
+  const modoActualizacion = borrador.modo
+  const setModoActualizacion = (modo) => actualizarBorrador({ modo })
+  const seleccion = borrador.seleccion
+  const setSeleccion = (seleccion) => actualizarBorrador({ seleccion })
+  useEffect(() => {
+    if (revision && borrador.revisionSeleccion !== revision) actualizarBorrador({ revisionSeleccion: revision, seleccion: revision.articulos.filter((a) => a.accion !== 'sin_cambios').map((a) => a.numero) })
+  }, [revision, borrador.revisionSeleccion, actualizarBorrador])
 
   const modoExistente = form.modo === 'existente'
   const normaSeleccionada = normas.find((n) => String(n.id) === String(form.normaId))
   const jerarquiaSeleccionada = modoExistente
     ? normaSeleccionada?.jerarquia
     : jerarquias.find((j) => String(j.id) === String(form.jerarquiaId))
-  const mostrandoFormulario = !procesando && !resumen && !error
+  const mostrandoFormulario = !verificandoCargas && !revisando && !procesando && !resumen && !error
+
+  useEffect(() => {
+    if (form.modo !== 'existente' || form.ramaId || loadingOpts) return
+    const ramaId = ramaDeNorma(normas.find((n) => String(n.id) === String(form.normaId)), ramas)
+    if (ramaId) actualizarBorrador((b) => ({ form: { ...b.form, ramaId } }))
+  }, [form.modo, form.normaId, form.ramaId, loadingOpts, normas, ramas, actualizarBorrador])
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target
-    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value }))
+    const elegida = name === 'normaId' ? normas.find((n) => String(n.id) === String(value)) : null
+    setForm((prev) => ({ ...prev, [name]: type === 'checkbox' ? checked : value,
+      ...(name === 'normaId' ? { ramaId: ramaDeNorma(elegida, ramas) } : {}) }))
     if (fieldErrors[name]) setFieldErrors((prev) => ({ ...prev, [name]: null }))
   }
 
   const handleModoChange = (modo) => {
     if (modo === form.modo) return
-    // Al elegir una norma existente, lo más común es que sea justamente
-    // para subir su PDF más nuevo y reemplazar sus artículos: se marca
-    // "sobrescribir" por defecto, pero el usuario lo puede destildar si
-    // solo quiere sumar artículos nuevos sin tocar los que ya tiene.
-    setForm((prev) => ({ ...prev, modo, sobrescribir: modo === 'existente' }))
+    setForm((prev) => ({ ...prev, modo }))
     setFieldErrors({})
   }
 
@@ -72,15 +88,20 @@ export default function CargaArticulosPage() {
       setFieldErrors(errores)
       return
     }
-    await cargar({
-      archivo,
+    const payload = {
+      archivo, incluirAnexos: form.incluirAnexos,
       normaId: modoExistente ? form.normaId : null,
       nombreDocumento: modoExistente ? '' : form.nombreDocumento.trim(),
       sigla: modoExistente ? '' : form.sigla.trim(),
       jerarquiaId: modoExistente ? '' : form.jerarquiaId,
       ramaId: form.ramaId,
-      sobrescribir: form.sobrescribir,
-    })
+      motorLectura: form.motorLectura,
+      documentoOficialId: form.documentoOficialId,
+      metadatos: Object.fromEntries(Object.entries({ tipo_norma: form.tipoNorma, numero_norma: form.numeroNorma,
+        fecha_norma: form.fechaNorma, fecha_publicacion: form.fechaPublicacion, url_fuente: form.urlFuente }).filter(([, v]) => v)),
+    }
+    setRevisionRetomada(false)
+    await revisarPdf(payload)
   }
 
   const handleReiniciar = () => {
@@ -88,6 +109,8 @@ export default function CargaArticulosPage() {
     remover()
     setForm(FORM_INICIAL)
     setFieldErrors({})
+    limpiarRevision()
+    limpiarBorrador()
   }
 
   return (
@@ -97,16 +120,15 @@ export default function CargaArticulosPage() {
         <p className={styles.subtitle}>
           Sube el PDF de cualquier norma boliviana (Código Civil, Penal,
           Laboral, de Procedimiento Penal, la CPE, o cualquier otra).
-          Indica la rama de derecho, el tipo de norma y el nombre del
-          documento; el sistema extrae automáticamente cada artículo, lo
-          guarda en el catálogo y genera su embedding semántico para el
-          motor de búsqueda.
+          Revisa sus artículos y disposiciones antes de incorporarlos al catálogo.
+          Los cambios normativos detectados se mostrarán con su alcance,
+          fecha y documento de respaldo.
         </p>
       </header>
 
       {!resumen && <CargasEnCursoAviso cargas={otrasCargas} />}
 
-      {mostrandoFormulario && (
+      {mostrandoFormulario && !revision && (
         <form onSubmit={handleSubmit} noValidate>
           <div className={styles.card}>
             <h2 className={styles.cardTitle}>
@@ -218,42 +240,39 @@ export default function CargaArticulosPage() {
                 error={fieldErrors.ramaId}
                 fullWidth={modoExistente}
               />
+              {modoExistente && normaSeleccionada?.ramas?.length > 1 && <p>Esta norma está asociada a varias ramas. Selecciona la correspondiente a este documento.</p>}
             </div>
 
+            <fieldset className={styles.modeOptions}>
+              <legend>Lectura y datos de la publicación</legend>
+              <FormSelectField id="motorLectura" label="Lectura del documento" value={form.motorLectura} onChange={handleInputChange}
+                options={[{ value: 'clasico', label: 'Algoritmos locales: lectura y efectos expresos, sin Qwen' }, { value: 'qwen', label: 'Qwen opcional: lectura asistida por IA' }]} />
+              <label><input type="checkbox" name="incluirAnexos" checked={form.incluirAnexos} onChange={handleInputChange} />Detectar y guardar también las otras normas del PDF, por separado</label>
+              <p>Los algoritmos conservan el texto original y detectan efectos expresos. Qwen es opcional y consume más recursos. Verifica los datos de la norma antes de confirmar.</p>
+              <div className={styles.formGrid}>
+                <FormTextField id="tipoNorma" label="Tipo legal (opcional)" value={form.tipoNorma} onChange={handleInputChange} placeholder="Ley, Decreto Supremo, Resolución…" />
+                <FormTextField id="numeroNorma" label="Número legal (opcional)" value={form.numeroNorma} onChange={handleInputChange} />
+                <FormTextField id="fechaNorma" label="Fecha de promulgación (YYYY-MM-DD)" value={form.fechaNorma} onChange={handleInputChange} />
+                <FormTextField id="fechaPublicacion" label="Fecha de publicación (YYYY-MM-DD)" value={form.fechaPublicacion} onChange={handleInputChange} />
+                <FormTextField id="urlFuente" label="Enlace de la publicación oficial (opcional)" value={form.urlFuente} onChange={handleInputChange} fullWidth />
+              </div>
+            </fieldset>
             <FuenteInfo jerarquia={jerarquiaSeleccionada} />
-
-            <div className={styles.checkboxRow}>
-              <input
-                id="sobrescribir"
-                name="sobrescribir"
-                type="checkbox"
-                className={styles.checkbox}
-                checked={form.sobrescribir}
-                onChange={handleInputChange}
-              />
-              <label htmlFor="sobrescribir" className={styles.checkboxLabel}>
-                <strong>Sobrescribir artículos existentes.</strong> Si esta norma y
-                rama ya tienen artículos cargados, serán eliminados antes de
-                insertar los nuevos (se sube la versión más nueva del PDF y
-                reemplaza el contenido anterior). Si no marcas esta opción, los
-                artículos duplicados simplemente se omitirán.
-              </label>
-            </div>
 
             <div className={styles.submitRow}>
               <button type="button" className={styles.btnSecondary} onClick={handleReiniciar}>
                 Limpiar
               </button>
-              <button type="submit" className={styles.btnPrimary} disabled={enviando || loadingOpts}>
-                {enviando ? (
+              <button type="submit" className={styles.btnPrimary} disabled={enviando || revisando || loadingOpts}>
+                {revisando ? (
                   <>
                     <span className={styles.spinner} aria-hidden="true" />
-                    Enviando...
+                    Revisando PDF…
                   </>
                 ) : (
                   <>
                     <i className="ti ti-upload" aria-hidden="true" />
-                    Procesar PDF
+                    Revisar PDF antes de cargar
                   </>
                 )}
               </button>
@@ -261,6 +280,43 @@ export default function CargaArticulosPage() {
           </div>
         </form>
       )}
+
+      {mostrandoFormulario && revision && <RevisionCargaPanel revision={revision} modo={modoActualizacion}
+        onModo={setModoActualizacion} seleccion={seleccion} onSeleccion={setSeleccion} enviando={enviando}
+        onCancelar={limpiarRevision} onSeccion={async (id) => {
+          setModoActualizacion('articulos')
+          const seccion = revision.secciones_documento.find((s) => s.id === id)
+          const clave = (s) => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+          const legal = /^(ley|decreto ley|decreto supremo|resolucion ministerial)[^\d]*(\d+)/.exec(clave(seccion.titulo))
+          const destino = normas.find((n) => clave(n.nombre) === clave(seccion.titulo) ||
+            (/^codigo /.test(clave(seccion.titulo)) && clave(n.nombre).startsWith(clave(seccion.titulo))) ||
+            (legal && clave(n.tipo_norma) === legal[1] && Number(n.numero_norma) === Number(legal[2])))
+          await revisarPdf({ ...revision.payload, seccionDocumento: id, variantesUnidades: {},
+            normaId: destino?.id || null, nombreDocumento: seccion.titulo, sigla: '', documentoOficialId: null,
+            jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
+            metadatos: revision.payload.metadatos?.url_fuente ? { url_fuente: revision.payload.metadatos.url_fuente } : {} })
+        }} onIdentidad={async ({ nombre, numero, fecha }) => {
+          const destino = normas.find((n) => n.tipo_norma?.toLowerCase() === 'ley' && Number(n.numero_norma) === Number(numero))
+          await revisarPdf({ ...revision.payload, normaId: destino?.id || null, nombreDocumento: nombre.trim(), sigla: '', documentoOficialId: null,
+            jerarquiaId: destino?.jerarquia?.id || revision.payload.jerarquiaId || jerarquias.find((j) => /ley/i.test(j.nombre))?.id,
+            metadatos: { ...revision.payload.metadatos, tipo_norma: 'Ley', numero_norma: numero.trim(), fecha_norma: fecha } })
+        }} onIdentidadSeccion={async (id, identidad) => {
+          await revisarPdf({ ...revision.payload, identidadesSecciones: { ...revision.payload.identidadesSecciones,
+            [id]: { nombre: identidad.nombre.trim(), tipo_norma: 'Ley', numero_norma: identidad.numero.trim(), fecha_norma: identidad.fecha } } })
+        }} onAlternativaSeccion={async (seccionId, clave, id) => {
+          await revisarPdf({ ...revision.payload, variantesSecciones: { ...revision.payload.variantesSecciones,
+            [seccionId]: { ...revision.payload.variantesSecciones?.[seccionId], [clave]: id } } })
+        }} onAlternativa={async (clave, id) => {
+          await revisarPdf({ ...revision.payload, variantesUnidades: { ...revision.payload.variantesUnidades, [clave]: id } })
+        }} onConfirmar={async () => {
+          const resultado = await cargar({ ...revision.payload, modoActualizacion,
+            revisionToken: revision.revision_token, articulosSeleccionados: seleccion })
+          if (resultado.success) { limpiarRevision(); limpiarBorrador() }
+        }} />}
+
+      {verificandoCargas && <p role="status">Verificando si hay un PDF en procesamiento…</p>}
+      {revisando && <ProgressPanel paso={pasoRevision} progreso={null} documento={documentoRevision} retomada={revisionRetomada} />}
+      {errorRevision && !revisando && !revision && <p role="alert">{errorRevision}</p>}
 
       {procesando && (
         <ProgressPanel
@@ -271,7 +327,7 @@ export default function CargaArticulosPage() {
         />
       )}
 
-      {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} />}
+      {resumen && <ResultSummary resumen={resumen} onReiniciar={handleReiniciar} onAvisoActualizado={actualizarAviso} />}
 
       {error && !procesando && <ErrorPanel mensaje={error} onReintentar={handleReiniciar} />}
 

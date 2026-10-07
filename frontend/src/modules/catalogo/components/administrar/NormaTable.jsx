@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 // modules/catalogo/components/administrar/NormaTable.jsx
 import DataTable from '../../../../components/ui/DataTable'
 import styles from '../../pages/AdministrarCatalogoPage.module.css'
@@ -18,7 +19,7 @@ export default function NormaTable({
       key: 'nombre',
       header: 'Nombre',
       skeletonWidth: 260,
-      render: (norma) => <span className={styles.itemNombre}>{norma.nombre}</span>,
+      render: (norma) => <div><span className={styles.itemNombre}>{norma.nombre}</span><div><Link to={`/catalogo/avisos?norma=${norma.id}`}>Consultar avisos</Link></div></div>,
     },
     {
       key: 'sigla',

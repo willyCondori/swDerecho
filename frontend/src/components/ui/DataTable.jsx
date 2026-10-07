@@ -1,3 +1,4 @@
+import ListState from './ListState'
 // components/ui/DataTable.jsx
 import styles from './DataTable.module.css'
 
@@ -43,15 +44,6 @@ const ANCHO_ESQUELETO = 120
 const ANCHO_ESQUELETO_ACCIONES = 60
 const SIN_DATOS = { icon: 'ti-inbox', text: 'No hay datos para mostrar.' }
 
-function EstadoTabla({ icon, text, action }) {
-  return (
-    <div className={styles.emptyState}>
-      <i className={`ti ${icon} ${styles.emptyIcon}`} aria-hidden="true" />
-      <p className={styles.emptyText}>{text}</p>
-      {action}
-    </div>
-  )
-}
 
 function alineadoADerecha(columna) {
   return columna.actions || columna.align === 'right'
@@ -98,7 +90,7 @@ export default function DataTable({
 
   if (!loading && error) {
     return (
-      <EstadoTabla
+      <ListState classes={styles}
         icon="ti-wifi-off"
         text={typeof error === 'string' ? error : 'No se pudieron cargar los datos.'}
         action={onRetry && (
@@ -111,7 +103,7 @@ export default function DataTable({
   }
 
   if (!loading && filas.length === 0) {
-    return <EstadoTabla {...empty} />
+    return <ListState classes={styles} {...empty} />
   }
 
   return (

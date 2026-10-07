@@ -17,6 +17,8 @@ const CasoDetailPage = lazy(() => import('../modules/casos/pages/CasoDetailPage'
 const SeguimientoCasoPage = lazy(() => import('../modules/casos/pages/SeguimientoCasoPage'))
 const EditarCasoPage = lazy(() => import('../modules/casos/pages/EditarCasoPage'))
 const PapeleraCasosPage = lazy(() => import('../modules/casos/pages/PapeleraCasosPage'))
+const AvisosNormativosPage = lazy(() => import('../modules/catalogo/pages/AvisosNormativosPage'))
+const GacetaOficialPage = lazy(() => import('../modules/catalogo/pages/GacetaOficialPage'))
 const CargaArticulosPage = lazy(() => import('../modules/catalogo/pages/articulos/CargaArticulosPage'))
 const VerArticulos       = lazy(() => import('../modules/catalogo/pages/articulos/VerArticulos'))
 const CrearUsuarios        = lazy(() => import('../modules/usuarios/pages/CrearUsuarioPage'))
@@ -30,6 +32,8 @@ const EditarClientePage = lazy(() => import('../modules/clientes/pages/EditarCli
 const ClienteCasosPage = lazy(() => import('../modules/clientes/pages/ClienteCasosPage'))
 const PapeleraClientesPage = lazy(() => import('../modules/clientes/pages/PapeleraClientesPage'))
 const AuditoriaPage    = lazy(() => import('../modules/auditoria/pages/AuditoriaPage'))
+const HistorialCambiosPage = lazy(() => import('../modules/catalogo/pages/HistorialCambiosPage'))
+const RestaurarCambiosPage = lazy(() => import('../modules/catalogo/pages/RestaurarCambiosPage'))
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
 const NormasPage = lazy(() => import('../modules/catalogo/pages/NormasPage'))
 
@@ -149,6 +153,10 @@ export default function AppRouter() {
             {/* Carga de PDFs de normas — espeja EsOperativo en
                 carga_articulos_view.py: Admin y Abogado pueden cargar
                 y sobrescribir el catálogo, Asistente no. */}
+            <Route path="/catalogo/avisos" element={<Suspense fallback={<PageLoader />}><AvisosNormativosPage /></Suspense>} />
+            <Route path="/catalogo/gaceta" element={
+              <Suspense fallback={<PageLoader />}><GacetaOficialPage /></Suspense>
+            } />
             <Route path="/catalogo/cargar" element={
               <Suspense fallback={<PageLoader />}><CargaArticulosPage /></Suspense>
             } />
@@ -184,6 +192,8 @@ export default function AppRouter() {
                 administrador puede crear/editar/eliminar estas entradas
                 de catálogo. Cualquier autenticado sigue pudiendo LEERLAS
                 (para los <select> de casos y de carga de artículos). */}
+            <Route path="/catalogo/historial" element={<Suspense fallback={<PageLoader />}><HistorialCambiosPage /></Suspense>} />
+            <Route path="/catalogo/restaurar" element={<Suspense fallback={<PageLoader />}><RestaurarCambiosPage /></Suspense>} />
             <Route path="/catalogo/administrar" element={
                 <Suspense fallback={<PageLoader />}><AdministrarCatalogoPage /></Suspense>
               } />

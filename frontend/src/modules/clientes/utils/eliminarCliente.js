@@ -1,3 +1,4 @@
+import { dialogs } from '../../../components/ui/dialogs'
 // modules/clientes/utils/eliminarCliente.js
 
 export const textoCasosActivos = (n) => `${n} ${n === 1 ? 'caso activo' : 'casos activos'}`
@@ -11,7 +12,7 @@ export const textoCasosActivos = (n) => `${n} ${n === 1 ? 'caso activo' : 'casos
  *   3. Cualquier otro error se muestra tal cual.
  *
  * `eliminar(opciones)` hace la llamada a la API (opciones: { eliminarCasos }).
- * `confirmar` y `avisar` se inyectan (por defecto window.confirm / window.alert)
+ * `confirmar` y `avisar` se inyectan (por defecto diálogos del sistema)
  * para poder probar el flujo.
  *
  * Devuelve { eliminado: boolean, casos: número de casos eliminados con él }.
@@ -19,10 +20,10 @@ export const textoCasosActivos = (n) => `${n} ${n === 1 ? 'caso activo' : 'casos
 export async function eliminarClienteConCasos({
   nombre,
   eliminar,
-  confirmar = (texto) => window.confirm(texto),
-  avisar = (texto) => window.alert(texto),
+  confirmar = dialogs.confirm,
+  avisar = dialogs.alert,
 }) {
-  if (!confirmar(`¿Eliminar a ${nombre}? Podrás restaurarlo desde Clientes → Papelera.`)) {
+  if (!await confirmar(`¿Eliminar a ${nombre}? Podrás restaurarlo desde Clientes → Papelera.`)) {
     return { eliminado: false, casos: 0 }
   }
 
@@ -37,7 +38,7 @@ export async function eliminarClienteConCasos({
     }
 
     const n = data.casos_activos ?? 0
-    const deseaEliminarCasos = confirmar(
+    const deseaEliminarCasos = await confirmar(
       `${nombre} tiene ${textoCasosActivos(n)}. ¿Eliminar también ${n === 1 ? 'ese caso' : 'esos casos'}? ` +
       'Se enviarán a la papelera y volverán cuando restaures al cliente.'
     )

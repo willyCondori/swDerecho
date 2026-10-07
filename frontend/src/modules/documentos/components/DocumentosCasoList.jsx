@@ -1,3 +1,4 @@
+import { dialogs } from '../../../components/ui/dialogs'
 // modules/documentos/components/DocumentosCasoList.jsx
 import { useRef, useState } from 'react'
 import useDocumentosCaso from '../hooks/useDocumentosCaso'
@@ -41,7 +42,7 @@ export default function DocumentosCasoList({ casoId }) {
   }
 
   const handleEliminar = async (documento) => {
-    const confirmado = window.confirm(
+    const confirmado = await dialogs.confirm(
       `¿Eliminar "${documento.nombre_original}"? Esta acción no se puede deshacer.`
     )
     if (!confirmado) return

@@ -1,79 +1,105 @@
-// modules/catalogo/components/articulos/ArticuloRow.jsx
+import { Link } from 'react-router-dom'
+import { useId, useState } from 'react'
+import TextoVigencia from './TextoVigencia'
+import catalogoApi from '../../../../api/catalogoApi'
 import { getRamaKey } from '../../utils/rama'
 import JerarquiaNivel from './JerarquiaNivel'
+import TextoResaltado from './TextoResaltado'
 import styles from '../../pages/articulos/VerArticulos.module.css'
 
-export default function ArticuloRow({ articulo, isExpanded, onToggleExpand }) {
-  const ramaNombre = articulo.rama?.nombre || articulo.rama_nombre || '—'
-  const normaObj = articulo.norma || {}
-  const normaNombre = normaObj.nombre || articulo.norma_nombre || '—'
-  const normaSigla = normaObj.sigla || articulo.norma_sigla || ''
+export default function ArticuloRow({ articulo, busqueda = '' }) {
+  const [expandido, setExpandido] = useState(false)
+  const textoId = useId()
+  const contenido = articulo.contenido || ''
+  const [aviso, setAviso] = useState('')
+  const [documentos, setDocumentos] = useState(null)
+  const [cargandoPdf, setCargandoPdf] = useState(false)
+  const rama = articulo.rama?.nombre || articulo.rama_nombre || '—'
+  const norma = articulo.norma?.nombre || articulo.norma_nombre || '—'
+  const sigla = articulo.norma?.sigla || articulo.norma_sigla
+  const titulo = articulo.titulo === `Art. ${articulo.numero_articulo}` ? 'Sin epígrafe'
+    : articulo.titulo?.replace(/^Art\.\s+\d+(?:\s+\w+)?\s*-\s*/i, '') || 'Sin epígrafe'
+  const derogado = /\b(?:DEROGAD[OA]|ABROGAD[OA])\b/i.test(titulo)
 
-  // El endpoint de listado (ArticuloListSerializer) devuelve
-  // jerarquia_nivel/jerarquia_nombre planos; el de detalle
-  // (ArticuloReadSerializer) devuelve norma.jerarquia anidado.
-  // Se soportan ambos formatos.
-  const jerarquiaNivel = normaObj.jerarquia?.nivel ?? articulo.jerarquia_nivel ?? null
-  const jerarquiaNombre = normaObj.jerarquia?.nombre ?? articulo.jerarquia_nombre ?? null
+  const copiar = async () => {
+    try {
+      await navigator.clipboard.writeText(articulo.contenido || '')
+      setAviso('Artículo copiado')
+    } catch {
+      setAviso('No se pudo copiar. Puedes seleccionar el texto y copiarlo manualmente.')
+    }
+  }
+  const descargar = async (id) => {
+    setCargandoPdf(true)
+    setAviso('')
+    try {
+      const { data } = await catalogoApi.descargarDocumentoNorma(id)
+      const url = URL.createObjectURL(data)
+      const enlace = document.createElement('a')
+      enlace.href = url
+      enlace.download = `norma-${id}.pdf`
+      enlace.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      setAviso('No se pudo descargar el PDF. Vuelve a intentarlo.')
+    } finally { setCargandoPdf(false) }
+  }
+  const verPdf = async () => {
+    if (articulo.documento_norma_id) return descargar(articulo.documento_norma_id)
+    setCargandoPdf(true)
+    try {
+      const id = articulo.norma?.id || articulo.norma_id
+      if (!id) { setAviso('Este artículo todavía no tiene un PDF fuente asociado.'); return }
+      const { data } = await catalogoApi.documentosPorNorma(id)
+      setDocumentos(Array.isArray(data) ? data : data.results || [])
+      setAviso('El artículo no tiene una fuente individual registrada. Elige un PDF de su norma.')
+    } catch { setAviso('No se pudieron consultar los PDF. Vuelve a intentarlo.') }
+    finally { setCargandoPdf(false) }
+  }
 
-  return (
-    <>
-      <tr className={styles.tr}>
-        <td className={styles.td}>
-          <div className={styles.numCell}>
-            <span className={styles.numPill}>Art. {articulo.numero_articulo}</span>
-          </div>
-        </td>
-
-        <td className={`${styles.td} ${styles.tituloCell}`}>
-          {articulo.titulo ? (
-            <p className={styles.tituloText} title={articulo.titulo}>{articulo.titulo}</p>
-          ) : (
-            <p className={styles.noTitulo}>Sin título</p>
-          )}
-          {articulo.contenido && (
-            <>
-              <p className={styles.contenidoPreview}>{articulo.contenido}</p>
-              <button
-                className={styles.expandBtn}
-                onClick={() => onToggleExpand(articulo.id)}
-                aria-expanded={isExpanded}
-              >
-                {isExpanded ? '▲ Ocultar' : '▼ Ver completo'}
-              </button>
-            </>
-          )}
-        </td>
-
-        <td className={styles.td}>
-          <span className={`${styles.ramaBadge} ${styles[getRamaKey(ramaNombre)]}`}>
-            <i className="ti ti-git-branch" aria-hidden="true" />
-            {ramaNombre}
-          </span>
-        </td>
-
-        <td className={styles.td}>
-          <div className={styles.normaCell}>
-            <span className={styles.normaName} title={normaNombre}>{normaNombre}</span>
-            {normaSigla && <span className={styles.normaSigla}>{normaSigla}</span>}
-          </div>
-        </td>
-
-        <td className={`${styles.td} ${styles.jerarquiaCell}`}>
-          <JerarquiaNivel
-            nivel={jerarquiaNivel}
-            nombre={jerarquiaNombre}
-          />
-        </td>
-      </tr>
-
-      {isExpanded && (
-        <tr className={styles.expandedRow}>
-          <td colSpan={5}>
-            <pre className={styles.expandedContent}>{articulo.contenido}</pre>
-          </td>
-        </tr>
-      )}
-    </>
-  )
+  return <>
+    <tr className={styles.tr}>
+      <td className={styles.td}><span className={styles.numPill}>{articulo.tipo_unidad && articulo.tipo_unidad !== 'articulo' ? 'Disp. ' : 'Art. '}{articulo.numero_articulo}</span></td>
+      <td className={styles.td}><h2 className={styles.articleTitle}><TextoResaltado texto={titulo} busqueda={busqueda} /></h2>
+        <span className={styles.vigenciaBadge} data-vigencia={articulo.estado_vigencia}>{({ vigente: 'Vigente', sin_derogacion_confirmada: 'Vigente en catálogo', derogado_parcialmente: 'Derogado parcialmente',
+          derogado: 'Derogado', abrogado: 'Abrogado' })[articulo.estado_vigencia] || 'Vigencia por verificar'}</span>
+        {derogado && <span className={styles.legalStatus}>El PDF indica derogación o abrogación</span>}</td>
+      <td className={styles.td}><span className={`${styles.ramaBadge} ${styles[getRamaKey(rama)]}`}>{rama}</span></td>
+      <td className={styles.td}><div className={styles.normaCell}><span>{norma}</span>{sigla && <small>{sigla}</small>}</div></td>
+      <td className={styles.td}><JerarquiaNivel nivel={articulo.norma?.jerarquia?.nivel ?? articulo.jerarquia_nivel}
+        nombre={articulo.norma?.jerarquia?.nombre ?? articulo.jerarquia_nombre} /></td>
+    </tr>
+    <tr className={styles.articleBodyRow}><td colSpan={5}>
+      {articulo.avisos_vigencia?.length > 0 && <p className={styles.articleNotice}>
+        {articulo.estado_vigencia === 'derogado_parcialmente' ? 'Derogado parcialmente · ' : articulo.estado_vigencia === 'derogado' ? 'Derogado · ' : articulo.estado_vigencia === 'abrogado' ? 'Abrogado · ' : ''}
+        <Link to={`/catalogo/avisos?articulo=${articulo.id}`}>Consultar avisos de este artículo</Link>
+      </p>}
+      <div className={styles.articleActions}>
+        <Link to={`/catalogo/avisos?articulo=${articulo.id}`}>Ver avisos normativos</Link>
+        <Link to={`/catalogo/historial?articulo=${articulo.id}`}>Ver historial de cambios</Link>
+      </div>
+      <div id={textoId} hidden={!expandido}>
+      <div hidden={!expandido} className={styles.articleText}>
+        {expandido && <TextoVigencia texto={contenido || 'Sin texto disponible.'} avisos={articulo.avisos_vigencia} busqueda={busqueda} />}
+      </div>
+      {expandido && <>
+      <div className={styles.articleActions}>
+        <button type="button" className={styles.btnSecondary} onClick={copiar}>Copiar artículo</button>
+        <button type="button" className={styles.btnSecondary} disabled={cargandoPdf} onClick={verPdf}>
+          {cargandoPdf ? 'Consultando PDF…' : 'PDF original'}</button>
+      </div>
+      <p role="status" className={styles.articleNotice}>{aviso}</p>
+      {documentos && <div className={styles.articleActions}>
+        {documentos.length === 0 ? <span>No hay PDF disponibles para esta norma.</span> : documentos.map((d) =>
+          <button type="button" key={d.id} disabled={cargandoPdf} className={styles.btnSecondary}
+            onClick={() => descargar(d.id)}>{d.nombre_original}{d.vigente === false ? ' (histórico)' : ''}</button>)}
+      </div>}
+      </>}
+      </div>
+      {contenido && <button type="button" className={styles.expandBtn} aria-expanded={expandido}
+        aria-controls={textoId} onClick={() => setExpandido((actual) => !actual)}>
+        {expandido ? 'Ver menos' : 'Ver más'}
+      </button>}
+    </td></tr>
+  </>
 }

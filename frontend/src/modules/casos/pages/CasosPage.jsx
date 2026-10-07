@@ -1,3 +1,7 @@
+import ListState from '../../../components/ui/ListState'
+import PageHeader from '../../../components/ui/PageHeader'
+import Pagination from '../../../components/ui/Pagination'
+import SearchField from '../../../components/ui/SearchField'
 // modules/casos/pages/CasosPage.jsx
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -18,12 +22,8 @@ export default function CasosPage() {
 
   return (
     <div className={styles.root}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Casos</h1>
-          <p className={styles.subtitle}>Todos tus casos y el cliente asociado a cada uno.</p>
-        </div>
-        <div className={styles.headerActions}>
+      <PageHeader classes={styles} title="Casos" subtitle="Todos tus casos y el cliente asociado a cada uno.">
+
           <button
             className={styles.btnSecondary}
             onClick={() => setMostrarFiltros((v) => !v)}
@@ -43,8 +43,8 @@ export default function CasosPage() {
               Nuevo caso
             </button>
           )}
-        </div>
-      </header>
+
+</PageHeader>
 
       <CasoFiltros
         filtros={filtros}
@@ -54,16 +54,7 @@ export default function CasosPage() {
       />
 
       <div className={styles.toolbar}>
-        <div className={styles.searchBox}>
-          <i className={`ti ti-search ${styles.searchIcon}`} aria-hidden="true" />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por código o título..."
-            value={filtros.search}
-            onChange={(e) => setFiltros({ search: e.target.value })}
-          />
-        </div>
+        <SearchField classes={styles} placeholder="Buscar por código o título..." value={filtros.search} onChange={(search) => setFiltros({ search })} />
         {!loading && !error && (
           <span className={styles.resultCount}>
             {count} {count === 1 ? 'caso' : 'casos'}
@@ -73,23 +64,15 @@ export default function CasosPage() {
 
       {!loading && error ? (
         <div className={styles.grid}>
-          <div className={styles.emptyState}>
-            <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>{error}</p>
-            <button className={styles.btnSecondary} onClick={reload}>Reintentar</button>
-          </div>
+          <ListState classes={styles} icon="ti-wifi-off" text={error} action={<button className={styles.btnSecondary} onClick={reload}>Reintentar</button>} />
         </div>
       ) : !loading && casos.length === 0 ? (
         <div className={styles.grid}>
-          <div className={styles.emptyState}>
-            <i className={`ti ti-folder-off ${styles.emptyIcon}`} aria-hidden="true" />
-            <p className={styles.emptyText}>No se encontraron casos.</p>
-            {puedeEscribir && (
+          <ListState classes={styles} icon="ti-folder-off" text={'No se encontraron casos.'} action={puedeEscribir && (
               <button className={styles.btnPrimary} onClick={() => navigate('/casos/nuevo')}>
                 <i className="ti ti-plus" aria-hidden="true" /> Crear primer caso
               </button>
-            )}
-          </div>
+            )} />
         </div>
       ) : (
         <div className={styles.grid}>
@@ -104,17 +87,7 @@ export default function CasosPage() {
       )}
 
       {!loading && !error && casos.length > 0 && totalPages > 1 && (
-        <div className={styles.pagination}>
-          <span className={styles.pageInfo}>Página {page} de {totalPages}</span>
-          <div className={styles.pageControls}>
-            <button className={styles.btnSecondary} disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              <i className="ti ti-chevron-left" aria-hidden="true" />
-            </button>
-            <button className={styles.btnSecondary} disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
-              <i className="ti ti-chevron-right" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
+        <Pagination classes={styles} variant="simple" page={page} totalPages={totalPages} onPageChange={setPage} />
       )}
     </div>
   )

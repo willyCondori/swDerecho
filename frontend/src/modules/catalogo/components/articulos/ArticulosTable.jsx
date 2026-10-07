@@ -1,3 +1,4 @@
+import ListState from '../../../../components/ui/ListState'
 // modules/catalogo/components/articulos/ArticulosTable.jsx
 import SkeletonRows from './SkeletonRows'
 import ArticuloRow from './ArticuloRow'
@@ -13,11 +14,12 @@ function SortIcon({ campo, ordering, orderDir }) {
 export default function ArticulosTable({
   articulos, loading, error, pageSize,
   ordering, orderDir, onSort,
-  expanded, onToggleExpand,
   hayFiltros, onReintentar, onLimpiarFiltros, onCargarPdf,
+  busqueda,
 }) {
   return (
     <div className={styles.tableScroll}>
+      {loading && <p role="status" className={styles.articleNotice}>Buscando artículos…</p>}
       <table className={styles.table} aria-label="Catálogo de artículos jurídicos">
         <thead className={styles.thead}>
           <tr>
@@ -27,7 +29,7 @@ export default function ArticulosTable({
                 <SortIcon campo="numero_articulo" ordering={ordering} orderDir={orderDir} />
               </span>
             </th>
-            <th className={styles.th}>Título / Contenido</th>
+            <th className={styles.th}>Título</th>
             <th className={`${styles.th} ${styles.sortable}`} onClick={() => onSort('rama')}>
               Rama
               <span className={styles.sortIcon}>
@@ -59,30 +61,17 @@ export default function ArticulosTable({
           ) : error ? (
             <tr className={styles.tr}>
               <td colSpan={5} className={styles.td}>
-                <div className={styles.emptyState}>
-                  <i className={`ti ti-wifi-off ${styles.emptyIcon}`} aria-hidden="true" />
-                  <p className={styles.emptyTitle}>Error de conexión</p>
-                  <p className={styles.emptyText}>{error}</p>
-                  <button className={styles.btnSecondary} onClick={onReintentar}>
+                <ListState classes={styles} icon="ti-wifi-off" title={'Error de conexión'} text={error} action={<button className={styles.btnSecondary} onClick={onReintentar}>
                     <i className="ti ti-refresh" aria-hidden="true" /> Reintentar
-                  </button>
-                </div>
+                  </button>} />
               </td>
             </tr>
           ) : articulos.length === 0 ? (
             <tr className={styles.tr}>
               <td colSpan={5} className={styles.td}>
-                <div className={styles.emptyState}>
-                  <i className={`ti ti-article-off ${styles.emptyIcon}`} aria-hidden="true" />
-                  <p className={styles.emptyTitle}>
-                    {hayFiltros ? 'Sin resultados' : 'Catálogo vacío'}
-                  </p>
-                  <p className={styles.emptyText}>
-                    {hayFiltros
+                <ListState classes={styles} icon="ti-article-off" title={hayFiltros ? 'Sin resultados' : 'Catálogo vacío'} text={hayFiltros
                       ? 'Ningún artículo coincide con los filtros aplicados.'
-                      : 'Aún no hay artículos cargados. Sube un PDF para comenzar.'}
-                  </p>
-                  {hayFiltros ? (
+                      : 'Aún no hay artículos cargados. Sube un PDF para comenzar.'} action={hayFiltros ? (
                     <button className={styles.btnSecondary} onClick={onLimpiarFiltros}>
                       Limpiar filtros
                     </button>
@@ -90,8 +79,7 @@ export default function ArticulosTable({
                     <button className={styles.btnPrimary} onClick={onCargarPdf}>
                       <i className="ti ti-file-upload" aria-hidden="true" /> Cargar PDF
                     </button>
-                  )}
-                </div>
+                  )} />
               </td>
             </tr>
           ) : (
@@ -99,8 +87,7 @@ export default function ArticulosTable({
               <ArticuloRow
                 key={art.id}
                 articulo={art}
-                isExpanded={expanded.has(art.id)}
-                onToggleExpand={onToggleExpand}
+                busqueda={busqueda}
               />
             ))
           )}

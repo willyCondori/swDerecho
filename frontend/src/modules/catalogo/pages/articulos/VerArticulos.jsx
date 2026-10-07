@@ -5,6 +5,7 @@ import { useCatalogoArticulos } from '../../hooks/useCatalogoArticulos'
 import CatalogoHeader from '../../components/articulos/CatalogoHeader'
 import StatsRow from '../../components/articulos/StatsRow'
 import FiltersBar from '../../components/articulos/FiltersBar'
+import DisposicionesTable from '../../components/articulos/DisposicionesTable'
 import ArticulosTable from '../../components/articulos/ArticulosTable'
 import Pagination from '../../components/articulos/Pagination'
 import styles from './VerArticulos.module.css'
@@ -15,12 +16,12 @@ export default function VerArticulos() {
   const {
     ramas, normas,
     search, setSearch,
+    numeroArticulo, setNumeroArticulo, buscando,
     ramaId, setRamaId,
     normaId, setNormaId,
     ordering, orderDir, handleSort,
     page, setPage, pageSize, setPageSize,
     articulos, totalCount, totalPages, loading, error,
-    expanded, toggleExpand,
     hayFiltros, firstItem, lastItem, visiblePages,
     resetFiltros, recargar,
   } = useCatalogoArticulos()
@@ -56,19 +57,19 @@ export default function VerArticulos() {
         hayFiltros={hayFiltros}
         totalCount={totalCount}
         onReset={resetFiltros}
+        numeroArticulo={numeroArticulo} onNumeroChange={setNumeroArticulo} buscando={loading || buscando}
       />
 
       <div className={styles.tableWrapper}>
         <ArticulosTable
           articulos={articulos}
-          loading={loading}
+          loading={loading || buscando}
+          busqueda={search}
           error={error}
           pageSize={pageSize}
           ordering={ordering}
           orderDir={orderDir}
           onSort={handleSort}
-          expanded={expanded}
-          onToggleExpand={toggleExpand}
           hayFiltros={hayFiltros}
           onReintentar={recargar}
           onLimpiarFiltros={resetFiltros}
@@ -89,6 +90,7 @@ export default function VerArticulos() {
           />
         )}
       </div>
+      <DisposicionesTable normaId={normaId} ramaId={ramaId} />
     </div>
   )
 }

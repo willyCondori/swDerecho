@@ -32,6 +32,10 @@ class Articulo(models.Model):
                                blank=True,
                            )
     estado               = models.BooleanField(default=True)
+    documento_norma       = models.ForeignKey('modulo_catalogo.DocumentoNorma', on_delete=models.SET_NULL,
+                                             null=True, blank=True, related_name='articulos_fuente')
+    tipo_unidad = models.CharField(max_length=30, default='articulo')
+    avisos_vigencia = models.JSONField(default=list, blank=True)
     created_at           = models.DateTimeField(auto_now_add=True)
 
     class Meta:

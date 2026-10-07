@@ -442,7 +442,18 @@ class NormaViewSet(AuditoriaMixin, ModelViewSet):
     @action(detail=False, methods=["get"], url_path="lista")
     def lista(self, request):
         qs = self.get_queryset()
-        return Response(NormaListSerializer(qs, many=True).data)
+        from modulo_catalogo.models.documento_norma import DocumentoNorma
+        ids = list(qs.values_list('pk', flat=True))
+        ramas_por_norma = {}
+        asociaciones = list(Articulo.objects.filter(norma_id__in=ids, estado=True, rama__estado=True)
+                            .order_by().values('norma_id', 'rama_id', 'rama__nombre').distinct())
+        asociaciones += list(DocumentoNorma.objects.filter(norma_id__in=ids, vigente=True, rama__estado=True)
+                             .order_by().values('norma_id', 'rama_id', 'rama__nombre').distinct())
+        for asociacion in asociaciones:
+            ramas = ramas_por_norma.setdefault(asociacion['norma_id'], {})
+            ramas[asociacion['rama_id']] = {'id': asociacion['rama_id'], 'nombre': asociacion['rama__nombre']}
+        contexto = {'ramas_por_norma': {n: sorted(r.values(), key=lambda r: r['nombre']) for n, r in ramas_por_norma.items()}}
+        return Response(NormaListSerializer(qs, many=True, context=contexto).data)
     
     @action(detail=False, methods=["get"])
     def debug(self, request):
@@ -547,7 +558,7 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
     queryset        = (
         anotar_numero_orden(
             Articulo.objects
-            .filter(estado=True, norma__estado=True)
+            .filter(estado=True, norma__estado=True, tipo_unidad='articulo')
             .select_related("norma", "norma__jerarquia", "rama")
         )
         .order_by("norma", *orden_natural_articulo())
@@ -577,6 +588,9 @@ class ArticuloViewSet(AuditoriaMixin, ModelViewSet):
         qs      = super().get_queryset()
         norma   = self.request.query_params.get("norma_id")
         rama    = self.request.query_params.get("rama_id")
+        numero = self.request.query_params.get('numero_articulo', '').strip()
+        if numero:
+            qs = qs.filter(numero_articulo__iexact=numero)
         if norma:
             qs  = qs.filter(norma_id=norma)
         if rama:

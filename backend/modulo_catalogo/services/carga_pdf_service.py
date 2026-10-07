@@ -88,6 +88,7 @@ class ResultadoCarga:
     errores: int = 0
 
     errores_detalle: list = field(default_factory=list)
+    revision: dict = None
 
     def resumen(self) -> dict:
         return {
@@ -99,6 +100,7 @@ class ResultadoCarga:
             "duplicados": self.duplicados,
             "errores": self.errores,
             "errores_detalle": self.errores_detalle[:20],
+            **({'revision': self.revision} if self.revision is not None else {}),
         }
 
 
@@ -280,12 +282,6 @@ _CONECTORES_REFERENCIA = {
     "con", "de", "a", "y", "e", "o", "u",
 }
 
-
-# Sufijos latinos usados para artículos intercalados (ej. "Artículo 389 bis.",
-# agregado después de que la ley original ya estaba numerada). Sin esta
-# excepción, _es_referencia_en_oracion los confunde con una referencia
-# dentro de una oración ("Artículo 389 de la presente Ley..."), porque en
-# ambos casos la palabra que sigue al número empieza en minúscula.
 _SUFIJOS_ARTICULO = {"bis", "ter", "quater", "quáter", "quinquies", "sexies", "septies"}
 _SUFIJOS_ARTICULO.update({"octies", "nonies", "decies"})
 
@@ -294,8 +290,8 @@ _SUFIJOS_ARTICULO.update({"octies", "nonies", "decies"})
 PATRON_CABECERA = re.compile(
     r"(?<!\w)(?P<palabra>art[íi]culo\.?|art\.)\s*"
     r"(?P<numero>\d+)(?!\d)[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*"
-    r"(?:(?P<sufijo>bis|ter|quater|quáter|quinquies|sexies|septies|octies|nonies|decies)"
-    r"\b[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*)?",
+    r"(?:(?:\([ \t]*)?(?P<sufijo>bis|ter|quater|quáter|quinquies|sexies|septies|octies|nonies|decies)"
+    r"\b(?:[ \t]*\))?[ \t]*[º°]?(?:[ \t]*[.\-])*[ \t]*)?",
     re.IGNORECASE,
 )
 
@@ -345,9 +341,6 @@ def _cabeceras_documento(texto):
             continue
         candidatas.append(match)
 
-    # Leyes modificatorias: las cabeceras propias van en mayúsculas y
-    # el texto incorporado se cita como «Artículo N». También puede contener
-    # listas de delitos y comillas OCR desbalanceadas: no basta contar comillas.
     cita_articulo = re.search(r'["“«]\s*(?:Artículo|Articulo|Art\.)\s+\d', texto)
     if candidatas and _es_mayuscula(candidatas[0].group("palabra")) and cita_articulo:
         candidatas = [m for m in candidatas if _es_mayuscula(m.group("palabra"))]
@@ -397,17 +390,7 @@ def _es_mayuscula(texto: str) -> bool:
 
 
 def _es_inicio_valido(texto: str, pos: int, es_mayuscula: bool = False) -> bool:
-    """
-    Filtra referencias en medio de una oración ("...conforme al Artículo 5.").
 
-    Un "Artículo N" precedido por una letra minúscula se considera referencia.
-    Excepción: si el patrón está escrito TODO EN MAYÚSCULAS ("ARTÍCULO 6."),
-    lo normal es que sea un encabezado; en texto corrido sin saltos de línea
-    puede venir justo después de un título sin punto ("Capítulo II Derechos de
-    las mujeres ARTÍCULO 6.") y descartarlo haría perder el artículo entero.
-    Solo se descarta si la palabra anterior es un conector de referencia
-    ("el", "del", "según"...).
-    """
     anterior = texto[max(0, pos - 200):pos]
     i = len(anterior)
     while i > 0 and anterior[i - 1] in " \t":
@@ -442,15 +425,6 @@ def _es_referencia_en_oracion(texto: str, coincidencia) -> bool:
 # ---------------------------------------------------------------------------
 # Jerarquía normativa
 # ---------------------------------------------------------------------------
-#
-# Antes el nivel se adivinaba a partir de una "fuente" fija (CPE=1,
-# Civil/Penal/Laboral=2), lo que era incorrecto en general (un Decreto
-# Supremo, una Ley Orgánica o una Ordenanza Municipal no son "nivel 2") y
-# además obligaba a extender ese dict cada vez que se quería cargar una
-# norma distinta. Ahora el nivel de jerarquía es un campo que el usuario
-# elige explícitamente en el formulario de carga (rama, tipo de norma /
-# jerarquía, nombre del documento), y se asigna directamente a la Norma.
-
 def _asegurar_jerarquia_norma(norma, jerarquia_id=None):
     """
     Si la norma aún no tiene jerarquía asignada y se indicó una
@@ -489,19 +463,7 @@ PATRON_PARENTESIS = re.compile(r"\(\s*([^()]+?)\s*\)")
 
 
 def extraer_titulo_articulo(numero, contenido: str) -> str:
-    """
-    Construye el título como "Art. {numero} - {TEXTO ENTRE PARÉNTESIS}".
 
-    Ejemplo:
-        numero=361, contenido="Art. 361°.- (USURA AGRAVADA). La sanción..."
-        → "Art. 361 - USURA AGRAVADA"
-
-    Busca el paréntesis inmediatamente después de la cabecera para no
-    usar como título una cita o un inciso del cuerpo.
-
-    Si el artículo no trae paréntesis al inicio (pasa seguido en Civil,
-    Laboral y CPE), el título queda solo como "Art. {numero}".
-    """
     base = f"Art. {numero}"
 
     if not contenido:
@@ -540,16 +502,7 @@ PATRON_PREFIJO_ARTICULO = re.compile(
 # ---------------------------------------------------------------------------
 
 def _es_encabezado_seccion(ls: str) -> bool:
-    """
-    Detecta una línea completa que es título de capítulo/sección
-    (no cuerpo del artículo): sin dígitos, toda en mayúsculas.
-    Sin límite de palabras — títulos de capítulo pueden ser largos
-    (ej. "FUNCIONES DE CONTROL, DE DEFENSA DE LA SOCIEDAD Y DE DEFENSA
-    DEL ESTADO" en la CPE, 13 palabras). Lo que los distingue del cuerpo
-    del artículo no es el largo, sino que NO tienen minúsculas ni dígitos
-    en toda la línea — algo prácticamente inexistente en el texto de un
-    artículo real.
-    """
+
     if not ls or len(ls) > 110:
         return False
     letras = re.sub(r"[^A-ZÁÉÍÓÚÑ]", "", ls.upper())
@@ -580,10 +533,7 @@ def _limpiar_contenido_articulo(contenido: str) -> str:
         elif _es_encabezado_seccion(ls):
             es_encabezado = True
 
-        # Una línea que es solo un número (sin nada más) es casi siempre un
-        # número de página u otro artefacto de la extracción del PDF, sin
-        # importar de qué norma se trate — antes esto solo se aplicaba a
-        # "Laboral", pero el mismo ruido aparece en cualquier PDF.
+   
         if re.match(r"^\d+$", ls):
             es_encabezado = True
 
@@ -751,22 +701,12 @@ def dividir_por_articulos(texto: str, seccion_documento=None) -> list[dict]:
 
 
 def _dividir_seccion_articulos(texto: str) -> list[dict]:
-    """
-    Divide el texto en artículos.
-
-    "numero" en el dict devuelto es un identificador de texto, no
-    necesariamente un entero puro: los artículos intercalados con sufijo
-    latino ("389 bis", "272 ter"...) se identifican como "{numero} {sufijo}"
-    para no fusionarse con el artículo base que comparte el mismo número.
-    """
+ 
     cabeceras = _cabeceras_documento(texto)
     final = PATRON_SECCION_FINAL.search(texto)
     if final:
         anteriores = [m for m in cabeceras if m.start() < final.start()]
         posteriores = [m for m in cabeceras if m.start() > final.start()]
-        # Art. 364 del Código Penal sigue numerado en el título final.
-        # En cambio, «Art. 47» citado en las disposiciones del CPP no es
-        # un nuevo artículo propio, ni lo son los reinicios transitorios.
         if not (anteriores and posteriores and
                 int(posteriores[0].group("numero")) == int(anteriores[-1].group("numero")) + 1):
             texto = texto[:final.start()]
@@ -817,7 +757,9 @@ def _dividir_seccion_articulos(texto: str) -> list[dict]:
         contenido = _quitar_encabezado_colgante(contenido)
 
         if len(contenido) < 20:
-            continue
+            from .revision_carga_service import indica_derogacion
+            if not indica_derogacion({'texto': contenido}):
+                continue
 
         numero_str = f"{numero_int} {sufijo}" if sufijo else str(numero_int)
         titulo = extraer_titulo_articulo(numero_str, contenido)
@@ -837,6 +779,10 @@ def cargar_articulos_desde_bytes(
     jerarquia_id: int = None,
     task=None,
     sobrescribir: bool = False,
+    modo_actualizacion=None,
+    revision=None,
+    articulos_seleccionados=None,
+    documento_id=None,
 ) -> ResultadoCarga:
    
     from modulo_catalogo.models.norma import Norma
@@ -852,6 +798,21 @@ def cargar_articulos_desde_bytes(
         raise ValueError(f"No existe la norma con ID {norma_id}.")
     except RamaDerecho.DoesNotExist:
         raise ValueError(f"No existe la rama con ID {rama_id}.")
+
+    if sobrescribir and not modo_actualizacion:
+        from modulo_catalogo.models import VersionArticulo, CambioNormativo
+        if VersionArticulo.objects.filter(articulo__norma=norma, articulo__rama=rama).exists() or CambioNormativo.objects.filter(norma_afectada=norma).exists():
+            raise ValueError('Esta norma tiene historial o avisos de vigencia. Usa la carga revisada para conservarlos.')
+
+    if modo_actualizacion:
+        from .revision_carga_service import aplicar_carga_revisada
+        if not revision:
+            raise ValueError('Debes revisar el PDF antes de actualizar.')
+        if revision.get('anexos'):
+            from .carga_compilacion_service import aplicar_compilacion
+            return aplicar_compilacion(norma, rama, revision, modo_actualizacion, articulos_seleccionados, documento_id, task)
+        return aplicar_carga_revisada(norma, rama, revision['articulos'], modo_actualizacion,
+                                      articulos_seleccionados, revision['huella'], documento_id, task)
 
     _update_task(task, 5, "Extrayendo texto del PDF...")
     try:
@@ -871,6 +832,10 @@ def cargar_articulos_desde_bytes(
     resultado.total_encontrados = len(lista_articulos)
 
     if not lista_articulos:
+        if documento_id:
+            from modulo_catalogo.models import DocumentoNorma
+            from .disposiciones_service import importar_disposiciones_expresas
+            resultado.revision = importar_disposiciones_expresas(DocumentoNorma.objects.get(pk=documento_id), texto)
         logger.warning("PDF no produjo artículos. norma=%s", norma)
         return resultado
 
@@ -990,6 +955,10 @@ def cargar_articulos_desde_bytes(
 
             resultado.guardados += 1
 
+    if documento_id:
+        from modulo_catalogo.models import DocumentoNorma
+        from .disposiciones_service import importar_disposiciones_expresas
+        resultado.revision = importar_disposiciones_expresas(DocumentoNorma.objects.get(pk=documento_id), texto)
     _update_task(task, 100, "Carga completada.")
     logger.info(
         "Carga finalizada. Norma=%s Guardados=%s Duplicados=%s Errores=%s",

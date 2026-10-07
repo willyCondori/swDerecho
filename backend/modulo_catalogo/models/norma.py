@@ -12,6 +12,11 @@ class Norma(models.Model):
         blank=True,
     )
 
+    tipo_norma = models.CharField(max_length=80, blank=True)
+    numero_norma = models.CharField(max_length=50, blank=True)
+    fecha_norma = models.DateField(null=True, blank=True)
+    fecha_publicacion = models.DateField(null=True, blank=True)
+    avisos_vigencia = models.JSONField(default=list, blank=True)
     estado = models.BooleanField(default=True)
 
     class Meta:

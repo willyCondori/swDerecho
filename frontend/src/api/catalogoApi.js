@@ -5,7 +5,7 @@ const catalogoApi = {
   ramas:      ()       => api.get('/api/catalogo/ramas/lista/'),
   jerarquias: ()       => api.get('/api/catalogo/jerarquias/lista/'),
   normas:     ()       => api.get('/api/catalogo/normas/lista/'),
-  articulos:  (params) => api.get('/api/catalogo/articulos/', { params }),
+  articulos:  (params, signal) => api.get('/api/catalogo/articulos/', { params, signal }),
   articulo:   (id)     => api.get(`/api/catalogo/articulos/${id}/`),
   // api/catalogoApi.js
   listaRamas() {
@@ -31,6 +31,7 @@ const catalogoApi = {
   // Normas: solo se listan, se eliminan (borrado lógico) y se restauran.
   // Se crean al cargar un PDF de artículos.
   listarNormasCompleto:    (params = {}) => api.get('/api/catalogo/normas/', { params }),
+  actualizarNorma: (id, datos) => api.patch(`/api/catalogo/normas/${id}/`, datos),
   eliminarNorma:            (id)          => api.delete(`/api/catalogo/normas/${id}/`),
   activarNorma:             (id)          => api.post(`/api/catalogo/normas/${id}/activar/`),
 

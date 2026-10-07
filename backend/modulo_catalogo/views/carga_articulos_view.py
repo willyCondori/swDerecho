@@ -3,8 +3,6 @@
 import logging
 import os
 
-from django.conf import settings
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
@@ -14,6 +12,8 @@ from core.encryption.aes_encryption import safe_decrypt
 from core.permissions.auditoria_mixin import registrar_auditoria
 from core.permissions.roles_permission import EsOperativo
 from modulo_catalogo.models.documento_norma import DocumentoNorma
+from modulo_catalogo.models.norma import Norma
+from .revision_carga_view import validar_revision
 from modulo_catalogo.serializers.carga_pdf_serializer import CargaArticulosPDFSerializer
 from modulo_catalogo.services.background_tasks import (
     lanzar_carga_en_background,
@@ -76,13 +76,18 @@ class CargaArticulosView(APIView):
 
         serializer = CargaArticulosPDFSerializer(
             data=request.data,
-            context={"request": request},
+            context={"request": request, "solo_revision": bool(request.data.get('modo_actualizacion'))},
         )
 
         if not serializer.is_valid():
             return Response(serializer.errors, status=400)
 
         data = serializer.validated_data
+        revision = validar_revision(data, request.user.pk) if data.get('modo_actualizacion') else None
+        if revision and data.get('norma') is None:
+            data['norma'] = Norma.objects.create(nombre=data['nombre_documento'], sigla=data.get('sigla') or None,
+                                                jerarquia=data.get('jerarquia'), estado=True)
+            serializer.context['norma_creada'] = True
 
         archivo = data["archivo"]
         norma = data["norma"]
@@ -98,43 +103,23 @@ class CargaArticulosView(APIView):
         # GUARDAR PDF
         # ─────────────────────────────
         try:
-            carpeta_norma = (norma.sigla or norma.nombre).lower().replace(" ", "_")
-
-            ruta_carpeta = os.path.join(
-                settings.MEDIA_ROOT,
-                "documentos_normativas",
-                carpeta_norma,
-            )
-
-            os.makedirs(ruta_carpeta, exist_ok=True)
-
-            nombre_archivo = f"{carpeta_norma}_{archivo.name}"
-            ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
-            # Si ya hay un PDF con ese nombre (p. ej. se vuelve a subir el
-            # mismo archivo), no lo pisamos: el DocumentoNorma anterior
-            # apunta a él y debe seguir siendo el PDF histórico.
-            if os.path.exists(ruta_archivo):
-                base, ext = os.path.splitext(nombre_archivo)
-                nombre_archivo = f"{base}_{timezone.now():%Y%m%d%H%M%S%f}{ext}"
-                ruta_archivo = os.path.join(ruta_carpeta, nombre_archivo)
-
-            with open(ruta_archivo, "wb+") as destino:
-                for chunk in archivo.chunks():
-                    destino.write(chunk)
-
-            # Ruta relativa a MEDIA_ROOT, igual que en modulo_documentos,
-            # para poder servir el archivo después (descargar/eliminar)
-            # sin depender de la ruta absoluta del servidor.
-            ruta_relativa = os.path.join(
-                "documentos_normativas", carpeta_norma, nombre_archivo
-            )
+            from modulo_catalogo.services.archivo_norma_service import guardar_pdf_norma
+            guardado = guardar_pdf_norma(archivo, norma)
+            ruta_archivo = guardado['ruta']
+            ruta_relativa = guardado['ruta_relativa']
             documento_norma = DocumentoNorma.objects.create(
                 norma=norma,
                 rama=rama,
-                nombre_original=archivo.name,
+                nombre_original=guardado['nombre'],
                 ruta_archivo=ruta_relativa,
                 tamano=archivo.size,
                 subido_por=usuario,
+                vigente=not bool(revision),
+                metadatos={**(revision.get('metadatos', {}) if revision else data.get('metadatos', {})), **guardado['metadatos']},
+                analisis_normativo={'cambios': revision.get('cambios', []), 'motor': revision.get('motor'),
+                                  'seccion': revision.get('seccion'), 'secciones': revision.get('secciones'),
+                                  'variantes_unidades': revision.get('destino', {}).get('variantes_unidades', {})} if revision else {},
+                url_fuente=(revision.get('metadatos', {}) if revision else data.get('metadatos', {})).get('url_fuente', ''),
             )
 
         except Exception as e:
@@ -151,6 +136,14 @@ class CargaArticulosView(APIView):
             with open(ruta_archivo, "rb") as f:
                 contenido = f.read()
 
+            if revision and revision.get('documento_oficial_id'):
+                from modulo_catalogo.models import DocumentoOficial
+                DocumentoOficial.objects.filter(pk=revision['documento_oficial_id']).update(documento_catalogo=documento_norma)
+            opciones_revision = ({
+                'modo_actualizacion': data['modo_actualizacion'], 'revision': revision,
+                'articulos_seleccionados': data.get('articulos_seleccionados', []),
+                'documento_id': documento_norma.pk,
+            } if revision else {'documento_id': documento_norma.pk})
             task_id = lanzar_carga_en_background(
                 contenido_pdf=contenido,
                 norma_id=norma.id,
@@ -159,15 +152,18 @@ class CargaArticulosView(APIView):
                 sobrescribir=sobrescribir,
                 on_exito=(
                     (lambda: _marcar_documentos_reemplazados(documento_norma))
-                    if sobrescribir else None
+                    if sobrescribir and not revision else None
                 ),
                 info={
                     "nombre_documento": norma.nombre,
+                    "norma_creada": norma_creada,
+                    "norma_id": norma.id,
                     "archivo": archivo.name,
                     "rama": rama.nombre,
                     "usuario_id": usuario.id,
                     "usuario_nombre": _nombre_usuario(usuario),
                 },
+                **opciones_revision,
             )
 
         except Exception as e:
@@ -202,6 +198,8 @@ class CargaArticulosView(APIView):
                     "rama_nombre": rama.nombre,
                     "jerarquia_id": jerarquia.id if jerarquia else None,
                     "sobrescribir": sobrescribir,
+                    "modo_actualizacion": data.get('modo_actualizacion'),
+                    "articulos_seleccionados": data.get('articulos_seleccionados', []),
                     "archivo": archivo.name,
                     "tamano_bytes": archivo.size,
                     "task_id": task_id,
@@ -222,9 +220,10 @@ class CargaArticulosView(APIView):
             "rama": rama.nombre,
             "sobrescribir": sobrescribir,
             "documento_norma_id": documento_norma.id,
+            "modo_actualizacion": data.get('modo_actualizacion'),
         }
 
-        if existentes:
+        if existentes and not revision:
             respuesta["advertencia"] = (
                 f"Ya existían {existentes} artículos en esta norma+rama"
             )

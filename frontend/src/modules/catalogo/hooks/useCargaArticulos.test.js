@@ -4,12 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useCargaArticulos } from './useCargaArticulos'
 import cargaArticulosApi from '../../../api/cargaArticulosApi'
 import catalogoApi from '../../../api/catalogoApi'
+import useAuthStore from '../../auth/store/authStore'
 
 vi.mock('../../../api/cargaArticulosApi', () => ({
   default: { activas: vi.fn(), estado: vi.fn(), cargar: vi.fn() },
 }))
 vi.mock('../../../api/catalogoApi', () => ({
-  default: { jerarquias: vi.fn(), ramas: vi.fn() },
+  default: { jerarquias: vi.fn(), ramas: vi.fn(), normas: vi.fn() },
 }))
 
 // Simula el 400 que devuelve el backend cuando el archivo no pasa
@@ -18,6 +19,8 @@ const errorArchivo = (mensaje) => ({ response: { status: 400, data: { archivo: [
 
 beforeEach(() => {
   vi.clearAllMocks()
+  useAuthStore.setState({ user: null })
+  catalogoApi.normas.mockResolvedValue({ data: [] })
   catalogoApi.jerarquias.mockResolvedValue({ data: [] })
   catalogoApi.ramas.mockResolvedValue({ data: [] })
   cargaArticulosApi.activas.mockResolvedValue({ data: [] })
@@ -89,4 +92,62 @@ describe('useCargaArticulos — validación de contenido del PDF', () => {
     expect(result.current.taskId).toBe('task-1')
     expect(result.current.procesando).toBe(true)
   })
+})
+
+it('espera la verificación del servidor antes de ofrecer otra carga', async () => {
+  let resolver
+  cargaArticulosApi.activas.mockImplementation(() => new Promise((resolve) => { resolver = resolve }))
+  const { result } = renderHook(() => useCargaArticulos())
+  expect(result.current.verificandoCargas).toBe(true)
+  await act(async () => { resolver({ data: [] }) })
+  expect(result.current.verificandoCargas).toBe(false)
+})
+
+it('recupera el resultado si la carga terminó mientras el usuario estaba fuera', async () => {
+  useAuthStore.setState({ user: { id: 900 } })
+  cargaArticulosApi.cargar.mockResolvedValue({ data: { task_id: 'terminada' } })
+  const primera = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(primera.result.current.verificandoCargas).toBe(false))
+  await act(async () => { await primera.result.current.cargar({ archivo: new File(['pdf'], 'ley.pdf') }) })
+  primera.unmount()
+  cargaArticulosApi.estado.mockResolvedValue({ data: { estado: 'SUCCESS', resumen: { norma: 'Ley 1636' } } })
+  const segunda = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(segunda.result.current.resumen?.norma).toBe('Ley 1636'))
+  expect(cargaArticulosApi.cargar).toHaveBeenCalledTimes(1)
+  expect(cargaArticulosApi.estado).toHaveBeenCalledWith('terminada')
+})
+
+it('retoma una carga aunque se navegue antes de recibir su identificador', async () => {
+  useAuthStore.setState({ user: { id: 901 } })
+  let aceptar
+  cargaArticulosApi.cargar.mockImplementation(() => new Promise((resolve) => { aceptar = resolve }))
+  const primera = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(primera.result.current.verificandoCargas).toBe(false))
+  let envio
+  act(() => { envio = primera.result.current.cargar({ archivo: new File(['pdf'], 'ley.pdf') }) })
+  primera.unmount()
+  const segunda = renderHook(() => useCargaArticulos())
+  expect(segunda.result.current.verificandoCargas).toBe(true)
+  cargaArticulosApi.estado.mockResolvedValue({ data: { estado: 'STARTED', progreso: 42, paso: 'Guardando artículos' } })
+  await act(async () => { aceptar({ data: { task_id: 'aceptada' } }); await envio })
+  await waitFor(() => expect(segunda.result.current.procesando).toBe(true))
+  expect(segunda.result.current.progreso).toBe(42)
+  expect(cargaArticulosApi.cargar).toHaveBeenCalledTimes(1)
+})
+
+it('conserva el estado revisado del aviso al salir y volver al resultado de la carga', async () => {
+  useAuthStore.setState({ user: { id: 902 } })
+  cargaArticulosApi.cargar.mockResolvedValue({ data: { task_id: 'revisada' } })
+  const primera = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(primera.result.current.verificandoCargas).toBe(false))
+  await act(async () => { await primera.result.current.cargar({ archivo: new File(['pdf'], 'ley.pdf') }) })
+  primera.unmount()
+  cargaArticulosApi.estado.mockResolvedValue({ data: { estado: 'SUCCESS', resumen: { norma: 'Ley 1636', revision: { avisos: [{ id: 12, estado: 'pendiente' }] } } } })
+  const segunda = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(segunda.result.current.resumen?.revision.avisos[0].estado).toBe('pendiente'))
+  act(() => segunda.result.current.actualizarAviso({ id: 12, estado: 'confirmado' }))
+  segunda.unmount()
+  const tercera = renderHook(() => useCargaArticulos())
+  await waitFor(() => expect(tercera.result.current.resumen?.revision.avisos[0].estado).toBe('confirmado'))
+  tercera.unmount()
 })

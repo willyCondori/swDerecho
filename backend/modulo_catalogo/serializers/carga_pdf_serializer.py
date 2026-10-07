@@ -50,6 +50,14 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                             insertar los nuevos.
     """
 
+    incluir_anexos = serializers.BooleanField(required=False, default=False)
+    identidades_secciones = serializers.JSONField(required=False, default=dict)
+    variantes_secciones = serializers.JSONField(required=False, default=dict)
+    seccion_documento = serializers.CharField(required=False, allow_blank=False, max_length=20)
+    variantes_unidades = serializers.JSONField(required=False, default=dict)
+    motor_lectura = serializers.ChoiceField(choices=['qwen', 'clasico'], required=False)
+    metadatos = serializers.JSONField(required=False, default=dict)
+    documento_oficial_id = serializers.IntegerField(required=False, min_value=1)
     archivo          = serializers.FileField(write_only=True)
     norma_id         = serializers.PrimaryKeyRelatedField(
                            queryset=Norma.objects.filter(estado=True),
@@ -72,6 +80,42 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                            source="rama",
                        )
     sobrescribir     = serializers.BooleanField(default=False, required=False)
+    modo_actualizacion = serializers.ChoiceField(choices=['completo', 'articulos'], required=False)
+    revision_token = serializers.CharField(required=False, allow_blank=True)
+    articulos_seleccionados = serializers.JSONField(required=False)
+
+    def validate_identidades_secciones(self, value):
+        if not isinstance(value, dict) or len(value) > 80:
+            raise serializers.ValidationError('Identidades de secciones inválidas.')
+        for id, identidad in value.items():
+            if not isinstance(id, str) or not isinstance(identidad, dict) or not isinstance(identidad.get('nombre'), str) or not 3 <= len(identidad['nombre'].strip()) <= 200:
+                raise serializers.ValidationError('Verifica el nombre de la norma del anexo.')
+            self.validate_metadatos({k: v for k, v in identidad.items() if k != 'nombre'})
+        return value
+
+    def validate_variantes_secciones(self, value):
+        if not isinstance(value, dict) or len(value) > 80 or any(not isinstance(k, str) or not isinstance(v, dict) for k, v in value.items()):
+            raise serializers.ValidationError('Alternativas de secciones inválidas.')
+        return value
+
+    def validate_metadatos(self, value):
+        if not isinstance(value, dict):
+            raise serializers.ValidationError('Los metadatos deben ser un objeto.')
+        permitidos = {'tipo_norma', 'numero_norma', 'fecha_norma', 'fecha_publicacion', 'url_fuente'}
+        if set(value) - permitidos:
+            raise serializers.ValidationError('Metadatos desconocidos.')
+        for campo, dato in value.items():
+            if not isinstance(dato, str) or len(dato) > (1000 if campo == 'url_fuente' else 80):
+                raise serializers.ValidationError('Metadato inválido: ' + campo)
+        from modulo_catalogo.services.vigencia_service import fecha
+        for campo in ['fecha_norma', 'fecha_publicacion']:
+            if value.get(campo) and not fecha(value[campo]):
+                raise serializers.ValidationError('Fecha inválida: ' + campo)
+        if value.get('url_fuente'):
+            from urllib.parse import urlparse
+            if urlparse(value['url_fuente']).scheme not in ['http', 'https']:
+                raise serializers.ValidationError('La fuente debe ser un enlace HTTP o HTTPS.')
+        return value
 
     def validate_archivo(self, value):
         # Solo PDF
@@ -157,12 +201,13 @@ class CargaArticulosPDFSerializer(serializers.Serializer):
                             "Pídele a un administrador que la restaure desde Catálogo → Normas antes de cargarle artículos."
                         )
                     })
-                norma = Norma.objects.create(
-                    nombre=nombre_documento,
-                    sigla=sigla,
-                    estado=True,
-                )
-                self.context["norma_creada"] = True
+                if not self.context.get('solo_revision'):
+                    norma = Norma.objects.create(
+                        nombre=nombre_documento,
+                        sigla=sigla,
+                        estado=True,
+                    )
+                    self.context["norma_creada"] = True
 
         attrs["norma"] = norma
 

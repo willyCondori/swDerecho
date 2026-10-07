@@ -3,23 +3,53 @@ import api from './axiosInstance'
 
 const BASE = '/api/catalogo/cargar-articulos'
 
+function formulario(payload) {
+  const fd = new FormData()
+  fd.append('archivo', payload.archivo)
+  fd.append('incluir_anexos', payload.incluirAnexos ? 'true' : 'false')
+  if (payload.identidadesSecciones) fd.append('identidades_secciones', JSON.stringify(payload.identidadesSecciones))
+  if (payload.variantesSecciones) fd.append('variantes_secciones', JSON.stringify(payload.variantesSecciones))
+  if (payload.seccionDocumento != null) fd.append('seccion_documento', payload.seccionDocumento)
+  if (payload.variantesUnidades) fd.append('variantes_unidades', JSON.stringify(payload.variantesUnidades))
+  if (payload.motorLectura) fd.append('motor_lectura', payload.motorLectura)
+  if (payload.metadatos) fd.append('metadatos', JSON.stringify(payload.metadatos))
+  if (payload.documentoOficialId) fd.append('documento_oficial_id', payload.documentoOficialId)
+  if (payload.normaId) fd.append('norma_id', payload.normaId)
+  else {
+    fd.append('nombre_documento', payload.nombreDocumento)
+    if (payload.sigla) fd.append('sigla', payload.sigla)
+  }
+  if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
+  fd.append('rama_id', payload.ramaId)
+  if (payload.modoActualizacion) fd.append('modo_actualizacion', payload.modoActualizacion)
+  if (payload.revisionToken) fd.append('revision_token', payload.revisionToken)
+  if (payload.articulosSeleccionados) fd.append('articulos_seleccionados', JSON.stringify(payload.articulosSeleccionados))
+  fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
+  return fd
+}
+
 const cargaArticulosApi = {
-  cargar: (payload) => {
-    const fd = new FormData()
-    fd.append('archivo', payload.archivo)
-    // Modo "norma existente": se manda norma_id y el backend la usa
-    // directamente, sin buscar/crear por nombre. nombre_documento/sigla
-    // solo aplican al modo "norma nueva".
-    if (payload.normaId) {
-      fd.append('norma_id', payload.normaId)
-    } else {
-      fd.append('nombre_documento', payload.nombreDocumento)
-      if (payload.sigla) fd.append('sigla', payload.sigla)
+  revisar: (payload) => api.post(`${BASE}/revisar/`, formulario(payload), {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 120000,
+  }),
+  revisarAsincrono: async (payload, sigueVigente = () => true, onProgreso = () => {}) => {
+    const inicio = await api.post(`${BASE}/revisar-iniciar/`, formulario(payload), {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
+    while (sigueVigente()) {
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const { data } = await api.get(`/api/catalogo/tareas-normativas/${inicio.data.task_id}/`)
+      if (!sigueVigente()) break
+      onProgreso(data.resumen || {})
+      if (data.estado === 'SUCCESS') return { data: data.resultado }
+      if (data.estado === 'FAILURE') throw new Error(data.error || 'La lectura normativa falló.')
     }
-    if (payload.jerarquiaId) fd.append('jerarquia_id', payload.jerarquiaId)
-    fd.append('rama_id', payload.ramaId)
-    fd.append('sobrescribir', payload.sobrescribir ? 'true' : 'false')
-    return api.post(`${BASE}/`, fd, {
+    throw new Error('La revisión fue cancelada en esta pantalla.')
+  },
+  revisarConIA: (...args) => cargaArticulosApi.revisarAsincrono(...args),
+  cargar: (payload) => {
+    return api.post(`${BASE}/`, formulario(payload), {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
