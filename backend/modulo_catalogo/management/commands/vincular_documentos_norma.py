@@ -87,7 +87,7 @@ class Command(BaseCommand):
         if not os.path.isfile(ruta_absoluta):
             raise CommandError(f"No se encontró el archivo: {ruta_absoluta}")
 
-        ruta_relativa = os.path.relpath(ruta_absoluta, settings.MEDIA_ROOT)
+        ruta_relativa = os.path.relpath(ruta_absoluta, settings.MEDIA_ROOT).replace('\\', '/')
         documento, creado = DocumentoNorma.objects.get_or_create(
             ruta_archivo=ruta_relativa,
             defaults={
@@ -126,7 +126,7 @@ class Command(BaseCommand):
                 if not nombre_archivo.lower().endswith(".pdf"):
                     continue
                 ruta_absoluta = os.path.join(directorio, nombre_archivo)
-                ruta_relativa = os.path.relpath(ruta_absoluta, settings.MEDIA_ROOT)
+                ruta_relativa = os.path.relpath(ruta_absoluta, settings.MEDIA_ROOT).replace('\\', '/')
                 if ruta_relativa in ya_registrados:
                     continue
 

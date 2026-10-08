@@ -29,7 +29,7 @@ class ChunkingService:
     def _obtener_texto_y_tipo(caso):
         """
         Prioriza el PDF si existe (extrayendo su texto real con
-        pypdf); si no hay PDF, usa la descripción redactada.
+        pypdf y OCR local); si no hay PDF, usa la descripción redactada.
         Devuelve (texto, tipo) donde tipo ∈ ChunkCaso.TIPO_CHOICES.
         """
         documento_pdf = caso.documentos.filter(tipo_archivo="pdf").order_by("-created_at").first()
@@ -37,7 +37,8 @@ class ChunkingService:
             texto = extraer_texto_pdf(documento_pdf)
             if texto:
                 return texto, "pdf"
-            # PDF sin texto extraíble (ej. escaneado sin OCR): cae a la descripción
+            # Un PDF realmente vacío puede usar la descripción. Un escaneo
+            # ilegible produce un error de extracción y no llega a este respaldo.
         return (caso.descripcion or ""), "texto"
 
     @staticmethod

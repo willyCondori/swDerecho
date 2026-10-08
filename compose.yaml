@@ -1,0 +1,114 @@
+name: jurisia
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  db:
+    logging: *logging
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_DB: ${DB_NAME:-bd_derecho}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Configura DB_PASSWORD en .env.docker}
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ollama:
+    logging: *logging
+    image: ollama/ollama@sha256:69f27594d8127cb43db1edcafa5e2d3cd8f88bdbc54a2cf3ceb11b8d138a24b1
+    volumes:
+      - ollama:/root/.ollama
+    environment:
+      OLLAMA_HOST: 0.0.0.0:11434
+      OLLAMA_NUM_PARALLEL: 1
+      OLLAMA_MAX_LOADED_MODELS: 1
+    healthcheck:
+      test: [CMD, ollama, list]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  ollama-modelo:
+    logging: *logging
+    image: ollama/ollama@sha256:69f27594d8127cb43db1edcafa5e2d3cd8f88bdbc54a2cf3ceb11b8d138a24b1
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_NORMATIVO_MODELO: ${OLLAMA_NORMATIVO_MODELO:-qwen3.5:2b}
+    entrypoint: [/bin/sh, -c]
+    command: ['ollama show "$${OLLAMA_NORMATIVO_MODELO}" >/dev/null 2>&1 || exec ollama pull "$${OLLAMA_NORMATIVO_MODELO}"']
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: on-failure
+
+  backend:
+    logging: *logging
+    build:
+      context: ./backend
+    env_file: .env.docker
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings_docker
+      DB_ENGINE: django.db.backends.postgresql
+      DB_HOST: db
+      DB_PORT: 5432
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      SENTENCE_TRANSFORMER_MODEL: /app/modelos/sw-derecho-embeddings-v1-final
+      EMBEDDING_DEVICE: ${EMBEDDING_DEVICE:-cpu}
+      OLLAMA_NORMATIVO_URL: http://ollama:11434
+      OLLAMA_NORMATIVO_MODELO: ${OLLAMA_NORMATIVO_MODELO:-qwen3.5:2b}
+      PDF_TESSERACT_CMD: /usr/bin/tesseract
+      PDF_OCR_IDIOMA: spa
+      HF_HOME: /app/cache/huggingface
+      EMBEDDING_PRELOAD_STARTUP: 'False'
+      OLLAMA_NORMATIVO_PRELOAD_STARTUP: 'False'
+    volumes:
+      - ./backend/media:/app/media
+      - ./backend/modelos:/app/modelos:ro
+      - static:/app/staticfiles
+      - cache:/app/cache
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 60s
+    stop_grace_period: 120s
+    restart: unless-stopped
+
+  frontend:
+    logging: *logging
+    build:
+      context: ./frontend
+    ports:
+      - '127.0.0.1:${WEB_PORT:-8080}:80'
+    volumes:
+      - static:/srv/static:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1/health/]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  ollama:
+  static:
+  cache:

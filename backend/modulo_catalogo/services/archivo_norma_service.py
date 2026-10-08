@@ -34,5 +34,5 @@ def guardar_pdf_norma(archivo, norma):
         except Exception:
             os.remove(ruta)
             raise
-        return {'nombre': nombre, 'ruta': ruta, 'ruta_relativa': os.path.join(relativa, nombre),
+        return {'nombre': nombre, 'ruta': ruta, 'ruta_relativa': os.path.join(relativa, nombre).replace('\\', '/'),
                 'metadatos': {'nombre_archivo_subido': archivo.name, 'fecha_registro': registro.isoformat()}}

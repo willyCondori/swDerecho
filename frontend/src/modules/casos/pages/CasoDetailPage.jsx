@@ -111,6 +111,11 @@ export default function CasoDetailPage() {
       </div>
 
       {error && <div className={styles.errorBanner}>{error}</div>}
+      {caso.estado_analisis === 'error' && (
+        <div role="alert" className={styles.errorBanner}>
+          El último análisis falló{caso.analisis_error ? `: ${caso.analisis_error}` : '.'}
+        </div>
+      )}
 
       <div className={styles.grid}>
         {/* Columna principal */}
@@ -204,6 +209,7 @@ export default function CasoDetailPage() {
                     <span className={styles.articuloNumero}>
                       Art. {a.articulo?.numero_articulo} — {a.articulo?.norma_sigla}
                     </span>
+                    {a.es_sugerencia && <span className={`${styles.badge} ${styles.badgePending}`}>Sugerencia complementaria</span>}
                     {/*
                     <span className={styles.articuloScore}>
                       {Math.round((a.score_total ?? 0) * 100)}% relevancia
@@ -288,11 +294,6 @@ export default function CasoDetailPage() {
                   El análisis corre en segundo plano
                   {caso.analisis_paso ? ` (paso: ${caso.analisis_paso})` : ''}. Esta página se
                   actualiza sola cuando termina.
-                </p>
-              )}
-              {caso.estado_analisis === 'error' && (
-                <p className={styles.errorBanner}>
-                  El último análisis falló{caso.analisis_error ? `: ${caso.analisis_error}` : '.'}
                 </p>
               )}
             </div>

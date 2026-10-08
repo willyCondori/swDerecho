@@ -18,8 +18,8 @@ const documentosApi = {
    * GET /api/documentos/documentos/{id}/descargar/ — descarga autenticada del archivo.
    * responseType 'blob' porque el backend devuelve el binario, no JSON.
    */
-  descargar(id) {
-    return api.get(`/api/documentos/documentos/${id}/descargar/`, { responseType: 'blob' })
+  descargar(id, signal) {
+    return api.get(`/api/documentos/documentos/${id}/descargar/`, { responseType: 'blob', signal })
   },
 
   /** DELETE /api/documentos/documentos/{id}/ — elimina registro y archivo físico [admin] */

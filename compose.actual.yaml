@@ -1,0 +1,16 @@
+# Conserva el PostgreSQL existente en localhost:5433 y sus credenciales locales.
+# docker compose --env-file .env.docker -f compose.yaml -f compose.actual.yaml up -d --build
+services:
+  db:
+    profiles: [base-nueva]
+  backend:
+    env_file: !override
+      - .env.docker
+      - backend/.env
+    environment:
+      DB_HOST: host.docker.internal
+      DB_PORT: '5433'
+      DEBUG: ${DEBUG:-False}
+    depends_on: !reset {}
+    extra_hosts:
+      - host.docker.internal:host-gateway

@@ -6,6 +6,7 @@ import useAuthStore from '../../auth/store/authStore'
 import { formatFechaHora } from '../../casos/utils/etapas'
 import { formatTamano, iconoPorExtension } from '../utils/descargas'
 import styles from './DocumentosCasoList.module.css'
+import VerPdfButton from './VerPdfButton'
 
 const EXTENSIONES_ACEPTADAS = '.pdf,.doc,.docx,.txt'
 
@@ -100,6 +101,8 @@ export default function DocumentosCasoList({ casoId }) {
                 </span>
               </div>
               <div className={styles.itemAcciones}>
+                {(doc.tipo_archivo?.toLowerCase() === 'pdf' || /\.pdf$/i.test(doc.nombre_original)) &&
+                  <VerPdfButton documentoId={doc.id} nombre={doc.nombre_original} origen="caso" className={styles.btnLink} />}
                 <button
                   type="button"
                   className={styles.iconBtn}

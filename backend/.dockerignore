@@ -1,0 +1,13 @@
+.env
+.env.*
+env/
+venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+*.log
+logs/
+media/
+modelos/
+staticfiles/
+.git/

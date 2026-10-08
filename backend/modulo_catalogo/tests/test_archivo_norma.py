@@ -18,6 +18,7 @@ class ArchivoNormaTests(SimpleTestCase):
             self.assertEqual(first['nombre'], 'Protección de los niños - 2026-10-07.pdf')
             self.assertEqual(second['nombre'], 'Protección de los niños - 2026-10-07 (2).pdf')
             self.assertEqual(os.path.basename(first['ruta_relativa']), first['nombre'])
+            self.assertNotIn('\\', first['ruta_relativa'])
             with open(first['ruta'], 'rb') as stream:
                 self.assertEqual(stream.read(), b'primero')
             self.assertEqual(first['metadatos']['nombre_archivo_subido'], 'ley_548.pdf')

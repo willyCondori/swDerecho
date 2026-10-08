@@ -4,7 +4,7 @@ from django.conf import settings
 from django.http import FileResponse
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.filters import OrderingFilter
+from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
@@ -30,7 +30,8 @@ class DocumentoNormaViewSet(AuditoriaMixin, ModelViewSet):
     """
     queryset        = DocumentoNorma.objects.select_related("norma", "rama", "subido_por").order_by("-created_at")
     serializer_class= DocumentoNormaSerializer
-    filter_backends = [OrderingFilter]
+    filter_backends = [SearchFilter, OrderingFilter]
+    search_fields = ['nombre_original', 'norma__nombre', 'norma__sigla']
     ordering_fields = ["created_at", "nombre_original"]
     auditoria_tabla = "documentos_norma"
     http_method_names = ["get", "delete", "head", "options"]
@@ -45,6 +46,12 @@ class DocumentoNormaViewSet(AuditoriaMixin, ModelViewSet):
         norma_id = self.request.query_params.get("norma_id")
         if norma_id:
             qs = qs.filter(norma_id=norma_id)
+        rama_id = self.request.query_params.get('rama_id')
+        if rama_id:
+            qs = qs.filter(rama_id=rama_id)
+        vigente = self.request.query_params.get('vigente')
+        if vigente in ('true', 'false'):
+            qs = qs.filter(vigente=vigente == 'true')
         return qs
 
     def destroy(self, request, *args, **kwargs):

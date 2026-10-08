@@ -60,7 +60,7 @@ class VincularDocumentosNormaTests(TestCase):
         doc = DocumentoNorma.objects.get()
         self.assertEqual(doc.norma_id, self.cp.pk)
         self.assertEqual(doc.nombre_original, "npp_codigo_penal.pdf")
-        self.assertEqual(doc.ruta_archivo, os.path.join("documentos_normativas", "npp", "npp_codigo_penal.pdf"))
+        self.assertEqual(doc.ruta_archivo, 'documentos_normativas/npp/npp_codigo_penal.pdf')
 
     def test_carpeta_que_coincide_con_el_nombre_completo(self):
         self._crear_pdf("norma_constitucional_de_prueba", "ncp.pdf")

@@ -36,6 +36,7 @@ const HistorialCambiosPage = lazy(() => import('../modules/catalogo/pages/Histor
 const RestaurarCambiosPage = lazy(() => import('../modules/catalogo/pages/RestaurarCambiosPage'))
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
 const NormasPage = lazy(() => import('../modules/catalogo/pages/NormasPage'))
+const DocumentosPage = lazy(() => import('../modules/documentos/pages/DocumentosPage'))
 
 
 function PageLoader() {
@@ -118,8 +119,8 @@ export default function AppRouter() {
             <Suspense fallback={<PageLoader />}><VerArticulos /></Suspense>
           } />
 
+          <Route path="/documentos" element={<Suspense fallback={<PageLoader />}><DocumentosPage /></Suspense>} />
           {/* Rutas pendientes de implementar */}
-          <Route path="/documentos/*"    element={<PageLoader />} />
           <Route path="/plantillas/*"    element={<PageLoader />} />
           <Route path="/ia/*"            element={<PageLoader />} />
           <Route path="/configuracion/*" element={<PageLoader />} />
