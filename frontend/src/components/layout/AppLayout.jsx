@@ -26,6 +26,7 @@ const NAV_ITEMS = [
   {
     section: 'Fuentes y documentos',
     items: [
+      { to: '/documentos', icon: 'ti-files', label: 'Documentos de normas' },
       { to: '/catalogo/gaceta', icon: 'ti-building-bank', label: 'Gaceta Oficial' },
       { to: '/catalogo/cargar', icon: 'ti-file-upload', label: 'Cargar documentos' },
     ],

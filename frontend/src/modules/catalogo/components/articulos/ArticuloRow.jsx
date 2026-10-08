@@ -6,6 +6,7 @@ import { getRamaKey } from '../../utils/rama'
 import JerarquiaNivel from './JerarquiaNivel'
 import TextoResaltado from './TextoResaltado'
 import styles from '../../pages/articulos/VerArticulos.module.css'
+import VisorPdf from '../../../documentos/components/VisorPdf'
 
 export default function ArticuloRow({ articulo, busqueda = '' }) {
   const [expandido, setExpandido] = useState(false)
@@ -14,6 +15,7 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
   const [aviso, setAviso] = useState('')
   const [documentos, setDocumentos] = useState(null)
   const [cargandoPdf, setCargandoPdf] = useState(false)
+  const [pdf, setPdf] = useState(null)
   const rama = articulo.rama?.nombre || articulo.rama_nombre || '—'
   const norma = articulo.norma?.nombre || articulo.norma_nombre || '—'
   const sigla = articulo.norma?.sigla || articulo.norma_sigla
@@ -29,23 +31,8 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
       setAviso('No se pudo copiar. Puedes seleccionar el texto y copiarlo manualmente.')
     }
   }
-  const descargar = async (id) => {
-    setCargandoPdf(true)
-    setAviso('')
-    try {
-      const { data } = await catalogoApi.descargarDocumentoNorma(id)
-      const url = URL.createObjectURL(data)
-      const enlace = document.createElement('a')
-      enlace.href = url
-      enlace.download = `norma-${id}.pdf`
-      enlace.click()
-      setTimeout(() => URL.revokeObjectURL(url), 1000)
-    } catch {
-      setAviso('No se pudo descargar el PDF. Vuelve a intentarlo.')
-    } finally { setCargandoPdf(false) }
-  }
   const verPdf = async () => {
-    if (articulo.documento_norma_id) return descargar(articulo.documento_norma_id)
+    if (articulo.documento_norma_id) return setPdf({ id: articulo.documento_norma_id, nombre: `PDF original — ${norma}` })
     setCargandoPdf(true)
     try {
       const id = articulo.norma?.id || articulo.norma_id
@@ -92,7 +79,7 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
       {documentos && <div className={styles.articleActions}>
         {documentos.length === 0 ? <span>No hay PDF disponibles para esta norma.</span> : documentos.map((d) =>
           <button type="button" key={d.id} disabled={cargandoPdf} className={styles.btnSecondary}
-            onClick={() => descargar(d.id)}>{d.nombre_original}{d.vigente === false ? ' (histórico)' : ''}</button>)}
+            onClick={() => setPdf({ id: d.id, nombre: d.nombre_original })}>{d.nombre_original}{d.vigente === false ? ' (histórico)' : ''}</button>)}
       </div>}
       </>}
       </div>
@@ -101,5 +88,6 @@ export default function ArticuloRow({ articulo, busqueda = '' }) {
         {expandido ? 'Ver menos' : 'Ver más'}
       </button>}
     </td></tr>
+    {pdf && <VisorPdf documentoId={pdf.id} nombre={pdf.nombre} onClose={() => setPdf(null)} />}
   </>
 }

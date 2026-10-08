@@ -37,8 +37,8 @@ class ExtraccionTextoTests(TestCase):
                 ExtraccionTextoService.extraer_documento(self.documento)
                 extraer.assert_called_once()
             archivo.write_bytes(b"pdf-dos")
-            with patch.object(ExtraccionTextoService, "paginas", return_value=["Otro texto."]) as extraer:
-                self.assertEqual(ExtraccionTextoService.extraer_documento(self.documento), "Otro texto.")
+            with patch.object(ExtraccionTextoService, "paginas", return_value=["Otro texto jurídico."]) as extraer:
+                self.assertEqual(ExtraccionTextoService.extraer_documento(self.documento), "Otro texto jurídico.")
                 extraer.assert_called_once()
             self.assertEqual(TextoDocumentoCaso.objects.count(), 1)
 
@@ -61,3 +61,28 @@ class ExtraccionTextoTests(TestCase):
         archivo.seek(5)
         self.assertEqual(ExtraccionTextoService.extraer(archivo), "")
         self.assertEqual(archivo.tell(), 5)
+
+    def _pdf_mixto(self):
+        import fitz
+        pdf = fitz.open()
+        pdf.new_page().insert_text((20, 30), 'Texto nativo que debe conservarse completo.')
+        pagina = pdf.new_page()
+        pagina.draw_rect(fitz.Rect(10, 10, 150, 100))
+        contenido = pdf.tobytes()
+        pdf.close()
+        return io.BytesIO(contenido)
+
+    def test_ocr_solo_en_paginas_sin_texto_y_conserva_el_orden(self):
+        archivo = self._pdf_mixto()
+        archivo.seek(4)
+        with patch('modulo_catalogo.services.ocr_local_service.transcribir_pagina', return_value='Texto de la página escaneada.') as ocr:
+            texto = ExtraccionTextoService.extraer(archivo)
+        self.assertIn('Texto nativo', texto)
+        self.assertTrue(texto.endswith('Texto de la página escaneada.'))
+        self.assertEqual(ocr.call_args.args[1], 2)
+        self.assertEqual(archivo.tell(), 4)
+
+    def test_fallo_ocr_no_omite_silenciosamente_la_pagina(self):
+        with patch('modulo_catalogo.services.ocr_local_service.transcribir_pagina', side_effect=ValueError('No se obtuvo texto legible de la página 2.')):
+            with self.assertRaisesMessage(ValueError, 'No se pudo extraer el texto del PDF del caso'):
+                ExtraccionTextoService.extraer(self._pdf_mixto())

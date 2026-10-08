@@ -16,8 +16,8 @@ def transcribir_pagina(pagina, numero):
         if candidato.is_file():
             ejecutable = str(candidato)
     if not ejecutable:
-        raise ValueError(f'La página {numero} está escaneada. Para leerla sin Qwen instala Tesseract '
-                         'con español o configura PDF_TESSERACT_CMD. También puedes elegir Qwen manualmente.')
+        raise ValueError(f'La página {numero} está escaneada. Para leerla instala Tesseract '
+                         'con español o configura PDF_TESSERACT_CMD.')
     import fitz
     with tempfile.TemporaryDirectory(prefix='ocr_normativo_') as carpeta:
         archivo = Path(carpeta) / 'pagina.png'

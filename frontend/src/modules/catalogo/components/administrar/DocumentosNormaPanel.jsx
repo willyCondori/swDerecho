@@ -6,6 +6,7 @@ import { formatFechaHora } from '../../../casos/utils/etapas'
 import { formatTamano } from '../../../documentos/utils/descargas'
 import baseStyles from '../../pages/AdministrarCatalogoPage.module.css'
 import styles from './DocumentosNormaPanel.module.css'
+import VerPdfButton from '../../../documentos/components/VerPdfButton'
 
 // Panel embebido bajo NormaTable: lista los PDF que se subieron para
 // extraer los artículos de una norma puntual (GET
@@ -65,6 +66,7 @@ export default function DocumentosNormaPanel({ norma, onClose }) {
                   {doc.subido_por_nombre ? ` · subido por ${doc.subido_por_nombre}` : ''}
                 </span>
               </div>
+              <VerPdfButton documentoId={doc.id} nombre={doc.nombre_original} className={baseStyles.btnLink} />
               <button
                 type="button"
                 className={baseStyles.iconBtn}

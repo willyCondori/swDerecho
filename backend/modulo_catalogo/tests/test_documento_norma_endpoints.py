@@ -79,6 +79,20 @@ class DocumentoNormaPermisosTests(APITestCase):
         resp = self.client.get(URL_LISTAR)
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
 
+    def test_busqueda_y_filtros_de_documentos_normativos_paginados(self):
+        self.client.force_authenticate(self.admin)
+        rama = RamaDerecho.objects.create(nombre='Rama documentos')
+        otro = _crear_documento_norma(self.norma, rama=rama)
+        otro.nombre_original = 'Ley histórica.pdf'
+        otro.vigente = False
+        otro.save()
+        resp = self.client.get(URL_LISTAR, {'search': 'histórica', 'rama_id': rama.pk, 'norma_id': self.norma.pk, 'vigente': 'false', 'page_size': 1})
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.data['count'], 1)
+        self.assertEqual(resp.data['results'][0]['id'], otro.pk)
+        resp = self.client.get(URL_LISTAR, {'vigente': 'true'})
+        self.assertNotIn(otro.pk, [d['id'] for d in resp.data['results']])
+
     def test_abogado_puede_listar(self):
         self.client.force_authenticate(self.abogado)
         resp = self.client.get(URL_LISTAR)

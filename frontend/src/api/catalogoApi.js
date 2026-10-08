@@ -45,7 +45,8 @@ const catalogoApi = {
   // (ver CargaArticulosView, que crea el registro). No hay endpoint de
   // creación acá — solo consultar, descargar o eliminar.
   documentosPorNorma:      (normaId)      => api.get('/api/catalogo/documentos-norma/por_norma/', { params: { norma_id: normaId } }),
-  descargarDocumentoNorma: (id)           => api.get(`/api/catalogo/documentos-norma/${id}/descargar/`, { responseType: 'blob' }),
+  listarDocumentosNorma:   (params, signal) => api.get('/api/catalogo/documentos-norma/', { params, signal }),
+  descargarDocumentoNorma: (id, signal)   => api.get(`/api/catalogo/documentos-norma/${id}/descargar/`, { responseType: 'blob', signal }),
   eliminarDocumentoNorma:   (id)           => api.delete(`/api/catalogo/documentos-norma/${id}/`),
 }
 

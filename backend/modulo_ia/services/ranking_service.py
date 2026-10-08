@@ -244,7 +244,7 @@ class RankingService:
     def _score_frecuencia(articulo, max_frecuencia: int) -> float:
         if max_frecuencia <= 0:
             return 0.0
-        return round((articulo.frecuencia_historica or 0) / max_frecuencia, 6)
+        return round(max(0.0, min(1.0, (articulo.frecuencia_historica or 0) / max_frecuencia)), 6)
 
     @classmethod
     def _armar_candidato(cls, articulo, score_semantico, score_delito, entidades_relevantes, max_frecuencia, es_sugerencia=False):
@@ -302,9 +302,9 @@ class RankingService:
         nombre_rama = caso.rama_detectada.nombre if caso.rama_detectada_id else None
         categorias_caso = ClasificadorDelitoService.clasificar_texto(texto_caso_completo, nombre_rama)
 
+        from .vigencia_ranking import articulos_disponibles
         articulos = (
-            Articulo.objects
-            .filter(id__in=scores_semanticos.keys())
+            articulos_disponibles(Articulo.objects.filter(id__in=scores_semanticos.keys()))
             .prefetch_related("entidades")
             .select_related("norma", "norma__jerarquia", "rama")
         )
@@ -346,6 +346,7 @@ class RankingService:
         # principal aunque el caso las mencione explícitamente. Se agregan
         # aparte, con un umbral más bajo y un tope, para no perderlas ni
         # tampoco inundar el ranking de ruido.
+        sugerencias = []
         figuras_detectadas = FiguraTransversalService.detectar_figuras(texto_caso_completo, nombre_rama)
         if figuras_detectadas:
             articulos_figura = FiguraTransversalService.articulos_por_figuras(
@@ -377,7 +378,7 @@ class RankingService:
                     candidatos_figura.append(candidato)
 
             candidatos_figura.sort(key=lambda c: c[0], reverse=True)
-            candidatos.extend(candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS])
+            sugerencias = candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS]
 
         heap = []
         for score_float, articulo_id, score_total, sub_scores, es_sugerencia in candidatos:
@@ -395,7 +396,7 @@ class RankingService:
         # sugerencia nunca supere al de un principal (podría pasar en algún
         # caso límite y no queremos que eso reordene los grupos).
         top_ordenado = sorted(
-            heap,
+            heap + sugerencias,
             key=lambda item: (item[4], -item[0]),
         )
 

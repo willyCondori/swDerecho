@@ -27,7 +27,8 @@ class ExtraccionTextoService:
     def extraer_documento(cls, documento):
         from modulo_documentos.models.documento import TextoDocumentoCaso
 
-        version_extractor = f"pypdf-{version('pypdf')}-v1"
+        from django.conf import settings
+        version_extractor = f"pypdf-{version('pypdf')}-ocr-v2-{settings.PDF_OCR_IDIOMA}"
         # El hash detecta incluso un PDF reemplazado conservando su ruta.
         with default_storage.open(documento.ruta_archivo, "rb") as archivo:
             digest = hashlib.sha256()
@@ -53,4 +54,23 @@ class ExtraccionTextoService:
         o el campo `archivo` de un Documento ya guardado). Devuelve el
         texto concatenado de todas las páginas.
         """
-        return "\n\n".join(p.strip() for p in cls.paginas(archivo) if p.strip()).strip()
+        paginas = cls.paginas(archivo)
+        if any(len(texto.strip()) < 15 for texto in paginas):
+            import fitz
+            from modulo_catalogo.services.ocr_local_service import transcribir_pagina
+            posicion = archivo.tell()
+            try:
+                archivo.seek(0)
+                with fitz.open(stream=archivo.read(), filetype='pdf') as pdf:
+                    for indice, texto in enumerate(paginas):
+                        pagina = pdf[indice]
+                        # Las páginas realmente vacías no requieren OCR. Una página con
+                        # imagen/dibujos y sin texto legible nunca se omite silenciosamente.
+                        if len(texto.strip()) < 15 and (pagina.get_images() or pagina.get_drawings()):
+                            try:
+                                paginas[indice] = transcribir_pagina(pagina, indice + 1)
+                            except ValueError as exc:
+                                raise ValueError(f'No se pudo extraer el texto del PDF del caso. {exc}') from exc
+            finally:
+                archivo.seek(posicion)
+        return "\n\n".join(p.strip() for p in paginas if p.strip()).strip()

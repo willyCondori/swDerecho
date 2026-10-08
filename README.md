@@ -1,5 +1,8 @@
 # JurisIA
 
+Para ejecutar el sistema con Docker (incluidos OCR en español y modelos locales),
+consultar [la guía Docker](docs/DOCKER.md).
+
 Plataforma de gestión de casos legales para estudios de abogacía en Bolivia, con un motor de recomendación de artículos jurídicos aplicables a cada caso, construido sobre similitud semántica, filtrado por rama del derecho y clasificación de tipo de delito.
 
 ---
