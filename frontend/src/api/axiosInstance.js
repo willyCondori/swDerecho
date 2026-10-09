@@ -3,6 +3,15 @@ import axios from 'axios'
 import { getAccessToken, setAccessToken, clearAccessToken } from './tokenManager'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+const esRutaPublicaAuth = (url = '') =>
+  /\/auth\/(login|refresh|recuperar-password)(\/|$)/.test(url)
+
+// Axios une baseURL y ruta sin convertir «/» + «/api» en el host «//api».
+const refreshClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 30000,
+  withCredentials: true,
+})
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -16,7 +25,11 @@ const api = axios.create({
 api.interceptors.request.use(
   (config) => {
     const token = getAccessToken()
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    if (token && !esRutaPublicaAuth(config.url)) {
+      config.headers.Authorization = `Bearer ${token}`
+    } else {
+      delete config.headers.Authorization
+    }
     return config
   },
   (error) => Promise.reject(error),
@@ -41,11 +54,10 @@ api.interceptors.response.use(
 
     // Evita loop: si el propio /auth/refresh/ o /auth/login/ devuelven
     // 401, no hay que intentar refrescar de nuevo.
-    const esRutaAuth =
-      originalRequest?.url?.includes('/auth/refresh/') ||
-      originalRequest?.url?.includes('/auth/login/')
+    const esRutaAuth = esRutaPublicaAuth(originalRequest?.url)
 
-    if (error.response?.status === 401 && !originalRequest._retry && !esRutaAuth) {
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry && !esRutaAuth) {
+      originalRequest._retry = true
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -57,20 +69,14 @@ api.interceptors.response.use(
           .catch((err) => Promise.reject(err))
       }
 
-      originalRequest._retry = true
       isRefreshing = true
 
       try {
         // El refresh token viaja solo, como cookie httpOnly — no se lee
         // ni se manda nada desde JS.
-        const { data } = await axios.post(
-          `${BASE_URL}/api/usuarios/auth/refresh/`,
-          {},
-          { withCredentials: true },
-        )
+        const { data } = await refreshClient.post('/api/usuarios/auth/refresh/', {})
         const newAccess = data.access_token
         setAccessToken(newAccess)
-        api.defaults.headers.common.Authorization = `Bearer ${newAccess}`
         processQueue(null, newAccess)
         originalRequest.headers.Authorization = `Bearer ${newAccess}`
         return api(originalRequest)

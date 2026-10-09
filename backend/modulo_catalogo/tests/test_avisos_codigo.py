@@ -32,6 +32,31 @@ class AvisosCodigoTests(SimpleTestCase):
         self.assertEqual((cambio['causante'], cambio['fecha_causante']), ('Ley 2298', '2001-12-20'))
         self.assertTrue(indica_derogacion(unidad))
 
+    def test_nota_colectiva_distribuye_derogacion_a_todo_el_rango(self):
+        for numero, lista, esperados in [('65', '59 al 65', range(59, 66)), ('69', '66 al 69', range(66, 70))]:
+            unidad = {'numero': numero, 'texto': f'Artículo {numero}. (Efectos).\nLos Arts. {lista} fueron Derogados por la Disposición Final, Sexta de la Ley 1970 de 25\nde mrzo de 1999, Código Procedimiento Penal.'}
+            cambios = self.ambos(unidad)
+            self.assertEqual([c['unidad'] for c in cambios], [str(n) for n in esperados])
+            self.assertTrue(all(c['operacion'] == 'deroga' and c['alcance'] == 'total' and c['causante'] == 'Ley 1970' and c['fecha_causante'] == '1999-03-25' for c in cambios))
+            self.assertTrue(all('mrzo' in c['cita'] and c['unidad_fuente'] == numero for c in cambios))
+            self.assertTrue(indica_derogacion(unidad))
+
+    def test_nota_colectiva_no_deroga_el_articulo_que_solo_la_cita(self):
+        unidad = {'numero': '70', 'texto': 'Artículo 70. Texto vigente.\nLos Arts. 66 al 69 fueron Derogados por la Ley 1970 de 25 de marzo de 1999.'}
+        self.assertFalse(indica_derogacion(unidad))
+        self.assertEqual([c['unidad'] for c in self.ambos(unidad)], ['66', '67', '68', '69'])
+
+    def test_referencia_narrativa_no_es_nota_colectiva(self):
+        from modulo_catalogo.services.notas_normativas_service import notas_editoriales_colectivas
+        unidad = {'numero': '1', 'texto': 'Artículo 1. Este relato recuerda que los Arts. 59 al 65 fueron derogados por Ley 1970.'}
+        self.assertEqual(notas_editoriales_colectivas(unidad), [])
+
+    def test_lista_colectiva_no_pierde_modificacion_del_articulo_anfitrion(self):
+        unidad = {'numero': '313', 'texto': 'Artículo 313. (Rapto). Texto vigente.\nModificado por el Artículo 83 de la Ley 348 de 9 de marzo de 2013.\nNOTA.- Los Arts. 314, 315, 316 y 317 fueron Derogados por la Disposición Abrogatoria y Derogatoria Primera de Ley 348 de 9 de marzo de 2013.'}
+        cambios = self.ambos(unidad)
+        self.assertEqual([(c['unidad'], c['operacion']) for c in cambios], [('314', 'deroga'), ('315', 'deroga'), ('316', 'deroga'), ('317', 'deroga'), ('313', 'modifica')])
+        self.assertFalse(indica_derogacion(unidad))
+
     def test_fecha_con_error_tipografico_dde_sin_alterar_evidencia(self):
         unidad = {'numero': '100', 'texto': 'Artículo 100. (Extinción)\nDerogado por Ley 1970 de 25 de marzo dde 1999.'}
         cambio = self.ambos(unidad)[0]

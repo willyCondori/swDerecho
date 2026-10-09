@@ -9,5 +9,6 @@ __pycache__/
 logs/
 media/
 modelos/
+data/jurisprudencia/
 staticfiles/
 .git/

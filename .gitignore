@@ -39,6 +39,7 @@ build/
 
 # Modelos de IA / embeddings
 backend/modelos/
+backend/data/jurisprudencia/
 *.safetensors
 *.bin
 *.pt

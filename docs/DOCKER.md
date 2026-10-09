@@ -92,7 +92,7 @@ Persistencia: PostgreSQL y Ollama usan volúmenes; los PDF siguen en
 `backend/media`; el modelo afinado permanece en `backend/modelos`; los estáticos
 y la caché Hugging Face tienen volúmenes propios. En Linux, los directorios
 montados que requieren escritura deben ser accesibles al UID del usuario
-`jurisia` del contenedor. Los logs se envían a `docker compose logs`.
+`sw-derecho` del contenedor. Los logs se envían a `docker compose logs`.
 
 El backend tiene un solo worker con cuatro hilos. Las tareas actuales usan hilos
 y caché en memoria: aumentar workers o réplicas puede perder la visibilidad del

@@ -11,11 +11,11 @@ class EmbeddingService:
 
     @staticmethod
     def _obtener_vector(texto: str) -> list:
-        return vectorizar_textos([texto])[0]
+        return vectorizar_textos([texto], tipo="query")[0]
 
     @classmethod
     def preparar_vectores(cls, chunks):
-        return vectorizar_textos([chunk.contenido for chunk in chunks])
+        return vectorizar_textos([chunk.contenido for chunk in chunks], tipo="query")
 
     @classmethod
     def generar_para_caso(cls, chunks, vectores=None):

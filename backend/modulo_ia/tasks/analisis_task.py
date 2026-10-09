@@ -56,6 +56,7 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
     from modulo_ia.services.embedding_service import EmbeddingService
     from modulo_ia.services.entidad_service import EntidadDetectionService
     from modulo_ia.services.ranking_service import RankingService
+    from modulo_ia.services.jurisprudencia_service import JurisprudenciaService
     from modulo_casos.models.resultado_caso import ResultadoCaso
 
     caso = Caso.objects.get(pk=caso_id)
@@ -81,6 +82,9 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
             _actualizar_paso(caso_id, "ranking")
             resultados = RankingService.calcular_ranking(caso)
 
+            _actualizar_paso(caso_id, "jurisprudencia")
+            jurisprudencia = JurisprudenciaService.calcular(caso)
+
             _actualizar_paso(caso_id, "guardando")
             # PENDIENTE: integrar GPT4All para resumen/fortalezas/
             # debilidades/estrategias. Por ahora el caso ya queda marcado
@@ -93,6 +97,8 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
                     "debilidades"  : None,
                     "estrategias"  : None,
                     "observaciones": None,
+                    "jurisprudencia_estado": jurisprudencia["estado"],
+                    "jurisprudencia_modelo_version": jurisprudencia["modelo_version"],
                 },
             )
 
@@ -113,6 +119,7 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
                 "embeddings": len(embeddings),
                 "entidades_detectadas": len(entidades),
                 "articulos_rankeados": len(resultados),
+                "resoluciones_relacionadas": len(jurisprudencia["resultados"]),
                 "resultado_caso_id": resultado_caso.pk,
             },
         )
@@ -122,6 +129,7 @@ def ejecutar_analisis_caso(caso_id: int, usuario=None) -> dict:
             "chunks": len(chunks),
             "entidades_detectadas": len(entidades),
             "articulos_rankeados": len(resultados),
+            "resoluciones_relacionadas": len(jurisprudencia["resultados"]),
             "resultado_caso_id": resultado_caso.pk,
         }
 

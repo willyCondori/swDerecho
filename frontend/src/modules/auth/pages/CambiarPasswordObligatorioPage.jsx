@@ -62,7 +62,7 @@ export default function CambiarPasswordObligatorioPage() {
         <div className={styles.formHeader}>
           <div className={styles.logo}>
             <div className={styles.logoIcon}>⚖</div>
-            <span className={styles.logoText}>JurisIA</span>
+            <span className={styles.logoText}>SW Derecho</span>
           </div>
           <h2 className={styles.formTitle}>Cambiá tu contraseña</h2>
           <p className={styles.formSubtitle}>

@@ -12,6 +12,7 @@ from modulo_clientes.models.cliente import Cliente
 from modulo_usuarios.tests.factories import crear_usuario, crear_rol
 
 
+@override_settings(EMBEDDING_USE_E5_PREFIXES=False)
 class VectorizacionTests(SimpleTestCase):
     @override_settings(EMBEDDING_BATCH_SIZE=8)
     def test_encode_recibe_lista_y_tamano_de_lote(self):
@@ -20,6 +21,16 @@ class VectorizacionTests(SimpleTestCase):
         vectores = vectorizar_textos(["uno", "dos"], modelo)
         modelo.encode.assert_called_once_with(["uno", "dos"], batch_size=8, normalize_embeddings=True)
         self.assertEqual(len(vectores), 2)
+
+    @override_settings(EMBEDDING_USE_E5_PREFIXES=True)
+    def test_e5_distingue_consultas_y_documentos(self):
+        modelo = Mock()
+        modelo.encode.return_value = np.ones((1, 768))
+        vectorizar_textos(["robo"], modelo)
+        self.assertEqual(modelo.encode.call_args.args[0], ["passage: robo"])
+        with patch("modulo_ia.services.vectorizacion_service.obtener_modelo", return_value=modelo):
+            EmbeddingService._obtener_vector("robo")
+        self.assertEqual(modelo.encode.call_args.args[0], ["query: robo"])
 
     def test_rechaza_dimensiones_y_valores_no_finitos(self):
         for matriz in [np.ones((1, 10)), np.full((1, 768), np.nan), np.full((1, 768), np.inf)]:

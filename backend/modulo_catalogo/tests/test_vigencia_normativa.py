@@ -27,6 +27,26 @@ class VigenciaNormativaTests(TestCase):
     def datos_revision(self, **extra):
         return {'fecha_efecto': '2001-12-21', 'observacion': 'Fecha, alcance y jerarquía contrastados en la fuente.', **extra}
 
+    def test_nota_colectiva_confirmada_marca_y_excluye_todos_los_articulos(self):
+        from modulo_catalogo.services.algoritmos_normativos_service import detectar_cambios_literales
+        from modulo_ia.services.vigencia_ranking import articulos_disponibles
+        from modulo_catalogo.services.vigencia_service import estado_vigencia
+        doc = DocumentoNorma.objects.create(norma=self.base, rama=self.rama, nombre_original='codigo.pdf', ruta_archivo='codigo.pdf', tamano=10)
+        articulos = [Articulo.objects.create(norma=self.base, rama=self.rama, numero_articulo=str(n), contenido=f'Artículo {n}. Texto histórico.') for n in range(59, 67)]
+        unidad = {'numero': '65', 'texto': 'Artículo 65. (Responsabilidad Civil).\nLos Arts. 59 al 65 fueron Derogados por Disposición Final Sexta de la Ley 1970 de 25 de marzo de 1999.'}
+        cambios = detectar_cambios_literales([unidad])
+        eventos = registrar_cambios(doc, [unidad], cambios, {})
+        self.assertEqual(len(eventos), 7)
+        for evento in eventos:
+            confirmar(evento, {'fecha_efecto': '2001-05-31'}, self.usuario)
+        for articulo in articulos[:7]:
+            articulo.refresh_from_db()
+            self.assertEqual(estado_vigencia(articulo.avisos_vigencia, es_articulo=True), 'derogado')
+            self.assertTrue(articulo.estado)
+        self.assertEqual(list(articulos_disponibles(Articulo.objects.filter(pk__in=[a.pk for a in articulos])).values_list('numero_articulo', flat=True)), ['66'])
+        registrar_cambios(doc, [unidad], cambios, {})
+        self.assertEqual(CambioNormativo.objects.filter(fuente=doc).count(), 7)
+
     def test_abrogacion_de_norma_se_muestra_en_todos_sus_articulos_sin_borrarlos(self):
         c = self.registrar()
         self.articulo.refresh_from_db()

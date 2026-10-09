@@ -105,6 +105,7 @@ jobs:
         run: |
           python manage.py test \
             modulo_usuarios.tests.test_login \
+            modulo_usuarios.tests.test_sesion_expirada \
             modulo_usuarios.tests.test_cambio_password \
             modulo_usuarios.tests.test_recuperacion_password \
             modulo_usuarios.tests.test_usuario_model \
@@ -117,6 +118,8 @@ jobs:
             modulo_catalogo.tests.test_articulos_orden \
             modulo_ia.tests.test_ranking_service \
             modulo_ia.tests.test_ranking_vigencia \
+            modulo_ia.tests.test_jurisprudencia \
+            modulo_ia.tests.test_jurisprudencia_catalogo \
             modulo_ia.tests.test_embeddings_lotes \
             modulo_ia.tests.test_preparacion_modelos \
             modulo_ia.tests.test_preparacion_analisis \

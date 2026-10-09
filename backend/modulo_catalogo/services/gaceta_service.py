@@ -38,7 +38,7 @@ def descargar(url, limite=50 * 1024 * 1024):
     # Comprobar cada redirección antes de hacer una nueva petición.
     for _ in range(5):
         with requests.get(url, stream=True, allow_redirects=False, timeout=(5, 30),
-                          headers={'User-Agent': 'JurisIA/1.0 (consulta normativa pública)'}) as respuesta:
+                          headers={'User-Agent': 'SW-Derecho/1.0 (consulta normativa pública)'}) as respuesta:
             if respuesta.is_redirect:
                 url = url_oficial(urljoin(url, respuesta.headers['Location']))
                 continue

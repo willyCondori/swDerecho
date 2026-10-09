@@ -12,6 +12,9 @@ from modulo_catalogo.models.articulo import Articulo
 from modulo_ia.serializers.ia_serializer import ResultadoArticuloWriteSerializer
 from modulo_ia.services.clasificador_delito_service import ClasificadorDelitoService
 from modulo_ia.services.figura_transversal_service import FiguraTransversalService
+from modulo_catalogo.services.carga_pdf_service import PATRON_PREFIJO_ARTICULO
+from modulo_ia.services.proteccion_menores_service import ProteccionMenoresService
+from modulo_ia.services.contexto_articulo_service import ContextoArticuloService
 
 TOP_N_ARTICULOS = 15
 CANDIDATOS_POR_CHUNK = 50
@@ -57,6 +60,11 @@ class RankingService:
     caso y las incluye aunque no superen el umbral principal, porque su
     relevancia se determina por regla explícita, no por similitud pura.
     """
+
+    @staticmethod
+    def _tiene_cuerpo(articulo):
+        cuerpo = PATRON_PREFIJO_ARTICULO.sub("", articulo.contenido or "", count=1)
+        return any(caracter.isalnum() for caracter in cuerpo)
 
     @staticmethod
     def _score_semantico_por_articulo(caso):
@@ -301,6 +309,11 @@ class RankingService:
         )
         nombre_rama = caso.rama_detectada.nombre if caso.rama_detectada_id else None
         categorias_caso = ClasificadorDelitoService.clasificar_texto(texto_caso_completo, nombre_rama)
+        hay_menores = ProteccionMenoresService.hay_menores(texto_caso_completo)
+        contexto_robo_breve = (
+            hay_menores and "ROBO" in categorias_caso
+            and len(texto_caso_completo.split()) <= 12
+        )
 
         from .vigencia_ranking import articulos_disponibles
         articulos = (
@@ -308,6 +321,7 @@ class RankingService:
             .prefetch_related("entidades")
             .select_related("norma", "norma__jerarquia", "rama")
         )
+        articulos = [a for a in articulos if cls._tiene_cuerpo(a)]
         articulos_por_id = {a.id: a for a in articulos}
         max_frecuencia = max(
             (a.frecuencia_historica or 0 for a in articulos), default=0
@@ -318,10 +332,19 @@ class RankingService:
             articulo = articulos_por_id.get(articulo_id)
             if articulo is None:
                 continue
+            if not ContextoArticuloService.compatible(articulo, texto_caso_completo):
+                continue
+            if hay_menores and ProteccionMenoresService.requiere_hechos_no_mencionados(articulo, texto_caso_completo):
+                continue
 
             score_delito = ClasificadorDelitoService.score_delito_articulo(
                 articulo, categorias_caso, nombre_rama
             )
+            # Una descripción mínima no aporta hechos suficientes para
+            # incorporar delitos distintos o reformas procesales extensas.
+            # La protección de menores se recupera aparte como complemento.
+            if contexto_robo_breve and score_delito <= 0:
+                continue
             chunk_id = mejor_chunk_por_articulo.get(articulo_id)
             entidades_relevantes = entidades_por_chunk.get(chunk_id, set())
             candidatos.append(
@@ -356,7 +379,9 @@ class RankingService:
             )
             vectores_chunks_caso = cls._vectores_chunks_caso(caso)
 
-            articulos_figura = [a for a in articulos_figura if a.id not in ids_ya_incluidos]
+            articulos_figura = [a for a in articulos_figura if a.id not in ids_ya_incluidos
+                               and cls._tiene_cuerpo(a)
+                               and ContextoArticuloService.compatible(a, texto_caso_completo)]
             # ya van a persistirse por el flujo normal los que se saltean arriba;
             # el resto se puntúa en lote (1 consulta en vez de 1 por artículo).
             scores_figura = cls._scores_semanticos_articulos_especificos(
@@ -379,6 +404,25 @@ class RankingService:
 
             candidatos_figura.sort(key=lambda c: c[0], reverse=True)
             sugerencias = candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS]
+
+        if hay_menores:
+            proteccion = [a for a in ProteccionMenoresService.articulos()
+                          if cls._tiene_cuerpo(a)]
+            ids_proteccion = {a.id for a in proteccion}
+            # Los derechos de protección se muestran como complemento,
+            # incluso cuando ya superaron el umbral principal.
+            candidatos = [c for c in candidatos if c[1] not in ids_proteccion]
+            sugerencias = [c for c in sugerencias if c[1] not in ids_proteccion]
+            scores_proteccion = cls._scores_semanticos_articulos_especificos(
+                list(ids_proteccion), cls._vectores_chunks_caso(caso)
+            )
+            for articulo in proteccion:
+                score, chunk_id = scores_proteccion[articulo.id]
+                if score > 0:
+                    sugerencias.append(cls._armar_candidato(
+                        articulo, score, 0.0, entidades_por_chunk.get(chunk_id, set()),
+                        max_frecuencia, es_sugerencia=True,
+                    ))
 
         heap = []
         for score_float, articulo_id, score_total, sub_scores, es_sugerencia in candidatos:

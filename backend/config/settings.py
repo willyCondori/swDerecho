@@ -219,7 +219,7 @@ if EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@jurisia.local")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", EMAIL_HOST_USER or "no-reply@sw-derecho.local")
 
 # ---------------------------------------------------------------------
 # Recuperación de contraseña por correo
@@ -255,7 +255,7 @@ LOGIN_BLOQUEO_MINUTOS = int(os.getenv("LOGIN_BLOQUEO_MINUTOS", "15"))
 # Carpeta donde viven los modelos locales (backend/modelos/).
 MODELOS_DIR = BASE_DIR / 'modelos'
 
-_MODELO_POR_DEFECTO = MODELOS_DIR / 'sw-derecho-embeddings-v1-final'
+_MODELO_POR_DEFECTO = MODELOS_DIR / 'e5_base'
 
 _modelo_cfg = config('SENTENCE_TRANSFORMER_MODEL', default=str(_MODELO_POR_DEFECTO))
 
@@ -277,9 +277,9 @@ EMBEDDING_MODEL_VERSION = config(
     default=Path(SENTENCE_TRANSFORMER_MODEL).name
 )
 
-SENTENCE_TRANSFORMER_MODEL = config(
-    'SENTENCE_TRANSFORMER_MODEL',
-    default='sentence-transformers/paraphrase-multilingual-mpnet-base-v2'
+EMBEDDING_USE_E5_PREFIXES = config(
+    'EMBEDDING_USE_E5_PREFIXES',
+    default='e5' in Path(SENTENCE_TRANSFORMER_MODEL).name.lower(), cast=bool,
 )
 
 # Etiqueta corta con la que SENTENCE_TRANSFORMER_MODEL queda identificado en
@@ -339,3 +339,9 @@ OLLAMA_NORMATIVO_PRELOAD_STARTUP = config('OLLAMA_NORMATIVO_PRELOAD_STARTUP', de
 # OCR de CPU opcional para PDFs escaneados, sin Ollama.
 PDF_TESSERACT_CMD = config('PDF_TESSERACT_CMD', default='')
 PDF_OCR_IDIOMA = config('PDF_OCR_IDIOMA', default='spa')
+
+# Genesis/TSJ: ingestión de corpus público, independiente del análisis privado.
+TSJ_API_KEY = config('TSJ_API_KEY', default='')
+TSJ_API_USERNAME = config('TSJ_API_USERNAME', default='buscadorgenesis')
+JURISPRUDENCIA_TOP_N = max(1, min(20, config('JURISPRUDENCIA_TOP_N', default=5, cast=int)))
+JURISPRUDENCIA_UMBRAL = config('JURISPRUDENCIA_UMBRAL', default=0.65, cast=float)

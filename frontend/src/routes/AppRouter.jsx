@@ -37,6 +37,8 @@ const RestaurarCambiosPage = lazy(() => import('../modules/catalogo/pages/Restau
 const AdministrarCatalogoPage = lazy(() => import('../modules/catalogo/pages/AdministrarCatalogoPage'))
 const NormasPage = lazy(() => import('../modules/catalogo/pages/NormasPage'))
 const DocumentosPage = lazy(() => import('../modules/documentos/pages/DocumentosPage'))
+const TSJPage = lazy(() => import('../modules/jurisprudencia/pages/TSJPage'))
+const JurisprudenciaPage = lazy(() => import('../modules/jurisprudencia/pages/JurisprudenciaPage'))
 
 
 function PageLoader() {
@@ -120,6 +122,8 @@ export default function AppRouter() {
           } />
 
           <Route path="/documentos" element={<Suspense fallback={<PageLoader />}><DocumentosPage /></Suspense>} />
+          <Route path="/catalogo/tsj" element={<Suspense fallback={<PageLoader />}><TSJPage /></Suspense>} />
+          <Route path="/jurisprudencia" element={<Suspense fallback={<PageLoader />}><JurisprudenciaPage /></Suspense>} />
           {/* Rutas pendientes de implementar */}
           <Route path="/plantillas/*"    element={<PageLoader />} />
           <Route path="/ia/*"            element={<PageLoader />} />

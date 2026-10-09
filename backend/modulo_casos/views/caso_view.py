@@ -408,6 +408,25 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             ResultadoArticuloSerializer(resultados, many=True).data
         )
 
+    @action(detail=True, methods=["get"], url_path="jurisprudencia")
+    def jurisprudencia(self, request, pk=None):
+        from modulo_ia.models.jurisprudencia import ResultadoJurisprudencia
+        from modulo_ia.serializers.jurisprudencia_serializer import ResultadoJurisprudenciaSerializer
+        from modulo_ia.services.model_loader import version_activa
+
+        caso = self.get_object()
+        resultado = getattr(caso, "resultado", None)
+        resultados = ResultadoJurisprudencia.objects.filter(caso=caso).select_related("resolucion")
+        return Response({
+            "estado": resultado.jurisprudencia_estado if resultado else "pendiente",
+            "modelo_version": resultado.jurisprudencia_modelo_version if resultado else "",
+            "desactualizada": bool(resultado and (
+                caso.estado_analisis != "completado" or
+                resultado.jurisprudencia_modelo_version != version_activa()
+            )),
+            "resultados": ResultadoJurisprudenciaSerializer(resultados, many=True).data,
+        })
+
     @action(detail=True, methods=["post"], url_path="analizar")
     def analizar(self, request, pk=None):
         """

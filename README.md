@@ -1,4 +1,6 @@
-# JurisIA
+# SW Derecho
+
+Integración de jurisprudencia penal del TSJ: [sincronización y búsqueda semántica](docs/JURISPRUDENCIA.md).
 
 Para ejecutar el sistema con Docker (incluidos OCR en español y modelos locales),
 consultar [la guía Docker](docs/DOCKER.md).
@@ -29,7 +31,7 @@ Plataforma de gestión de casos legales para estudios de abogacía en Bolivia, c
 
 ## Descripción general
 
-JurisIA permite a un despacho de abogados:
+SW Derecho permite a un despacho de abogados:
 
 - Registrar clientes y casos, ya sea redactando una descripción de los hechos o adjuntando un PDF.
 - Ejecutar un pipeline de análisis que **fragmenta el texto del caso, lo vectoriza, lo compara contra un catálogo de artículos jurídicos (Código Penal, Constitución Política del Estado, y potencialmente otras normas) y genera un ranking de los artículos más aplicables**, con un desglose transparente de por qué cada artículo fue seleccionado.

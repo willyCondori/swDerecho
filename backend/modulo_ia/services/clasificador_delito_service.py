@@ -101,7 +101,7 @@ GRUPOS_POR_RAMA = {
     "Penal": GRUPOS_PENAL,
 }
 
-_PATRON_TITULO_ARTICULO = re.compile(r"\(([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s\-,]+)\)")
+_PATRON_TITULO_ARTICULO = re.compile(r"\(\s*([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑ\s\-,]+)\)", re.IGNORECASE)
 
 
 class ClasificadorDelitoService:
@@ -135,7 +135,7 @@ class ClasificadorDelitoService:
         match = _PATRON_TITULO_ARTICULO.search(articulo.contenido or "")
         if not match:
             return None
-        return match.group(1).strip().upper()
+        return " ".join(match.group(1).upper().split())
 
     @classmethod
     def clasificar_texto(cls, texto_caso: str, nombre_rama: str | None = None) -> dict:

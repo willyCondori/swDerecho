@@ -30,6 +30,7 @@ from django.db import transaction
 from modulo_catalogo.models.articulo import Articulo
 from modulo_catalogo.services.carga_pdf_service import construir_texto_embedding
 from modulo_ia.models.embedding import EmbeddingArticulo
+from modulo_ia.services.vectorizacion_service import vectorizar_textos
 from modulo_ia.services.model_loader import DIMENSION_VECTOR, obtener_modelo as _obtener_modelo, version_activa
 
 logger = logging.getLogger(__name__)
@@ -139,10 +140,7 @@ class Command(BaseCommand):
                 lote_textos.clear()
                 return
 
-            vectores = modelo.encode(
-                lote_textos,
-                normalize_embeddings=True,
-            ).tolist()
+            vectores = vectorizar_textos(lote_textos, modelo)
 
             # Emparejamiento 1:1 garantizado: mismo índice de lista,
             # mismo loop — nunca se separa el orden del texto del orden

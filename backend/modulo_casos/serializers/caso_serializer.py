@@ -73,6 +73,7 @@ class ResultadoCasoSerializer(serializers.ModelSerializer):
             "id", "caso",
             "resumen", "fortalezas", "debilidades",
             "estrategias", "observaciones",
+            "jurisprudencia_estado", "jurisprudencia_modelo_version",
             "created_at", "updated_at",
         ]
         read_only_fields = ["id", "caso", "created_at", "updated_at"]

@@ -10,6 +10,7 @@ import { formatFechaHora } from '../utils/etapas'
 import seguimientoStyles from '../components/Seguimiento.module.css'
 import useAuthStore from '../../auth/store/authStore'
 import DocumentosCasoList from '../../documentos/components/DocumentosCasoList'
+import JurisprudenciaRelacionada from '../components/JurisprudenciaRelacionada'
 import styles from './CasoDetailPage.module.css'
 
 function EstadoBadge({ tieneResultado, tieneDocumento }) {
@@ -226,6 +227,7 @@ export default function CasoDetailPage() {
             </ol>
           </div>
         )}
+          <JurisprudenciaRelacionada casoId={id} estadoAnalisis={caso.estado_analisis} resultado={caso.resultado} />
         </div>
 
         {/* Columna lateral */}

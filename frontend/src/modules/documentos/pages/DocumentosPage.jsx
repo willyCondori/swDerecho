@@ -7,8 +7,6 @@ import SearchField from '../../../components/ui/SearchField'
 import DataTable from '../../../components/ui/DataTable'
 import Pagination from '../../../components/ui/Pagination'
 import { dialogs } from '../../../components/ui/dialogs'
-import { formatTamano } from '../utils/descargas'
-import { formatFechaHora } from '../../casos/utils/etapas'
 import shared from '../../../styles/shared.module.css'
 import styles from './DocumentosPage.module.css'
 
@@ -26,8 +24,6 @@ export default function DocumentosPage() {
     { key: 'norma_nombre', header: 'Norma' },
     { key: 'rama_nombre', header: 'Rama', render: (doc) => doc.rama_nombre || 'Sin rama' },
     { key: 'vigente', header: 'Versión del archivo', render: (doc) => doc.vigente ? 'Actual' : 'Reemplazado' },
-    { key: 'created_at', header: 'Registro', render: (doc) => formatFechaHora(doc.created_at) },
-    { key: 'tamano', header: 'Tamaño', render: (doc) => formatTamano(doc.tamano) },
     { key: 'acciones', header: 'Acciones', actions: true, render: (doc) => <>
       <VerPdfButton documentoId={doc.id} nombre={doc.nombre_original} className={shared.btnSecondary} />
       <button type="button" className={shared.btnSecondary} disabled={datos.ocupado !== null}

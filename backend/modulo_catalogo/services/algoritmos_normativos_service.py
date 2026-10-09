@@ -17,10 +17,13 @@ def detectar_cambios_literales(unidades, progreso=None):
         base = {'norma': '', 'unidad': '', 'alcance': 'total', 'cita': cita,
                 'origen': 'clausula', 'causante': '', 'fecha_causante': '',
                 'unidad_fuente': unidad['numero']}
-        from .notas_normativas_service import nota_editorial, regla_temporal
+        from .notas_normativas_service import nota_editorial, notas_editoriales_colectivas, regla_temporal
+        colectivas = notas_editoriales_colectivas(unidad)
         historico = nota_editorial(unidad)
-        if historico:
-            cambios.append(historico)
+        if colectivas or historico:
+            cambios.extend(colectivas)
+            if historico:
+                cambios.append(historico)
             continue
         if re.search(r'todas\s+las\s+disposiciones\s+contrarias', cita, re.I):
             cambios.append({**base, 'operacion': 'general', 'alcance': 'indeterminado'})

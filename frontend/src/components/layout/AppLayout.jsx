@@ -19,6 +19,7 @@ const NAV_ITEMS = [
     section: 'Catálogo jurídico',
     items: [
       { to: '/catalogo/articulos', icon: 'ti-book', label: 'Artículos' },
+      { to: '/jurisprudencia', icon: 'ti-gavel', label: 'Jurisprudencia' },
       { to: '/catalogo/normas', icon: 'ti-books', label: 'Normas', adminOnly: true },
       { to: '/catalogo/administrar', icon: 'ti-adjustments', label: 'Ramas y jerarquías', adminOnly: true },
     ],
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
     items: [
       { to: '/documentos', icon: 'ti-files', label: 'Documentos de normas' },
       { to: '/catalogo/gaceta', icon: 'ti-building-bank', label: 'Gaceta Oficial' },
+      { to: '/catalogo/tsj', icon: 'ti-scale', label: 'TSJ · Genesis' },
       { to: '/catalogo/cargar', icon: 'ti-file-upload', label: 'Cargar documentos' },
     ],
   },
@@ -116,7 +118,7 @@ export default function AppLayout() {
       >
         <div className={styles.sidebarLogo}>
           <div className={styles.sidebarLogoIcon}>⚖</div>
-          <span className={styles.sidebarLogoText}>Litigiun</span>
+          <span className={styles.sidebarLogoText}>SW Derecho</span>
           <button
             type="button"
             className={styles.sidebarCloseBtn}
@@ -205,7 +207,7 @@ export default function AppLayout() {
             <i className="ti ti-menu-2" aria-hidden="true" />
           </button>
           <nav className={styles.breadcrumb} aria-label="Ruta de navegación">
-            <span>Litiguin</span>
+            <span>SW Derecho</span>
             <span className={styles.breadcrumbSep}>/</span>
             <span className={styles.breadcrumbCurrent} id="page-title">Panel</span>
           </nav>

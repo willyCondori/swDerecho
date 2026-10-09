@@ -381,10 +381,13 @@ def detectar_cambios(unidades, progreso=None):
     cambios = []
     for i, u in enumerate(unidades):
         if progreso: progreso({'paso': f'Analizando efectos normativos: {i + 1}/{len(unidades)}'})
-        from .notas_normativas_service import nota_editorial, regla_temporal
+        from .notas_normativas_service import nota_editorial, notas_editoriales_colectivas, regla_temporal
+        colectivas = notas_editoriales_colectivas(u)
         historico = nota_editorial(u)
-        if historico:
-            cambios.append(historico)
+        if colectivas or historico:
+            cambios.extend(colectivas)
+            if historico:
+                cambios.append(historico)
             continue
         expresos = detectar_derogaciones_expresas([u])
         if expresos:
@@ -477,6 +480,7 @@ def extraer_metadatos(texto):
 def fecha_literal(texto):
     texto = re.sub(r'\bdde\b', 'de', texto, flags=re.I)  # Error tipográfico presente en la edición; no altera la cita.
     texto = re.sub(r'\bjuliio\b', 'julio', texto, flags=re.I)
+    texto = re.sub(r'\bmrzo\b', 'marzo', texto, flags=re.I)
     from .vigencia_service import fecha
     iso = re.search(r'\b\d{4}-\d{2}-\d{2}\b', texto)
     if iso and fecha(iso.group()): return iso.group()

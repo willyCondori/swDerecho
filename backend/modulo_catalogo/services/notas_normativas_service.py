@@ -2,6 +2,38 @@
 import re
 
 
+def notas_editoriales_colectivas(unidad):
+    """Distribuye una nota histórica explícita a cada artículo numerado del grupo."""
+    from .lectura_normativa_service import identidades_literales, fecha_literal
+    elemento = r'\d+(?:\s+al\s+\d+)?'
+    lista = elemento + r'(?:\s*(?:,\s*(?:y\s+)?|y\s+)' + elemento + r')*'
+    patron = re.compile(
+        r'(?im)^\s*(?:NOTA\s*[.\-–:]*\s*)?Los\s+(?:Arts?\.|Art[ií]culos)\s+(' + lista + r')\s+'
+        r'(?:fueron|han\s+sido)\s+(derogados|abrogados)\s+por\b[^\n]*(?:\n(?!\s*(?:Art[ií]culo|Art\.|CAP[IÍ]TULO|T[IÍ]TULO)\b)[^\n]+)*',
+    )
+    cambios = []
+    for nota in patron.finditer(unidad['texto']):
+        cita = nota.group().strip()
+        identidades = identidades_literales(cita)
+        # No inferir una ley causante cuando la nota cita varias normas.
+        if len(identidades) != 1:
+            continue
+        numeros = []
+        for elemento_lista in re.finditer(r'(\d+)(?:\s+al\s+(\d+))?', nota.group(1)):
+            inicio = int(elemento_lista.group(1))
+            fin = int(elemento_lista.group(2) or inicio)
+            if inicio > fin or fin - inicio > 300:
+                numeros = []
+                break
+            numeros.extend(range(inicio, fin + 1))
+        for numero in dict.fromkeys(numeros):
+            cambios.append({'norma': '', 'unidad': str(numero), 'alcance': 'total', 'cita': cita,
+                'origen': 'nota_editorial', 'causante': identidades[0],
+                'fecha_causante': fecha_literal(cita), 'unidad_fuente': unidad.get('numero', ''),
+                'operacion': 'deroga' if nota.group(2).lower() == 'derogados' else 'abroga'})
+    return cambios
+
+
 def regla_temporal(unidad, texto):
     if re.search(r'\b(?:entrar[aá]n?|entrar[aá]|entra|entran)\s+en\s+vigencia\b|'
                  r'\bregir[aá]\s+a\s+partir\b', texto, re.I):

@@ -56,6 +56,7 @@ def _delete_refresh_cookie(response: Response) -> None:
 
 
 class LoginView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -149,6 +150,8 @@ class RefreshTokenView(APIView):
     (ver settings.SIMPLE_JWT) también emite un refresh token nuevo y
     blacklistea el anterior, actualizando la cookie.
     """
+    # La cookie autentica la renovación; un access vencido no debe bloquearla.
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -294,6 +297,7 @@ class SolicitarRecuperacionView(APIView):
     ConfirmarRecuperacionView, en la misma pantalla donde pidió la
     recuperación, para terminar de elegir su contraseña definitiva.
     """
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):
@@ -390,6 +394,7 @@ class ConfirmarRecuperacionView(APIView):
     un login (check_password), no contra un token: si es correcta,
     prueba que quien hace este request tiene acceso a esa casilla.
     """
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def post(self, request):

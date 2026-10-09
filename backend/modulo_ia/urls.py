@@ -1,5 +1,7 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+from .views.jurisprudencia_view import JurisprudenciaViewSet, BuscarTSJView, IncorporarTSJView
+from modulo_catalogo.views.tareas_normativas_view import EstadoNormativoView
 
 from .views.analisis_view import (
     AnalisisCasoView,
@@ -10,6 +12,7 @@ from .views.analisis_view import (
 )
 
 router = DefaultRouter()
+router.register(r"jurisprudencia", JurisprudenciaViewSet, basename="jurisprudencia")
 
 router.register(r"chunks", ChunkCasoViewSet, basename="chunks")
 router.register(r"ranking", ResultadoArticuloViewSet, basename="ranking")
@@ -20,6 +23,9 @@ router.register(
 )
 
 urlpatterns = [
+    path("tsj/buscar/", BuscarTSJView.as_view()),
+    path("tsj/incorporar/", IncorporarTSJView.as_view()),
+    path("tsj/tareas/<str:task_id>/", EstadoNormativoView.as_view()),
     # /api/ia/analizar/ ahora corre de forma SÍNCRONA (ver AnalisisCasoView),
     # ya no encola nada en Celery.
     path("analizar/", AnalisisCasoView.as_view(), name="ia-analizar"),

@@ -17,6 +17,8 @@ class ResultadoCaso(models.Model):
     debilidades   = models.TextField(blank=True, null=True)
     estrategias   = models.TextField(blank=True, null=True)
     observaciones = models.TextField(blank=True, null=True)
+    jurisprudencia_estado = models.CharField(max_length=40, default="pendiente")
+    jurisprudencia_modelo_version = models.CharField(max_length=100, blank=True)
     created_at    = models.DateTimeField(auto_now_add=True)
     updated_at    = models.DateTimeField(auto_now=True)
 

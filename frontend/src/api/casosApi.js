@@ -67,6 +67,10 @@ const casosApi = {
     return api.get(`/api/casos/${id}/articulos/`)
   },
 
+  jurisprudencia(id, config = {}) {
+    return api.get(`/api/casos/${id}/jurisprudencia/`, config)
+  },
+
   /** GET /api/casos/etapas/ — catálogo de etapas de seguimiento [{ value, label, orden }] */
   etapas() {
     return api.get('/api/casos/etapas/')

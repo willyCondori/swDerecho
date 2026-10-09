@@ -14,7 +14,9 @@ def numero_clave(numero):
 
 
 def indica_derogacion(articulo):
-    from .notas_normativas_service import nota_editorial
+    from .notas_normativas_service import nota_editorial, notas_editoriales_colectivas
+    if any(c['unidad'] == articulo.get('numero') for c in notas_editoriales_colectivas(articulo)):
+        return True
     nota = nota_editorial(articulo)
     if nota and nota['operacion'] in ['deroga', 'abroga']:
         return True

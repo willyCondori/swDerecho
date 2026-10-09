@@ -91,7 +91,7 @@ export default function LoginPage() {
         <div className={styles.formHeader}>
           <div className={styles.logo}>
             <div className={styles.logoIcon}>⚖</div>
-            <span className={styles.logoText}>Litiguin</span>
+            <span className={styles.logoText}>SW Derecho</span>
           </div>
           <h2 className={styles.formTitle}>Acceder al sistema</h2>
           <p className={styles.formSubtitle}>
@@ -218,7 +218,7 @@ export default function LoginPage() {
         </form>
 
         <footer className={styles.formFooter}>
-          Litigiun · Sistema de análisis jurídico boliviano<br />
+          SW Derecho · Sistema de análisis jurídico boliviano<br />
           Datos cifrados · ISO 27001
         </footer>
       </main>
