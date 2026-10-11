@@ -1,3 +1,5 @@
+from core.throttling import ANALYSIS_THROTTLES
+from core.permissions.casos import casos_visibles
 from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 from django.db import transaction
 from django.db.models import F
@@ -93,6 +95,7 @@ class CasoViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
             qs = qs.select_related('usuario', 'cliente', 'rama_detectada').prefetch_related(
                 'documentos', 'documentos_generados',
             )
+        qs = casos_visibles(qs, self.request.user)
         # Todos los roles (Administrador, Abogado, Asistente) ven todos
         # los casos activos. La restricción de "solo lectura" para
         # Asistente ya la resuelve EsOperativo a nivel de método HTTP
@@ -557,7 +560,7 @@ class CasoViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
             'analisis_completado_en': caso.analisis_completado_en,
         })
 
-    @action(detail=True, methods=["post"], url_path="analizar")
+    @action(detail=True, methods=["post"], url_path="analizar", throttle_classes=ANALYSIS_THROTTLES)
     def analizar(self, request, pk=None):
         """
         POST /api/casos/{id}/analizar/

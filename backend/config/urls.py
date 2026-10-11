@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 from .health import health
+from core.permissions.roles_permission import EsAdmin
 
 urlpatterns = [
     path('health/', health),
@@ -17,6 +18,6 @@ urlpatterns = [
     path("api/notificaciones/", include("modulo_notificaciones.urls")),
     path("api/auditoria/", include("modulo_auditoria.urls")),
 
-    path("api/schema/", SpectacularAPIView.as_view(), name="schema"),
-    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
+    path("api/schema/", SpectacularAPIView.as_view(permission_classes=[EsAdmin]), name="schema"),
+    path("api/docs/", SpectacularSwaggerView.as_view(url_name="schema", permission_classes=[EsAdmin]), name="swagger-ui"),
 ]

@@ -4,7 +4,7 @@ import os
 
 from django.conf import settings
 from django.http import FileResponse
-from core.permissions.roles import ve_todo
+from core.permissions.casos import casos_visibles
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -86,8 +86,7 @@ class DocumentoCasoViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, Model
         user    = self.request.user
         caso_id = self.request.query_params.get("caso_id")
 
-        if not ve_todo(user):
-            qs = qs.filter(caso__usuario=user)
+        qs = casos_visibles(qs, user, "caso__")
         if caso_id:
             qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
@@ -235,8 +234,7 @@ class DocumentoGeneradoViewSet(VistaIdentificadorPublicoMixin, ModelViewSet):
     def get_queryset(self):
         qs   = super().get_queryset()
         user = self.request.user
-        if not ve_todo(user):
-            qs = qs.filter(caso__usuario=user)
+        qs = casos_visibles(qs, user, "caso__")
         caso_id = self.request.query_params.get("caso_id")
         if caso_id:
             qs = filtrar_uuid(qs, "caso__public_id", caso_id)

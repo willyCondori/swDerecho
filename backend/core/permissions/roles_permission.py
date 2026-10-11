@@ -9,6 +9,7 @@ class EsAdmin(BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.estado
+            and not request.user.debe_cambiar_password
             and rol_de(request.user) == ROL_ADMINISTRADOR
         )
 
@@ -20,6 +21,7 @@ class EsAbogado(BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.estado
+            and not request.user.debe_cambiar_password
             and rol_de(request.user) in ROLES_VEN_TODOS
         )
 
@@ -36,7 +38,7 @@ class EsOperativo(BasePermission):
     """
     def has_permission(self, request, view):
         user = request.user
-        if not (user and user.is_authenticated and user.estado):
+        if not (user and user.is_authenticated and user.estado and not user.debe_cambiar_password):
             return False
 
         rol = rol_de(user)
@@ -54,4 +56,5 @@ class EsUsuarioAutenticado(BasePermission):
             request.user
             and request.user.is_authenticated
             and request.user.estado
+            and not request.user.debe_cambiar_password
         )

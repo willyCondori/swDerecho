@@ -3,22 +3,49 @@ import PageHeader from '../../../components/ui/PageHeader'
 import Pagination from '../../../components/ui/Pagination'
 import SearchField from '../../../components/ui/SearchField'
 // modules/casos/pages/CasosPage.jsx
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useCasos from '../hooks/useCasos'
 import useAuthStore from '../../auth/store/authStore'
 import CasoCard from '../components/CasoCard'
 import CasoFiltros from '../components/CasoFiltros'
+import casosApi from '../../../api/casosApi'
+import { dialogs } from '../../../components/ui/dialogs'
 import styles from './CasosPage.module.css'
 
 export default function CasosPage() {
   const navigate = useNavigate()
   const puedeEscribir = useAuthStore((s) => s.puedeEscribir())
   const [mostrarFiltros, setMostrarFiltros] = useState(false)
+  const [eliminandoId, setEliminandoId] = useState(null)
+  const [errorEliminar, setErrorEliminar] = useState('')
+  const eliminacionEnCurso = useRef(false)
   const {
     casos, loading, error, page, setPage, totalPages, count,
     filtros, setFiltros, limpiarFiltros, reload,
   } = useCasos()
+
+  const handleEliminar = async (caso) => {
+    if (!puedeEscribir || eliminacionEnCurso.current) return
+    eliminacionEnCurso.current = true
+    try {
+      const confirmado = await dialogs.confirm(
+        `¿Enviar «${caso.titulo}» (${caso.codigo}) a la papelera? ` +
+        'Podrás restaurarlo desde Casos → Papelera.'
+      )
+      if (!confirmado) return
+      setErrorEliminar('')
+      setEliminandoId(caso.id)
+      await casosApi.eliminar(caso.id)
+      if (casos.length === 1 && page > 1) setPage(page - 1)
+      else await reload()
+    } catch (error) {
+      setErrorEliminar(error?.response?.data?.detail || 'No se pudo eliminar el caso. Intenta nuevamente.')
+    } finally {
+      setEliminandoId(null)
+      eliminacionEnCurso.current = false
+    }
+  }
 
   return (
     <div className={styles.root}>
@@ -53,6 +80,8 @@ export default function CasosPage() {
         visible={mostrarFiltros}
       />
 
+      {errorEliminar && <p role="alert" className={styles.errorEliminar}>{errorEliminar}</p>}
+
       <div className={styles.toolbar}>
         <SearchField classes={styles} placeholder="Buscar por código o título..." value={filtros.search} onChange={(search) => setFiltros({ search })} />
         {!loading && !error && (
@@ -80,7 +109,9 @@ export default function CasosPage() {
             Array.from({ length: 6 }).map((_, i) => <div key={i} className={styles.skeletonCard} />)
           ) : (
             casos.map((caso) => (
-              <CasoCard key={caso.id} caso={caso} onVerDetalle={(id) => navigate(`/casos/${id}`)} />
+              <CasoCard key={caso.id} caso={caso} onVerDetalle={(id) => navigate(`/casos/${id}`)}
+                onEliminar={puedeEscribir ? handleEliminar : undefined}
+                eliminando={eliminandoId === caso.id} eliminarDeshabilitado={eliminandoId !== null} />
             ))
           )}
         </div>

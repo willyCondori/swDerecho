@@ -21,11 +21,18 @@ function formatFecha(iso) {
   return new Date(iso).toLocaleDateString('es-BO', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
-export default function CasoCard({ caso, onVerDetalle }) {
+export default function CasoCard({ caso, onVerDetalle, onEliminar, eliminando = false, eliminarDeshabilitado = false }) {
   const tienePdf = caso.tiene_documento ?? caso.tiene_pdf ?? false
 
   return (
-    <div className={styles.casoCard} onClick={() => onVerDetalle(caso.id)} role="button" tabIndex={0}>
+    <div className={styles.casoCard} onClick={() => onVerDetalle(caso.id)} role="button" tabIndex={0}
+      aria-label={`Ver caso ${caso.titulo}`}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          onVerDetalle(caso.id)
+        }
+      }}>
       <div className={styles.casoTop}>
         <div>
           <div className={styles.casoCodigo}>{caso.codigo}</div>
@@ -48,6 +55,14 @@ export default function CasoCard({ caso, onVerDetalle }) {
 
       <div className={styles.casoFooter}>
         <span className={styles.casoFecha}>{formatFecha(caso.created_at)}</span>
+        <div className={styles.casoAcciones}>
+        {onEliminar && <button type="button" className={styles.eliminarBtn}
+          title="Enviar a la papelera" aria-label={`Eliminar caso ${caso.titulo}`}
+          disabled={eliminarDeshabilitado} aria-busy={eliminando}
+          onClick={(e) => { e.stopPropagation(); onEliminar(caso) }}>
+          <i className="ti ti-trash" aria-hidden="true" />
+          {eliminando ? 'Eliminando…' : 'Eliminar'}
+        </button>}
         <button
           type="button"
           className={styles.detalleLink}
@@ -55,6 +70,7 @@ export default function CasoCard({ caso, onVerDetalle }) {
         >
           Ver detalles <i className="ti ti-arrow-right" aria-hidden="true" />
         </button>
+        </div>
       </div>
     </div>
   )

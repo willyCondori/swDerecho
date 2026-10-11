@@ -10,7 +10,7 @@ import psycopg2
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.db import connection, close_old_connections
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from core.authentication import PasswordRequiredJWTAuthentication
 from modulo_notificaciones.models import Notificacion
 
 logger = logging.getLogger(__name__)
@@ -81,10 +81,10 @@ def origen_permitido(scope):
 def autenticar(token):
     close_old_connections()
     try:
-        auth = JWTAuthentication()
+        auth = PasswordRequiredJWTAuthentication()
         validado = auth.get_validated_token(token)
         usuario = auth.get_user(validado)
-        if not usuario.estado:
+        if not usuario.estado or usuario.debe_cambiar_password:
             raise ValueError('Usuario inactivo')
         return usuario.pk, int(validado['exp'])
     finally:

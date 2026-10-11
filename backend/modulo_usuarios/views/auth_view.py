@@ -1,5 +1,6 @@
 import hashlib
 import secrets
+from core.throttling import LoginThrottle, RecoveryThrottle, RecoveryConfirmThrottle
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -56,6 +57,7 @@ def _delete_refresh_cookie(response: Response) -> None:
 
 
 class LoginView(APIView):
+    throttle_classes = [LoginThrottle]
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -176,6 +178,13 @@ class RefreshTokenView(APIView):
             _delete_refresh_cookie(response)
             return response
 
+        User = get_user_model()
+        user = User.objects.filter(pk=refresh["user_id"], estado=True).first()
+        if user is None:
+            response = Response({"detail": "La cuenta ya no esta activa."}, status=401)
+            _delete_refresh_cookie(response)
+            return response
+
         response = Response({"access_token": access_token}, status=status.HTTP_200_OK)
 
         if settings.SIMPLE_JWT.get("ROTATE_REFRESH_TOKENS", False):
@@ -185,8 +194,6 @@ class RefreshTokenView(APIView):
                 except TokenError:
                     pass
 
-            User = get_user_model()
-            user = User.objects.get(pk=refresh["user_id"])
             nuevo_refresh = RefreshToken.for_user(user)
             _set_refresh_cookie(response, str(nuevo_refresh))
 
@@ -297,6 +304,7 @@ class SolicitarRecuperacionView(APIView):
     ConfirmarRecuperacionView, en la misma pantalla donde pidió la
     recuperación, para terminar de elegir su contraseña definitiva.
     """
+    throttle_classes = [RecoveryThrottle]
     authentication_classes = []
     permission_classes = [AllowAny]
 
@@ -394,6 +402,7 @@ class ConfirmarRecuperacionView(APIView):
     un login (check_password), no contra un token: si es correcta,
     prueba que quien hace este request tiene acceso a esa casilla.
     """
+    throttle_classes = [RecoveryConfirmThrottle]
     authentication_classes = []
     permission_classes = [AllowAny]
 

@@ -1,3 +1,4 @@
+from core.throttling import ANALYSIS_THROTTLES
 from core.public_ids import filtrar_uuid
 from rest_framework import status
 from rest_framework.decorators import action
@@ -22,7 +23,7 @@ from modulo_ia.serializers.ia_serializer import (
     EntidadDetectadaSerializer,
     ResultadoArticuloSerializer,
 )
-from core.permissions.roles import ve_todo
+from core.permissions.casos import casos_visibles
 
 
 # ---------------------------------------------------------------------------
@@ -49,8 +50,7 @@ class ChunkCasoViewSet(ReadOnlyModelViewSet):
         rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
-        if not ve_todo(user):
-            qs = qs.filter(caso__usuario=user)
+        qs = casos_visibles(qs, user, "caso__")
         if caso_id:
             qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
@@ -106,8 +106,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
         rol     = getattr(user.rol, "nombre", "") if user.rol else ""
         caso_id = self.request.query_params.get("caso_id")
 
-        if not ve_todo(user):
-            qs = qs.filter(caso__usuario=user)
+        qs = casos_visibles(qs, user, "caso__")
         if caso_id:
             qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
@@ -268,6 +267,7 @@ class AnalisisCasoView(APIView):
     corre síncrono dentro del request. El avance se consulta con
     GET /api/casos/{id}/ (estado_analisis/analisis_paso).
     """
+    throttle_classes = ANALYSIS_THROTTLES
     permission_classes = [EsOperativo]
 
     def post(self, request):
@@ -281,7 +281,7 @@ class AnalisisCasoView(APIView):
         from modulo_ia.services.analisis_background import iniciar_analisis
 
         try:
-            caso = Caso.objects.get(pk=caso_id, estado=True)
+            caso = casos_visibles(Caso.objects.all(), request.user).get(pk=caso_id)
         except Caso.DoesNotExist:
             return Response({"detail": "Caso no encontrado."}, status=status.HTTP_404_NOT_FOUND)
 

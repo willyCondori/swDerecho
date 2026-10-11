@@ -308,7 +308,7 @@ REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "core.authentication.PasswordRequiredJWTAuthentication",
     ),
 
     "DEFAULT_PERMISSION_CLASSES": (
@@ -346,3 +346,25 @@ TSJ_API_USERNAME = config('TSJ_API_USERNAME', default='buscadorgenesis')
 JURISPRUDENCIA_TOP_N = max(1, min(20, config('JURISPRUDENCIA_TOP_N', default=5, cast=int)))
 JURISPRUDENCIA_UMBRAL = config('JURISPRUDENCIA_UMBRAL', default=0.65, cast=float)
 JURISPRUDENCIA_UMBRAL_RECOMENDACION = config('JURISPRUDENCIA_UMBRAL_RECOMENDACION', default=0.50, cast=float)
+
+# El backend solo recibe trafico del proxy interno de Compose. Nginx sustituye
+# X-Forwarded-For por la IP real, sin confiar en cabeceras del cliente.
+REST_FRAMEWORK["NUM_PROXIES"] = 1
+API_RATE_LIMITS = {
+    "login": config("RATE_LOGIN", default="10/min"),
+    "recovery": config("RATE_RECOVERY", default="5/hour"),
+    "recovery_confirm": config("RATE_RECOVERY_CONFIRM", default="10/min"),
+    "analysis_burst": config("RATE_ANALYSIS_BURST", default="2/min"),
+    "analysis_daily": config("RATE_ANALYSIS_DAILY", default="50/day"),
+}
+CACHES = {
+    "default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"},
+    "security_throttles": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "security_throttle_cache",
+        "OPTIONS": {"MAX_ENTRIES": 10000},
+    },
+}
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+X_FRAME_OPTIONS = "DENY"
