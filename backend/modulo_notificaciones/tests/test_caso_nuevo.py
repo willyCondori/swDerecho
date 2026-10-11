@@ -35,7 +35,7 @@ class CasoNuevoNotificacionTests(APITestCase):
             "titulo": "Nuevo caso de prueba",
             "descripcion": "Descripción del caso para probar las notificaciones.",
             "rama_detectada_id": self.rama.pk,
-            "cliente_id": self.cliente.pk,
+            "cliente_id": str(self.cliente.public_id),
         }
 
     def avisos(self):
@@ -45,7 +45,7 @@ class CasoNuevoNotificacionTests(APITestCase):
         with self.captureOnCommitCallbacks(execute=True):
             respuesta = self.client.post("/api/casos/", self.datos, format="json")
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        avisos = self.avisos().filter(caso_id=respuesta.data["id"])
+        avisos = self.avisos().filter(caso__public_id=respuesta.data["id"])
         self.assertSetEqual(set(avisos.values_list("usuario_id", flat=True)),
                             self.destinatarios)
         for aviso in avisos:
@@ -65,7 +65,7 @@ class CasoNuevoNotificacionTests(APITestCase):
         with self.captureOnCommitCallbacks(execute=True):
             respuesta = self.client.post("/api/casos/crear_con_cliente/", datos, format="json")
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        self.assertEqual(self.avisos().filter(caso_id=respuesta.data["id"]).count(), len(self.destinatarios))
+        self.assertEqual(self.avisos().filter(caso__public_id=respuesta.data["id"]).count(), len(self.destinatarios))
 
     def test_creacion_invalida_no_notifica(self):
         with self.captureOnCommitCallbacks(execute=True) as callbacks:
@@ -82,14 +82,14 @@ class CasoNuevoNotificacionTests(APITestCase):
                 transaction.set_rollback(True)
         self.assertEqual(callbacks, [])
         self.assertFalse(self.avisos().exists())
-        self.assertFalse(Caso.objects.filter(pk=respuesta.data["id"]).exists())
+        self.assertFalse(Caso.objects.filter(public_id=respuesta.data["id"]).exists())
 
     def test_fallo_de_notificacion_no_impide_crear_el_caso(self):
         with patch("modulo_notificaciones.services.notificacion_service.Notificacion.objects.create",
                    side_effect=IntegrityError("fallo simulado")), self.captureOnCommitCallbacks(execute=True):
             respuesta = self.client.post("/api/casos/", self.datos, format="json")
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        self.assertTrue(Caso.objects.filter(pk=respuesta.data["id"]).exists())
+        self.assertTrue(Caso.objects.filter(public_id=respuesta.data["id"]).exists())
 
     def test_creador_administrador_sin_perfil_se_identifica_por_usuario(self):
         self.client.force_authenticate(self.admin)

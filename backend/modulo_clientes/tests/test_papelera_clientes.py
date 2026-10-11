@@ -78,13 +78,13 @@ class PapeleraClientesBase(APITestCase):
 
     def eliminar(self, cliente=None, usuario=None, eliminar_casos=None):
         self.client.force_authenticate(usuario or self.abogado)
-        url = self.url("clientes-detail", (cliente or self.cliente).pk)
+        url = self.url("clientes-detail", (cliente or self.cliente).public_id)
         if eliminar_casos is not None:
             url += f"?eliminar_casos={'true' if eliminar_casos else 'false'}"
         return self.client.delete(url)
 
     def restaurar(self, cliente=None):
-        return self.client.post(self.url("clientes-restaurar", (cliente or self.cliente).pk))
+        return self.client.post(self.url("clientes-restaurar", (cliente or self.cliente).public_id))
 
 
 class ServicioPapeleraClientesTests(PapeleraClientesBase):
@@ -168,7 +168,7 @@ class EliminarClienteTests(PapeleraClientesBase):
         self.assertFalse(self.cliente.estado)
         self.assertEqual(self.cliente.eliminado_por, self.abogado)
         self.assertEqual(resultados(self.client.get(self.url("clientes-list"))), [])
-        self.assertEqual(self.client.get(self.url("clientes-detail", self.cliente.pk)).status_code, 404)
+        self.assertEqual(self.client.get(self.url("clientes-detail", self.cliente.public_id)).status_code, 404)
 
     def test_delete_con_casos_activos_responde_400_con_el_detalle_para_ofrecer_eliminarlos(self):
         self.crear_caso()
@@ -226,7 +226,7 @@ class EliminarClienteTests(PapeleraClientesBase):
 
     def test_desactivar_por_patch_tambien_va_a_la_papelera(self):
         self.client.force_authenticate(self.abogado)
-        r = self.client.patch(self.url("clientes-detail", self.cliente.pk), {"estado": False}, format="json")
+        r = self.client.patch(self.url("clientes-detail", self.cliente.public_id), {"estado": False}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.cliente.refresh_from_db()
         self.assertFalse(self.cliente.estado)
@@ -237,7 +237,7 @@ class EliminarClienteTests(PapeleraClientesBase):
         self.crear_caso()
         self.client.force_authenticate(self.abogado)
         r = self.client.patch(
-            self.url("clientes-detail", self.cliente.pk),
+            self.url("clientes-detail", self.cliente.public_id),
             {"nombres": "Otro", "estado": False}, format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
@@ -261,7 +261,7 @@ class ListadoPapeleraClientesTests(PapeleraClientesBase):
         self.assertEqual(resultados(self.client.get(self.url("clientes-papelera"))), [])
         enviar_cliente_a_papelera(self.cliente, self.abogado)
         fila = resultados(self.client.get(self.url("clientes-papelera")))[0]
-        self.assertEqual(fila["id"], self.cliente.pk)
+        self.assertEqual(fila["id"], str(self.cliente.public_id))
         self.assertEqual(fila["nombre_completo"], "Ana Rojas")
         self.assertEqual(fila["telefono"], "71234567")
         self.assertEqual(fila["eliminado_por_nombre"], "Laura Quispe")
@@ -325,17 +325,17 @@ class RestaurarClienteTests(PapeleraClientesBase):
         self.assertFalse(self.caso_antes.estado)
         self.assertEqual(resultados(self.client.get(self.url("clientes-papelera"))), [])
         activos = self.client.get(self.url("clientes-list"))
-        self.assertEqual([c["id"] for c in resultados(activos)], [self.cliente.pk])
+        self.assertEqual([c["id"] for c in resultados(activos)], [str(self.cliente.public_id)])
 
     def test_el_caso_eliminado_antes_se_puede_restaurar_una_vez_activo_el_cliente(self):
         self.client.force_authenticate(self.abogado)
         # Con el cliente eliminado no se puede: 409 con la indicación de restaurar primero al cliente
-        r = self.client.post(self.url("casos-restaurar", self.caso_antes.pk))
+        r = self.client.post(self.url("casos-restaurar", self.caso_antes.public_id))
         self.assertEqual(r.status_code, status.HTTP_409_CONFLICT)
         self.assertIn("Restaura primero al cliente", r.data["detail"])
         # Restaurado el cliente, ya se puede
         self.restaurar()
-        r = self.client.post(self.url("casos-restaurar", self.caso_antes.pk))
+        r = self.client.post(self.url("casos-restaurar", self.caso_antes.public_id))
         self.assertEqual(r.status_code, status.HTTP_200_OK)
 
     def test_restaurar_queda_en_auditoria_del_cliente_y_de_cada_caso(self):
@@ -358,7 +358,7 @@ class RestaurarClienteTests(PapeleraClientesBase):
         self.restaurar()
         self.assertEqual(self.restaurar().status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(
-            self.client.post(self.url("clientes-restaurar", 999999)).status_code, status.HTTP_404_NOT_FOUND
+            self.client.post(self.url("clientes-restaurar", "00000000-0000-4000-8000-000000000000")).status_code, status.HTTP_404_NOT_FOUND
         )
 
 

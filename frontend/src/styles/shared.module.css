@@ -58,7 +58,7 @@
 .btnPrimary {
   background: var(--c-purple-600);
   border: none;
-  color: var(--c-purple-50);
+  color: var(--c-on-accent);
 }
 .btnPrimary:hover:not(:disabled) { background: var(--c-purple-700); }
 .btnPrimary:disabled { opacity: 0.6; cursor: not-allowed; }

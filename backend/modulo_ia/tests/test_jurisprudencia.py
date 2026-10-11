@@ -73,6 +73,32 @@ class ImportacionTests(TestCase):
 
 
 class RecuperacionTests(APITestCase):
+    def test_recuperacion_hibrida_rescata_cuerpo_de_menor_confianza_y_descarta_caratula(self):
+        vector = [.55, (1 - .55 ** 2) ** .5] + [0.] * 766
+        r = self.resolucion(55, vector=vector)
+        f = r.fragmentos.get()
+        f.contenido = 'El Tribunal examinó los elementos del delito de robo agravado y estableció la aplicación del artículo 332 del Código Penal.'
+        f.save(update_fields=['contenido'])
+        encabezado = FragmentoJurisprudencia.objects.create(resolucion=r, orden=1,
+            contenido='TRIBUNAL SUPREMO DE JUSTICIA SALA PENAL AUTO SUPREMO Número 55 Partes: Ministerio Público contra A y B Delito: Robo agravado')
+        EmbeddingJurisprudencia.objects.create(fragmento=encabezado, vector=VECTOR, modelo_version=version_activa())
+        with override_settings(JURISPRUDENCIA_UMBRAL=.65, JURISPRUDENCIA_UMBRAL_RECOMENDACION=.50):
+            salida = JurisprudenciaService.calcular(self.caso)
+        self.assertEqual(len(salida['resultados']), 1)
+        resultado = salida['resultados'][0]
+        self.assertTrue(resultado.es_sugerencia)
+        self.assertEqual(resultado.fragmento, f.contenido)
+        self.assertEqual(resultado.coincidencias, ['Robo'])
+        self.assertAlmostEqual(resultado.score_semantico, .55, places=5)
+
+    def test_secuestro_de_objetos_no_se_publica_para_secuestro_de_personas(self):
+        self.caso.chunks.update(contenido='Intentaron secuestrarme')
+        r = self.resolucion(56)
+        f = r.fragmentos.get()
+        f.contenido = 'El Tribunal examinó el acta de secuestro de hoja de coca y estableció los requisitos de la prueba documental presentada.'
+        f.save(update_fields=['contenido'])
+        self.assertEqual(JurisprudenciaService.calcular(self.caso)['estado'], 'sin_coincidencias')
+
     def setUp(self):
         self.usuario = crear_usuario("juris.abogado", rol=crear_rol("Abogado"))
         self.caso = Caso.objects.create(codigo="JURIS-1", titulo="Robo de teléfono", descripcion=TEXTO,
@@ -127,7 +153,7 @@ class RecuperacionTests(APITestCase):
             salida = ejecutar_analisis_caso(self.caso.pk)
         self.assertNotIn("error", salida)
         self.assertEqual(salida["resoluciones_relacionadas"], 1)
-        url = f"/api/casos/{self.caso.pk}/jurisprudencia/"
+        url = f"/api/casos/{self.caso.public_id}/jurisprudencia/"
         self.assertEqual(self.client.get(url).status_code, 401)
         asistente = crear_usuario("juris.asistente", rol=crear_rol("Asistente"))
         self.client.force_authenticate(asistente)

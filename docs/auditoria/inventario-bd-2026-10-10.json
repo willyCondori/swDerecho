@@ -1,0 +1,307 @@
+{
+  "modelos": [
+    {
+      "modelo": "admin.LogEntry",
+      "tabla": "django_admin_log",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "auth.Permission",
+      "tabla": "auth_permission",
+      "existe": true,
+      "filas": 196
+    },
+    {
+      "modelo": "auth.Group_permissions",
+      "tabla": "auth_group_permissions",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "auth.Group",
+      "tabla": "auth_group",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "contenttypes.ContentType",
+      "tabla": "django_content_type",
+      "existe": true,
+      "filas": 49
+    },
+    {
+      "modelo": "sessions.Session",
+      "tabla": "django_session",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_auditoria.Auditoria",
+      "tabla": "auditoria",
+      "existe": true,
+      "filas": 79
+    },
+    {
+      "modelo": "modulo_casos.Caso",
+      "tabla": "casos",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_casos.Hecho",
+      "tabla": "hechos",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_casos.HechoCaso",
+      "tabla": "hechos_casos",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_casos.Petitorio",
+      "tabla": "petitorios",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_casos.PetitorioCaso",
+      "tabla": "petitorios_casos",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_casos.ResultadoCaso",
+      "tabla": "resultados_caso",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_casos.SeguimientoCaso",
+      "tabla": "seguimientos_caso",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_catalogo.RamaDerecho",
+      "tabla": "ramas_derecho",
+      "existe": true,
+      "filas": 2
+    },
+    {
+      "modelo": "modulo_catalogo.jerarquia",
+      "tabla": "jerarquias",
+      "existe": true,
+      "filas": 10
+    },
+    {
+      "modelo": "modulo_catalogo.Norma",
+      "tabla": "normas",
+      "existe": true,
+      "filas": 13
+    },
+    {
+      "modelo": "modulo_catalogo.EntidadJuridica",
+      "tabla": "entidades_juridicas",
+      "existe": true,
+      "filas": 43
+    },
+    {
+      "modelo": "modulo_catalogo.Articulo",
+      "tabla": "articulos",
+      "existe": true,
+      "filas": 1773
+    },
+    {
+      "modelo": "modulo_catalogo.ArticuloEntidad",
+      "tabla": "articulo_entidades",
+      "existe": true,
+      "filas": 2137
+    },
+    {
+      "modelo": "modulo_catalogo.DocumentoNorma",
+      "tabla": "documentos_norma",
+      "existe": true,
+      "filas": 28
+    },
+    {
+      "modelo": "modulo_catalogo.CambioNormativo",
+      "tabla": "modulo_catalogo_cambionormativo",
+      "existe": true,
+      "filas": 768
+    },
+    {
+      "modelo": "modulo_catalogo.VersionArticulo",
+      "tabla": "modulo_catalogo_versionarticulo",
+      "existe": true,
+      "filas": 2347
+    },
+    {
+      "modelo": "modulo_catalogo.DocumentoOficial",
+      "tabla": "modulo_catalogo_documentooficial",
+      "existe": true,
+      "filas": 869
+    },
+    {
+      "modelo": "modulo_catalogo.HistorialArticulo",
+      "tabla": "modulo_catalogo_historialarticulo",
+      "existe": true,
+      "filas": 13
+    },
+    {
+      "modelo": "modulo_catalogo.DisposicionNormativa",
+      "tabla": "disposiciones_normativas",
+      "existe": true,
+      "filas": 34
+    },
+    {
+      "modelo": "modulo_clientes.Cliente",
+      "tabla": "clientes",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_clientes.ClienteBusquedaToken",
+      "tabla": "clientes_busqueda_tokens",
+      "existe": true,
+      "filas": 28
+    },
+    {
+      "modelo": "modulo_documentos.TipoDoc",
+      "tabla": "tipo_doc",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_documentos.DocumentoCaso",
+      "tabla": "documentos_caso",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_documentos.TextoDocumentoCaso",
+      "tabla": "textos_documentos_caso",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_documentos.PlantillaDocumento",
+      "tabla": "plantillas_documento",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_documentos.DocumentoGenerado",
+      "tabla": "documentos_generados",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_ia.ChunkCaso",
+      "tabla": "chunks_caso",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_ia.EntidadDetectadaCaso",
+      "tabla": "entidades_detectadas_caso",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_ia.EmbeddingArticulo",
+      "tabla": "embeddings_articulos",
+      "existe": true,
+      "filas": 3536
+    },
+    {
+      "modelo": "modulo_ia.EmbeddingChunk",
+      "tabla": "embeddings_chunk",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_ia.ResultadoArticulo",
+      "tabla": "resultado_articulos",
+      "existe": true,
+      "filas": 7
+    },
+    {
+      "modelo": "modulo_ia.ValoracionArticulo",
+      "tabla": "modulo_ia_valoracionarticulo",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_ia.ResolucionJurisprudencia",
+      "tabla": "jurisprudencia_resoluciones",
+      "existe": true,
+      "filas": 9671
+    },
+    {
+      "modelo": "modulo_ia.FragmentoJurisprudencia",
+      "tabla": "jurisprudencia_fragmentos",
+      "existe": true,
+      "filas": 195441
+    },
+    {
+      "modelo": "modulo_ia.EmbeddingJurisprudencia",
+      "tabla": "jurisprudencia_embeddings",
+      "existe": true,
+      "filas": 207713
+    },
+    {
+      "modelo": "modulo_ia.ResultadoJurisprudencia",
+      "tabla": "jurisprudencia_resultados",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "modulo_notificaciones.Notificacion",
+      "tabla": "notificaciones",
+      "existe": true,
+      "filas": 15
+    },
+    {
+      "modelo": "modulo_usuarios.Rol",
+      "tabla": "roles",
+      "existe": true,
+      "filas": 3
+    },
+    {
+      "modelo": "modulo_usuarios.Usuario",
+      "tabla": "usuarios",
+      "existe": true,
+      "filas": 2
+    },
+    {
+      "modelo": "modulo_usuarios.PerfilUsuario",
+      "tabla": "perfil_usuarios",
+      "existe": true,
+      "filas": 1
+    },
+    {
+      "modelo": "modulo_usuarios.PasswordResetToken",
+      "tabla": "password_reset_tokens",
+      "existe": true,
+      "filas": 0
+    },
+    {
+      "modelo": "token_blacklist.OutstandingToken",
+      "tabla": "token_blacklist_outstandingtoken",
+      "existe": true,
+      "filas": 75
+    },
+    {
+      "modelo": "token_blacklist.BlacklistedToken",
+      "tabla": "token_blacklist_blacklistedtoken",
+      "existe": true,
+      "filas": 61
+    }
+  ],
+  "tablas_sin_modelo": [
+    "django_migrations"
+  ]
+}

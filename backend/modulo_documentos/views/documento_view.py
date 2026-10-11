@@ -1,3 +1,4 @@
+from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 import hashlib
 import os
 
@@ -55,7 +56,7 @@ class TipoDocViewSet(AuditoriaMixin, ModelViewSet):
 # DocumentoCaso
 # ---------------------------------------------------------------------------
 
-class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
+class DocumentoCasoViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
     """
     GET    /api/documentos/documentos/            — lista [abogado, admin]
     POST   /api/documentos/documentos/            — subir documento
@@ -88,7 +89,7 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
         if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
-            qs = qs.filter(caso_id=caso_id)
+            qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
 
     def perform_create(self, serializer):
@@ -145,7 +146,7 @@ class DocumentoCasoViewSet(AuditoriaMixin, ModelViewSet):
                 {"detail": "Parámetro caso_id requerido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs         = self.get_queryset().filter(caso_id=caso_id)
+        qs         = filtrar_uuid(self.get_queryset(), "caso__public_id", caso_id)
         serializer = DocumentoCasoReadSerializer(qs, many=True, context={"request": request})
         return Response(serializer.data)
 
@@ -212,7 +213,7 @@ class PlantillaDocumentoViewSet(AuditoriaMixin, ModelViewSet):
 # DocumentoGenerado
 # ---------------------------------------------------------------------------
 
-class DocumentoGeneradoViewSet(ModelViewSet):
+class DocumentoGeneradoViewSet(VistaIdentificadorPublicoMixin, ModelViewSet):
     """
     GET    /api/documentos-generados/              — lista
     GET    /api/documentos-generados/{id}/         — detalle
@@ -238,7 +239,7 @@ class DocumentoGeneradoViewSet(ModelViewSet):
             qs = qs.filter(caso__usuario=user)
         caso_id = self.request.query_params.get("caso_id")
         if caso_id:
-            qs = qs.filter(caso_id=caso_id)
+            qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
 
     @action(detail=False, methods=["post"], url_path="generar")
@@ -314,7 +315,7 @@ class DocumentoGeneradoViewSet(ModelViewSet):
                 {"detail": "Parámetro caso_id requerido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = self.get_queryset().filter(caso_id=caso_id)
+        qs = filtrar_uuid(self.get_queryset(), "caso__public_id", caso_id)
         return Response(
             DocumentoGeneradoSerializer(qs, many=True, context={"request": request}).data
         )

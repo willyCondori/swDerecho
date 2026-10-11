@@ -255,7 +255,7 @@ LOGIN_BLOQUEO_MINUTOS = int(os.getenv("LOGIN_BLOQUEO_MINUTOS", "15"))
 # Carpeta donde viven los modelos locales (backend/modelos/).
 MODELOS_DIR = BASE_DIR / 'modelos'
 
-_MODELO_POR_DEFECTO = MODELOS_DIR / 'e5_base'
+_MODELO_POR_DEFECTO = MODELOS_DIR / 'sw-derecho-embeddings-v1-final'
 
 _modelo_cfg = config('SENTENCE_TRANSFORMER_MODEL', default=str(_MODELO_POR_DEFECTO))
 
@@ -345,3 +345,4 @@ TSJ_API_KEY = config('TSJ_API_KEY', default='')
 TSJ_API_USERNAME = config('TSJ_API_USERNAME', default='buscadorgenesis')
 JURISPRUDENCIA_TOP_N = max(1, min(20, config('JURISPRUDENCIA_TOP_N', default=5, cast=int)))
 JURISPRUDENCIA_UMBRAL = config('JURISPRUDENCIA_UMBRAL', default=0.65, cast=float)
+JURISPRUDENCIA_UMBRAL_RECOMENDACION = config('JURISPRUDENCIA_UMBRAL_RECOMENDACION', default=0.50, cast=float)

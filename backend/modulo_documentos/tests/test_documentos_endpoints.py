@@ -68,14 +68,14 @@ class DocumentosUrlsTests(APITestCase):
             caso=self.caso, nombre_original="respaldo.pdf", ruta_archivo="x/respaldo.pdf",
             tipo_archivo="pdf", tamano=100, tipo_documento=self.tipo,
         )
-        resp = self.client.get(f"{URL_DOCUMENTOS}por_caso/", {"caso_id": self.caso.pk})
+        resp = self.client.get(f"{URL_DOCUMENTOS}por_caso/", {"caso_id": str(self.caso.public_id)})
         self.assertEqual(resp.status_code, status.HTTP_200_OK)
         self.assertEqual(len(resp.data), 1)
 
     def test_subir_documento_en_la_url_real(self):
         pdf = SimpleUploadedFile("respaldo.pdf", _pdf_valido_minimo(), content_type="application/pdf")
         resp = self.client.post(URL_DOCUMENTOS, {
-            "caso": self.caso.pk, "archivo": pdf, "tipo_documento": self.tipo.pk,
+            "caso": str(self.caso.public_id), "archivo": pdf, "tipo_documento": self.tipo.pk,
         }, format="multipart")
         self.assertEqual(resp.status_code, status.HTTP_201_CREATED, resp.data)
 
@@ -84,7 +84,7 @@ class DocumentosUrlsTests(APITestCase):
             caso=self.caso, nombre_original="respaldo.pdf", ruta_archivo="no/existe.pdf",
             tipo_archivo="pdf", tamano=100, tipo_documento=self.tipo,
         )
-        resp = self.client.get(f"{URL_DOCUMENTOS}{doc.pk}/descargar/")
+        resp = self.client.get(f"{URL_DOCUMENTOS}{doc.public_id}/descargar/")
         # El archivo físico no existe en este test (no se subió al disco),
         # pero la URL en sí debe resolver a la vista, no dar 404 de ruteo.
         self.assertIn(resp.status_code, [status.HTTP_200_OK, status.HTTP_404_NOT_FOUND])

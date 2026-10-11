@@ -369,7 +369,14 @@ class RankingService:
         # principal aunque el caso las mencione explícitamente. Se agregan
         # aparte, con un umbral más bajo y un tope, para no perderlas ni
         # tampoco inundar el ranking de ruido.
-        sugerencias = []
+        from .contexto_tentativa_service import ContextoTentativaService
+        recomendaciones_tentativa = [
+            (*c[:4], True) for c in candidatos
+            if ContextoTentativaService.motivo(articulos_por_id[c[1]], texto_caso_completo)
+        ]
+        ids_tentativa = {c[1] for c in recomendaciones_tentativa}
+        candidatos = [c for c in candidatos if c[1] not in ids_tentativa]
+        sugerencias = recomendaciones_tentativa.copy()
         figuras_detectadas = FiguraTransversalService.detectar_figuras(texto_caso_completo, nombre_rama)
         if figuras_detectadas:
             articulos_figura = FiguraTransversalService.articulos_por_figuras(
@@ -403,7 +410,7 @@ class RankingService:
                     candidatos_figura.append(candidato)
 
             candidatos_figura.sort(key=lambda c: c[0], reverse=True)
-            sugerencias = candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS]
+            sugerencias.extend(candidatos_figura[:MAX_FIGURAS_TRANSVERSALES_FORZADAS])
 
         if hay_menores:
             proteccion = [a for a in ProteccionMenoresService.articulos()
@@ -423,6 +430,13 @@ class RankingService:
                         articulo, score, 0.0, entidades_por_chunk.get(chunk_id, set()),
                         max_frecuencia, es_sugerencia=True,
                     ))
+
+        # La decisión manual se aplica a todas las vías de recuperación,
+        # antes del heap, para que no consuma posiciones ni reaparezca como complemento.
+        from modulo_ia.services.valoracion_service import articulos_excluidos
+        excluidos = articulos_excluidos(caso)
+        candidatos = [c for c in candidatos if c[1] not in excluidos]
+        sugerencias = [c for c in sugerencias if c[1] not in excluidos]
 
         heap = []
         for score_float, articulo_id, score_total, sub_scores, es_sugerencia in candidatos:
@@ -447,10 +461,14 @@ class RankingService:
         from modulo_ia.models.resultado import ResultadoArticulo
         ResultadoArticulo.objects.filter(caso=caso).delete()
 
+        from modulo_ia.services.valoracion_service import contexto_caso
+        contexto_evaluado = contexto_caso(caso)
         resultados = []
         for posicion, (_, articulo_id, score_total, sub_scores, es_sugerencia) in enumerate(top_ordenado, start=1):
             data = {
                 "caso": caso.pk,
+                "modelo_version": version_activa(),
+                "contexto_evaluado": contexto_evaluado,
                 "articulo": articulo_id,
                 "posicion": posicion,
                 "es_sugerencia": es_sugerencia,

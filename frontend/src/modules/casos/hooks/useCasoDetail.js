@@ -13,6 +13,8 @@ export default function useCasoDetail(id) {
   const [analizando, setAnalizando] = useState(false)
   const [subiendoPdf, setSubiendoPdf] = useState(false)
   const [eliminando, setEliminando] = useState(false)
+  const [valorando, setValorando] = useState(null)
+  const [errorValoracion, setErrorValoracion] = useState('')
 
   const cargar = useCallback(async () => {
     setLoading(true)
@@ -29,8 +31,8 @@ export default function useCasoDetail(id) {
         setSeguimientos([])
       }
 
-      // Los artículos solo existen si ya hay resultado de análisis
-      if (data.resultado) {
+      // Las selecciones manuales sobreviven aunque no exista un ranking actual.
+      {
         try {
           const { data: arts } = await casosApi.articulos(id)
           setArticulos(arts)
@@ -76,18 +78,25 @@ export default function useCasoDetail(id) {
   useEffect(() => {
     if (caso?.estado_analisis !== 'procesando') return
 
+    let consultando = false
     const intervalo = setInterval(async () => {
+      if (consultando) return
+      consultando = true
       try {
-        const { data } = await casosApi.obtener(id)
-        setCaso(data)
+        const { data } = await casosApi.estadoAnalisis(id)
+        setCaso((prev) => ({ ...prev, ...data }))
         if (data.estado_analisis === 'completado') {
+          const { data: detalle } = await casosApi.obtener(id)
+          setCaso(detalle)
           const { data: arts } = await casosApi.articulos(id)
           setArticulos(arts)
         }
       } catch (e) {
         console.error('Error consultando el estado del análisis:', e)
+      } finally {
+        consultando = false
       }
-    }, 4000)
+    }, 1000)
 
     return () => clearInterval(intervalo)
   }, [id, caso?.estado_analisis])
@@ -149,7 +158,29 @@ export default function useCasoDetail(id) {
     }
   }
 
+  const valorarArticulo = async (resultadoId, valor) => {
+    setValorando(resultadoId)
+    setErrorValoracion('')
+    try {
+      const articulo = articulos.find((a) => a.id === resultadoId)
+      const referencia = articulo?.seleccion_historica ? { valoracion_id: articulo.valoracion_id } : { resultado_id: resultadoId }
+      const { data } = await casosApi.valorarArticulo(id, { ...referencia, valor })
+      setArticulos((prev) => prev.map((a) => a.id === resultadoId ? { ...a, valoracion: data.valoracion,
+        valoracion_id: data.valoracion_id ?? a.valoracion_id,
+        valoracion_desactualizada: data.valoracion_desactualizada ?? a.valoracion_desactualizada } : a))
+      return true
+    } catch (e) {
+      setErrorValoracion(mensajeErrorApi(e, 'No se pudo guardar la valoración.'))
+      return false
+    } finally {
+      setValorando(null)
+    }
+  }
+
   return {
+    valorarArticulo,
+    valorando,
+    errorValoracion,
     caso,
     articulos,
     seguimientos,

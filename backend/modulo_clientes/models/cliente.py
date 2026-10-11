@@ -1,9 +1,11 @@
+import uuid
 from django.db import models
 
 from modulo_usuarios.models.usuario import Usuario
 
 
 class Cliente(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Datos personales del cliente atendido.
     Todos los datos personales se almacenan cifrados (AES-256).

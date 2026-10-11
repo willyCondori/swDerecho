@@ -96,7 +96,7 @@ class CambiarEtapaEndpointTests(SeguimientoBase):
         if nota is not None:
             data["nota"] = nota
         return self.client.post(
-            self.url("casos-cambiar-etapa", (caso or self.caso).pk), data, format="json"
+            self.url("casos-cambiar-etapa", (caso or self.caso).public_id), data, format="json"
         )
 
     def test_abogado_cambia_etapa_y_queda_historial(self):
@@ -130,7 +130,7 @@ class CambiarEtapaEndpointTests(SeguimientoBase):
 
     def test_falta_etapa(self):
         self.client.force_authenticate(self.abogado)
-        r = self.client.post(self.url("casos-cambiar-etapa", self.caso.pk), {}, format="json")
+        r = self.client.post(self.url("casos-cambiar-etapa", self.caso.public_id), {}, format="json")
         self.assertEqual(r.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_misma_etapa_sin_nota_es_rechazada(self):
@@ -186,7 +186,7 @@ class CambiarEtapaEndpointTests(SeguimientoBase):
     def test_patch_no_permite_saltarse_el_historial(self):
         self.client.force_authenticate(self.abogado)
         r = self.client.patch(
-            self.url("casos-detail", self.caso.pk), {"etapa": "cerrado"}, format="json"
+            self.url("casos-detail", self.caso.public_id), {"etapa": "cerrado"}, format="json"
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.caso.refresh_from_db()
@@ -200,7 +200,7 @@ class LineaDeTiempoEndpointTests(SeguimientoBase):
         registrar_seguimiento(self.caso, EtapaCaso.AUDIENCIAS, self.admin, "Audiencia fijada")
 
         self.client.force_authenticate(self.asistente)  # el asistente puede leer
-        r = self.client.get(self.url("casos-seguimiento", self.caso.pk))
+        r = self.client.get(self.url("casos-seguimiento", self.caso.public_id))
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertEqual([e["etapa"] for e in r.data], ["audiencias", "en_analisis", "registrado"])
         self.assertEqual(r.data[0]["usuario_nombre"], "admin1")  # sin perfil: cae al usuario
@@ -212,7 +212,7 @@ class LineaDeTiempoEndpointTests(SeguimientoBase):
     def test_caso_inexistente(self):
         self.client.force_authenticate(self.abogado)
         self.assertEqual(
-            self.client.get(self.url("casos-seguimiento", 999999)).status_code,
+            self.client.get(self.url("casos-seguimiento", "00000000-0000-4000-8000-000000000000")).status_code,
             status.HTTP_404_NOT_FOUND,
         )
 
@@ -222,7 +222,7 @@ class ListadoYDetalleTests(SeguimientoBase):
         registrar_seguimiento(self.caso, EtapaCaso.JUICIO, self.abogado)
         self.client.force_authenticate(self.abogado)
 
-        detalle = self.client.get(self.url("casos-detail", self.caso.pk))
+        detalle = self.client.get(self.url("casos-detail", self.caso.public_id))
         self.assertEqual(detalle.data["etapa"], "juicio")
         self.assertEqual(detalle.data["etapa_display"], "En juicio (etapa probatoria)")
         self.assertIsNotNone(detalle.data["etapa_actualizada_at"])
@@ -249,14 +249,14 @@ class CrearCasoGeneraEntradaInicialTests(SeguimientoBase):
             {
                 "titulo": "Nuevo caso de prueba",
                 "descripcion": "Descripción suficiente del caso",
-                "cliente_id": self.cliente.pk,
+                "cliente_id": str(self.cliente.public_id),
                 "rama_detectada_id": self.rama.pk,
             },
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
         self.assertEqual(r.data["etapa"], "registrado")
-        caso = Caso.objects.get(pk=r.data["id"])
+        caso = Caso.objects.get(public_id=r.data["id"])
         entradas = SeguimientoCaso.objects.filter(caso=caso)
         self.assertEqual(entradas.count(), 1)
         self.assertEqual(entradas[0].usuario, self.abogado)
@@ -275,4 +275,4 @@ class CrearCasoGeneraEntradaInicialTests(SeguimientoBase):
             format="json",
         )
         self.assertEqual(r.status_code, status.HTTP_201_CREATED, r.data)
-        self.assertEqual(SeguimientoCaso.objects.filter(caso_id=r.data["id"]).count(), 1)
+        self.assertEqual(SeguimientoCaso.objects.filter(caso__public_id=r.data["id"]).count(), 1)

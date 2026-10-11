@@ -1,0 +1,80 @@
+/* Paleta de noche y valores por defecto. */
+:root {
+  /* ── Paleta base ──────────────────────────────────────────── */
+  --c-bg-deep:       #111110;
+  --c-bg-base:       #1a1a18;
+  --c-bg-surface:    #222220;
+  --c-bg-elevated:   #2C2C2A;
+  --c-bg-hover:      #343430;
+  --c-bg-active:     #3d3d38;
+
+  --c-border:        #383836;
+  --c-border-strong: #4a4a46;
+  --c-border-focus:  #7F77DD;
+
+  --c-text-primary:  #D3D1C7;
+  --c-text-secondary:#888780;
+  --c-text-muted:    #5F5E5A;
+  --c-text-disabled: #3d3d38;
+
+  /* ── Acento principal: púrpura ────────────────────────────── */
+  --c-purple-900:    #1a1630;
+  --c-purple-800:    #26215C;
+  --c-purple-700:    #3C3489;
+  --c-purple-600:    #534AB7;
+  --c-purple-500:    #7F77DD;
+  --c-purple-300:    #AFA9EC;
+  --c-purple-100:    #CECBF6;
+  --c-purple-50:     #EEEDFE;
+
+  /* ── Verde: éxito / confirmación ─────────────────────────── */
+  --c-green-800:     #27500A;
+  --c-green-600:     #3B6D11;
+  --c-green-500:     #639922;
+  --c-green-300:     #97C459;
+  --c-green-100:     #C0DD97;
+  --c-green-50:      #EAF3DE;
+
+  /* ── Ámbar: advertencia / pendiente ──────────────────────── */
+  --c-amber-800:     #633806;
+  --c-amber-600:     #854F0B;
+  --c-amber-400:     #EF9F27;
+  --c-amber-100:     #FAC775;
+  --c-amber-50:      #FAEEDA;
+
+  /* ── Rojo: peligro ──────────────────────────────────────── */
+  --c-red-800:       #791F1F;
+  --c-red-600:       #A32D2D;
+  --c-red-400:       #E24B4A;
+  --c-red-100:       #F7C1C1;
+  --c-red-50:        #FCEBEB;
+
+  /* ── Azul: info ─────────────────────────────────────────── */
+  --c-blue-800:      #0C447C;
+  --c-blue-600:      #185FA5;
+  --c-blue-400:      #378ADD;
+  --c-blue-100:      #B5D4F4;
+  --c-blue-50:       #E6F1FB;
+
+}
+
+
+:root {
+  color-scheme: dark;
+  --c-text-secondary: #aaa9a2;
+  --c-text-muted: #a3a29b;
+  --c-text-disabled: #83827c;
+  --c-border-default: var(--c-border);
+  --c-primary: var(--c-purple-600);
+  --c-blue-500: var(--c-blue-400);
+  --c-purple-200: var(--c-purple-100);
+  --c-purple-400: var(--c-purple-500);
+  --c-on-accent: #ffffff;
+  --c-selection-bg: var(--c-bg-surface);
+  --c-selection-text: var(--c-text-primary);
+  --c-selection-border: var(--c-border-strong);
+  --c-selection-indicator: #96958e;
+  --c-success-bg: rgba(99, 153, 34, .14);
+  --c-success-text: var(--c-green-300);
+}
+

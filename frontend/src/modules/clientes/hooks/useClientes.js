@@ -1,5 +1,5 @@
 // modules/clientes/hooks/useClientes.js
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import clientesApi from '../../../api/clientesApi'
 
 const PAGE_SIZE = 10
@@ -11,22 +11,26 @@ export default function useClientes() {
   const [search, setSearchState] = useState('')
   const [page, setPage] = useState(1)
   const [count, setCount] = useState(0)
+  const ultimaPeticion = useRef(0)
 
   const buscando = search.trim().length >= 2
 
   const paginaServidor = buscando ? 1 : page
 
   const load = useCallback(async () => {
+    const peticion = ++ultimaPeticion.current
     setLoading(true)
     setError(null)
     try {
       if (buscando) {
         // /clientes/buscar/ no está paginado: descifra e itera en el backend
         const { data } = await clientesApi.buscar(search.trim())
+        if (peticion !== ultimaPeticion.current) return
         setClientes(data ?? [])
         setCount(data?.length ?? 0)
       } else {
         const { data } = await clientesApi.listar({ page: paginaServidor, page_size: PAGE_SIZE })
+        if (peticion !== ultimaPeticion.current) return
         if (Array.isArray(data)) {
           setClientes(data)
           setCount(data.length)
@@ -36,15 +40,17 @@ export default function useClientes() {
         }
       }
     } catch (e) {
+      if (peticion !== ultimaPeticion.current) return
       console.error('Error cargando clientes:', e, e?.response?.data)
       setError('No se pudieron cargar los clientes.')
     } finally {
-      setLoading(false)
+      if (peticion === ultimaPeticion.current) setLoading(false)
     }
   }, [paginaServidor, search, buscando])
 
   useEffect(() => {
     load()
+    return () => { ultimaPeticion.current += 1 }
   }, [load])
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))

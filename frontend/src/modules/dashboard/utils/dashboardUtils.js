@@ -2,14 +2,18 @@
 import styles from '../pages/DashboardPage.module.css'
 
 export function getEstadoBadge(caso) {
+  if (caso.estado_analisis === 'error') return { label: 'Con error', cls: styles.error }
+  if (caso.estado_analisis === 'procesando') return { label: 'Analizando', cls: styles.analizando }
+  if (caso.estado_analisis === 'pendiente') return { label: 'Pendiente', cls: styles.pendiente }
+  if (caso.estado_analisis === 'completado') return { label: 'Completo', cls: styles.completo }
   if (caso.tiene_resultado) return { label: 'Completo', cls: styles.completo }
-  if (caso.tiene_documento) return { label: 'Analizando', cls: styles.analizando }
   return { label: 'Pendiente', cls: styles.pendiente }
 }
 
 export function getBorderClass(caso) {
-  if (caso.tiene_resultado) return styles.borderGreen
-  if (caso.tiene_documento) return styles.borderPurple
+  const estado = getEstadoBadge(caso).label
+  if (estado === 'Completo') return styles.borderGreen
+  if (estado === 'Analizando') return styles.borderPurple
   return styles.borderAmber
 }
 

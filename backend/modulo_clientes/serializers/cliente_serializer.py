@@ -1,3 +1,4 @@
+from core.public_ids import IdentificadorPublicoSerializer, ReferenciaPublicaField, ClaveInternaDesdeUUIDField
 import re
 from datetime import date
 
@@ -45,10 +46,10 @@ class ClienteNombreMixin:
     def get_nombre_completo(self, obj):
         nombres, apellidos = self._nombre_descifrado(obj)
         if nombres == "[cifrado]" or apellidos == "[cifrado]":
-            return f"Cliente #{obj.id}"
+            return f"Cliente {obj.public_id}"
         return f"{nombres} {apellidos}".strip()
 
-class ClienteReadSerializer(ClienteNombreMixin, serializers.ModelSerializer):
+class ClienteReadSerializer(ClienteNombreMixin, IdentificadorPublicoSerializer):
     nombres = serializers.SerializerMethodField()
     apellidos = serializers.SerializerMethodField()
     telefono = serializers.SerializerMethodField()
@@ -70,7 +71,7 @@ class ClienteReadSerializer(ClienteNombreMixin, serializers.ModelSerializer):
         return safe_decrypt(obj.telefono)
 
 
-class ClienteListSerializer(ClienteNombreMixin, serializers.ModelSerializer):
+class ClienteListSerializer(ClienteNombreMixin, IdentificadorPublicoSerializer):
     """Versión compacta para selects y búsquedas."""
     nombre_completo = serializers.SerializerMethodField()
 
@@ -79,7 +80,7 @@ class ClienteListSerializer(ClienteNombreMixin, serializers.ModelSerializer):
         fields = ["id", "nombre_completo"]
 
 
-class ClientePapeleraSerializer(ClienteNombreMixin, serializers.ModelSerializer):
+class ClientePapeleraSerializer(ClienteNombreMixin, IdentificadorPublicoSerializer):
     """
     Cliente eliminado, para el listado de la papelera. `casos_para_restaurar`
     son los casos que se eliminaron junto con él y que volverán al restaurarlo.

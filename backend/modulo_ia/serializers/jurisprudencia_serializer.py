@@ -22,5 +22,6 @@ class ResultadoJurisprudenciaSerializer(serializers.ModelSerializer):
         model = ResultadoJurisprudencia
         fields = ["id", "registro_id", "fuente_id", "numero", "expediente", "fecha", "materia", "sala",
                   "url_fuente", "url_pdf", "posicion", "score_semantico", "fragmento",
-                  "modelo_version", "desactualizada"]
+                  "modelo_version", "desactualizada", "score_hibrido", "es_sugerencia",
+                  "coincidencias", "motivo_recomendacion"]
         read_only_fields = fields

@@ -24,7 +24,7 @@ class AuditoriaSerializer(serializers.ModelSerializer):
     def get_usuario(self, obj):
         if obj.usuario:
             return {
-                "id": obj.usuario.id,
+                "id": str(obj.usuario.public_id),
                 "usuario": obj.usuario.usuario,
             }
         return None
@@ -36,7 +36,7 @@ class AuditoriaFiltroSerializer(serializers.Serializer):
     Usado en la vista como validador de query params. Si los parámetros
     no son válidos, la vista debe responder 400 en vez de ignorar el filtro.
     """
-    usuario_id  = serializers.IntegerField(required=False)
+    usuario_id = serializers.UUIDField(required=False)
     usuario     = serializers.CharField(
                       max_length=150, required=False,
                       help_text="Nombre de usuario (coincidencia parcial). Se usa junto a "
@@ -64,7 +64,7 @@ class AuditoriaFiltroSerializer(serializers.Serializer):
 
 class AuditoriaPorUsuarioQuerySerializer(serializers.Serializer):
     """Valida el query param requerido en /auditoria/por_usuario/."""
-    usuario_id = serializers.IntegerField(required=True)
+    usuario_id = serializers.UUIDField(required=True)
 
 
 class AuditoriaPorTablaQuerySerializer(serializers.Serializer):

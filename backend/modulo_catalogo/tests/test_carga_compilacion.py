@@ -18,7 +18,8 @@ class CargaCompilacionTests(APITestCase):
         self.usuario = crear_usuario('compilacion.abogado', rol=crear_rol('Abogado'))
         self.client.force_authenticate(self.usuario)
         self.rama = RamaDerecho.objects.create(nombre='Penal lote')
-        self.tipo = jerarquia.objects.filter(estado=True).first()
+        self.tipo, _ = jerarquia.objects.get_or_create(
+            nombre='Ley compilación pruebas', defaults={'nivel': 2, 'estado': True})
         self.principal = Norma.objects.create(nombre='Ley 900 principal', tipo_norma='Ley', numero_norma='900', jerarquia=self.tipo)
 
     def revisar(self, motor='clasico', texto=TEXTO, **extra):

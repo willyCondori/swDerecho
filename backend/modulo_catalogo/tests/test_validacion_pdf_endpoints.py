@@ -92,7 +92,7 @@ class SubirPdfCasoValidacionContenidoTests(APITestCase):
     def _subir(self, contenido, nombre="caso.pdf"):
         with override_settings(MEDIA_ROOT=self.media):
             return self.client.post(
-                f"/api/casos/{self.caso.pk}/subir_pdf/",
+                f"/api/casos/{self.caso.public_id}/subir_pdf/",
                 {"archivo_pdf": SimpleUploadedFile(nombre, contenido, content_type="application/pdf")},
                 format="multipart",
             )

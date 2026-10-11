@@ -53,7 +53,7 @@ class NotificacionViewSetTests(APITestCase):
         r = self.client.get("/api/notificaciones/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         ids = {n["id"] for n in r.data["results"]}
-        self.assertEqual(ids, {self.notif_a1.id, self.notif_a2.id})
+        self.assertEqual(ids, {str(self.notif_a1.public_id), str(self.notif_a2.public_id)})
 
     def test_admin_no_ve_las_de_otro_usuario(self):
         # A propósito: acá NO aplica ve_todo(). La bandeja de un Administrador
@@ -66,7 +66,7 @@ class NotificacionViewSetTests(APITestCase):
         self.client.force_authenticate(self.abogado_a)
         r = self.client.get("/api/notificaciones/?leida=false")
         ids = {n["id"] for n in r.data["results"]}
-        self.assertEqual(ids, {self.notif_a1.id})
+        self.assertEqual(ids, {str(self.notif_a1.public_id)})
 
     def test_no_leidas_count(self):
         self.client.force_authenticate(self.abogado_a)
@@ -75,7 +75,7 @@ class NotificacionViewSetTests(APITestCase):
 
     def test_marcar_leida(self):
         self.client.force_authenticate(self.abogado_a)
-        r = self.client.post(f"/api/notificaciones/{self.notif_a1.id}/marcar_leida/")
+        r = self.client.post(f"/api/notificaciones/{self.notif_a1.public_id}/marcar_leida/")
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.assertTrue(r.data["leida"])
         self.notif_a1.refresh_from_db()
@@ -83,7 +83,7 @@ class NotificacionViewSetTests(APITestCase):
 
     def test_no_puede_marcar_leida_una_notificacion_ajena(self):
         self.client.force_authenticate(self.abogado_a)
-        r = self.client.post(f"/api/notificaciones/{self.notif_b1.id}/marcar_leida/")
+        r = self.client.post(f"/api/notificaciones/{self.notif_b1.public_id}/marcar_leida/")
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_marcar_todas_leidas(self):
@@ -123,7 +123,7 @@ class DocumentoNuevoNotificaTests(APITestCase):
             return self.client.post(
                 "/api/documentos/documentos/",
                 {
-                    "caso": self.caso.id,
+                    "caso": str(self.caso.public_id),
                     "tipo_documento": self.tipo_doc.id,
                     "archivo": SimpleUploadedFile("prueba.txt", b"contenido", content_type="text/plain"),
                 },

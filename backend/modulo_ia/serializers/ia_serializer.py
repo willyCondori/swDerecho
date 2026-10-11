@@ -1,3 +1,4 @@
+from core.public_ids import ClaveInternaDesdeUUIDField
 from rest_framework import serializers
 
 from modulo_catalogo.serializers.catalogo_serializer import ArticuloListSerializer
@@ -15,6 +16,7 @@ from modulo_ia.models.resultado import ResultadoArticulo
 # ---------------------------------------------------------------------------
 
 class ChunkCasoSerializer(serializers.ModelSerializer):
+    caso = serializers.UUIDField(source="caso.public_id", read_only=True)
     class Meta:
         model  = ChunkCaso
         fields = ["id", "caso", "contenido", "orden", "tipo", "created_at"]
@@ -107,6 +109,7 @@ class EmbeddingChunkSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class ResultadoArticuloSerializer(serializers.ModelSerializer):
+    caso = serializers.UUIDField(source="caso.public_id", read_only=True)
     """
     Ranking de artículos aplicables a un caso.
     Incluye los datos completos del artículo y todos los sub-scores.
@@ -116,7 +119,7 @@ class ResultadoArticuloSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ResultadoArticulo
         fields = [
-            "id", "caso", "articulo", "posicion", "es_sugerencia",
+            "id", "caso", "articulo", "posicion", "es_sugerencia", "modelo_version",
             "score_total",
             "score_semantico", "score_delito",
             "score_entidades", "score_jerarquia", "score_frecuencia",
@@ -137,7 +140,7 @@ class ResultadoArticuloWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model  = ResultadoArticulo
         fields = [
-            "caso", "articulo", "posicion", "es_sugerencia",
+            "caso", "articulo", "posicion", "es_sugerencia", "modelo_version", "contexto_evaluado",
             "score_total", "score_semantico", "score_delito",
             "score_entidades", "score_jerarquia", "score_frecuencia",
         ]
@@ -181,7 +184,8 @@ class AnalisisCasoSerializer(serializers.Serializer):
     Recibe el caso_id y dispara todo el pipeline IA:
     chunking → embeddings → ranking → LLM → generación de resultados.
     """
-    caso_id = serializers.IntegerField()
+    from modulo_casos.models.caso import Caso
+    caso_id = ClaveInternaDesdeUUIDField(queryset=Caso.objects.filter(estado=True))
 
     def validate_caso_id(self, value):
         from modulo_casos.models.caso import Caso

@@ -1,3 +1,4 @@
+from core.public_ids import IdentificadorPublicoSerializer, ReferenciaPublicaField, ClaveInternaDesdeUUIDField
 import uuid
 
 from django.db import transaction
@@ -67,6 +68,7 @@ class PetitorioSerializer(serializers.ModelSerializer):
 # ---------------------------------------------------------------------------
 
 class ResultadoCasoSerializer(serializers.ModelSerializer):
+    caso = serializers.UUIDField(source="caso.public_id", read_only=True)
     class Meta:
         model  = ResultadoCaso
         fields = [
@@ -139,7 +141,7 @@ class CasoTituloDescripcionMixin:
 # Caso
 # ---------------------------------------------------------------------------
 
-class CasoReadSerializer(serializers.ModelSerializer):
+class CasoReadSerializer(IdentificadorPublicoSerializer):
     usuario         = UsuarioReadSerializer(read_only=True)
     cliente         = ClienteListSerializer(read_only=True)
     rama_detectada  = serializers.StringRelatedField()
@@ -188,7 +190,7 @@ class CasoCreateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
     Requiere 'request' en el context (usado para asignar el usuario
     autenticado como propietario del caso).
     """
-    cliente_id = serializers.PrimaryKeyRelatedField(
+    cliente_id = ReferenciaPublicaField(
         queryset=Cliente.objects.filter(estado=True),
         source="cliente",
     )
@@ -273,7 +275,7 @@ class CasoUpdateSerializer(CasoTituloDescripcionMixin, serializers.ModelSerializ
         return instance
 
 
-class CasoListSerializer(serializers.ModelSerializer):
+class CasoListSerializer(IdentificadorPublicoSerializer):
     """Versión compacta para listados y búsquedas con filtros."""
     cliente_nombre  = serializers.SerializerMethodField()
     usuario_nombre  = serializers.CharField(source="usuario.usuario", read_only=True)
@@ -287,7 +289,7 @@ class CasoListSerializer(serializers.ModelSerializer):
         fields = [
             "id", "codigo", "titulo",
             "usuario_nombre", "cliente_nombre", "rama_detectada",
-            "tiene_documento", "tiene_resultado",
+            "tiene_documento", "tiene_resultado", "estado_analisis",
             "etapa", "etapa_display", "etapa_actualizada_at",
             "estado", "created_at",
         ]
@@ -297,7 +299,7 @@ class CasoListSerializer(serializers.ModelSerializer):
         nombres   = safe_decrypt(obj.cliente.nombres, fallback=None)
         apellidos = safe_decrypt(obj.cliente.apellidos, fallback=None)
         if nombres is None or apellidos is None:
-            return f"Cliente #{obj.cliente_id}"
+            return f"Cliente {obj.cliente.public_id}"
         return f"{nombres} {apellidos}".strip()
 
     def get_tiene_documento(self, obj):

@@ -24,7 +24,7 @@ class AuditoriaSerializer(serializers.ModelSerializer):
     def get_usuario(self, obj):
         if obj.usuario:
             return {
-                "id"     : obj.usuario.id,
+                "id"     : str(obj.usuario.public_id),
                 "usuario": obj.usuario.usuario,
             }
         return None
@@ -35,7 +35,7 @@ class AuditoriaFiltroSerializer(serializers.Serializer):
     Valida los parámetros de búsqueda/filtro para el endpoint de auditoría.
     Usado en la vista como validador de query params.
     """
-    usuario_id   = serializers.IntegerField(required=False)
+    usuario_id = serializers.UUIDField(required=False)
     tabla        = serializers.CharField(max_length=100, required=False)
     accion       = serializers.ChoiceField(
                        choices=[c[0] for c in Auditoria.ACCION_CHOICES],

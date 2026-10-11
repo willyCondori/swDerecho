@@ -168,7 +168,7 @@
   justify-content: center;
   font-size: var(--fs-xs);
   font-weight: var(--fw-medium);
-  color: var(--c-purple-50);
+  color: var(--c-on-accent);
   flex-shrink: 0;
 }
 

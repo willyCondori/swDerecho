@@ -1,0 +1,155 @@
+{
+  "caso_id": 1,
+  "modelo_version": "sw-derecho-embeddings-v1-final",
+  "validacion_juridica": "pendiente",
+  "evaluaciones": [
+    {
+      "umbral_recomendacion": 0.5,
+      "candidatos": [
+        {
+          "resolucion_id": 2000,
+          "fragmento_id": 32426,
+          "fragmento": "CONSIDERANDO: Que previo juicio oral, público, contradictorio y contínuo, se dictó la Sentencia de 22 de diciembre de 2007 (fojas 51 a 56), en la que el Tribunal de Sentencia Nº1 de la Capital, por votación unánime declaro a los imputados Jimmy Dieter Cáceres Loayza y Raúl Alex Almanza Céspedes, autores de los delitos de tentativa de secuestro y robo agravado, sancionados por los artículos 334 con relación al 8 y 332 incisos 1), 2) y 3), con relación al 331, todos del Código Penal, imponiéndole la pena de privación de libertad de doce años de presidio, a cumplir en el penal \"El Abra\" de la ciudad de Cochabamba, con costas a favor del Estado y de las víctimas; fallo contra el que recurren de apelación restringida.",
+          "huella_fuente": "db071b45e721928e4d87a0c223f0a2aabdb7280cccc66b7d0cd93d6b91134894",
+          "score_semantico": 0.5061921333842417,
+          "score_hibrido": 0.6296441000381814,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Robo",
+            "Secuestro de personas",
+            "Tentativa"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia. El caso menciona tentativa; la resolución puede abordar consumación o desistimiento.",
+          "numero": "AS/0549/2010",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/14120",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        },
+        {
+          "resolucion_id": 2083,
+          "fragmento_id": 33560,
+          "fragmento": "Pues si bien es cierto que la víctima fue devuelta sin haberse consolidado el rescate, ello no enerva la comisión del hecho delictivo, puesto que fue devuelto después de haberse cometido el delito de secuestro, por lo que resulta inaplicable lo previsto en el art. 9 del Código Penal, que libera de la pena en casos de arrepentimiento o desistimiento del delito, cuando existe un arrepentimiento voluntario de la comisión del delito, o cuando se impida su comisión o contribuya a impedir que el resultado se produzca, a menos que los actos realizados constituyan delitos por si mismos; en autos los hechos acontecidos constituyen y se configuran como delitos por si mismos.",
+          "huella_fuente": "604f61363295341df5589f580d09b53524fd63c403d1ed3e9c54cb5a50e6d008",
+          "score_semantico": 0.5617694164904453,
+          "score_hibrido": 0.571327062367834,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Secuestro de personas",
+            "Tentativa"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia. El caso menciona tentativa; la resolución puede abordar consumación o desistimiento.",
+          "numero": "AS/0684/2010",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/14208",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        },
+        {
+          "resolucion_id": 6894,
+          "fragmento_id": 170665,
+          "fragmento": "CONSIDERANDO: Que, la revisión de sentencia es un medio legítimo para impugnar una sentencia firme con autoridad de cosa juzgada, siempre y cuando el recurrente demuestre los errores de los jueces o la pasión de los acusadores, con el hallazgo de nuevas pruebas que a tiempo del juzgamiento no fueron aportadas, o cuando después de la condenación se llegue a constatar que el crimen no existió, etc.",
+          "huella_fuente": "7617c40a3b57bb4f631982fb788a91a40762c2ea7a3ce731bd7d28f725e6a53e",
+          "score_semantico": 0.5512041717049982,
+          "score_hibrido": 0.5134031287787487,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Secuestro de personas"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia. El caso menciona tentativa; la resolución puede abordar consumación o desistimiento.",
+          "numero": "AS/0443/2002",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/45545",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        },
+        {
+          "resolucion_id": 9415,
+          "fragmento_id": 192589,
+          "fragmento": "CONSIDERANDO: que, a fojas 183 a 192 vuelta, el Tribunal de Sentencia Nº 1 de la ciudad de Cochabamba, declara a Juan Roberto Choque Flores, Henry Javier Choque Flores y René Alvarado Domínguez, autores y culpables de la comisión del delito de robo agravado, previsto por el artículo 332 numerales 1 y 2 del Código Penal, condenándoles a la pena de 10 años de presidio, a cumplir en el penal El abra. Y dispone con relación a la suma de 7.500.- siete mil quinientos dólares americanos, secuestrados, la devolución a sus propietarios, previa la acreditación del derecho propietario y una vez ejecutoriada la sentencia.",
+          "huella_fuente": "a80733fc9f77b69a779e10ccb16ba399056f35eb3f89f7576ac3539a5d87169f",
+          "score_semantico": 0.5474892528361537,
+          "score_hibrido": 0.5106169396271153,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Robo"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia.",
+          "numero": "AS/0541/2006",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/48043",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        },
+        {
+          "resolucion_id": 6219,
+          "fragmento_id": 162271,
+          "fragmento": "alabras soeces, intimidada y amedrentada con la amenaza de cortársele la cara y de ser atacada por maleantes ocasionándole miedo, temor de que se materialice la amenaza, lo que evidentemente depende de la voluntad de los acusados Paulina Albina Ríos Soto, Félix Zeballos Aquino y Marlene Jilma Zeballos Ríos, pues si se proponen, podría materializar dicha amenaza, es decir podría llegar a cortarle la cara y/o ser asaltada …” (sic). \nDe lo anterior el Tribunal de Alzada concluyó: “…que la Sentencia cuenta con la fundamentación analítica o intelectiva, el momento de razonamiento judicial, en la que no solo se analiza cada elemento de juicio, sino que se aplica conclusiones de cada elemento concatenado con otro, lo que implica la apreciación de la prueba en su conjunto que permitirá llegar a las conclusiones, para sustentar por qué se toma la decisión, por qué se escogen determinados medios d",
+          "huella_fuente": "98e081c8c5ac5d8d38f742994243ab8eac3817a81c279e6a1be4eda4a0561f78",
+          "score_semantico": 0.5305070244661578,
+          "score_hibrido": 0.4978802683496184,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Robo"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia.",
+          "numero": "AS/0280/2013",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/4278",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        }
+      ]
+    },
+    {
+      "umbral_recomendacion": 0.55,
+      "candidatos": [
+        {
+          "resolucion_id": 2083,
+          "fragmento_id": 33560,
+          "fragmento": "Pues si bien es cierto que la víctima fue devuelta sin haberse consolidado el rescate, ello no enerva la comisión del hecho delictivo, puesto que fue devuelto después de haberse cometido el delito de secuestro, por lo que resulta inaplicable lo previsto en el art. 9 del Código Penal, que libera de la pena en casos de arrepentimiento o desistimiento del delito, cuando existe un arrepentimiento voluntario de la comisión del delito, o cuando se impida su comisión o contribuya a impedir que el resultado se produzca, a menos que los actos realizados constituyan delitos por si mismos; en autos los hechos acontecidos constituyen y se configuran como delitos por si mismos.",
+          "huella_fuente": "604f61363295341df5589f580d09b53524fd63c403d1ed3e9c54cb5a50e6d008",
+          "score_semantico": 0.5617694164904453,
+          "score_hibrido": 0.571327062367834,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Secuestro de personas",
+            "Tentativa"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia. El caso menciona tentativa; la resolución puede abordar consumación o desistimiento.",
+          "numero": "AS/0684/2010",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/14208",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        },
+        {
+          "resolucion_id": 6894,
+          "fragmento_id": 170665,
+          "fragmento": "CONSIDERANDO: Que, la revisión de sentencia es un medio legítimo para impugnar una sentencia firme con autoridad de cosa juzgada, siempre y cuando el recurrente demuestre los errores de los jueces o la pasión de los acusadores, con el hallazgo de nuevas pruebas que a tiempo del juzgamiento no fueron aportadas, o cuando después de la condenación se llegue a constatar que el crimen no existió, etc.",
+          "huella_fuente": "7617c40a3b57bb4f631982fb788a91a40762c2ea7a3ce731bd7d28f725e6a53e",
+          "score_semantico": 0.5512041717049982,
+          "score_hibrido": 0.5134031287787487,
+          "es_sugerencia": true,
+          "coincidencias": [
+            "Secuestro de personas"
+          ],
+          "motivo_recomendacion": "Coincidencia de menor confianza; revisar su pertinencia. El caso menciona tentativa; la resolución puede abordar consumación o desistimiento.",
+          "numero": "AS/0443/2002",
+          "url_fuente": "https://apigenesis.tsj.bo/api/v1/resoluciones/45545",
+          "revision_profesional": "pendiente",
+          "pertinencia": null,
+          "observaciones": ""
+        }
+      ]
+    },
+    {
+      "umbral_recomendacion": 0.6,
+      "candidatos": []
+    },
+    {
+      "umbral_recomendacion": 0.65,
+      "candidatos": []
+    }
+  ]
+}

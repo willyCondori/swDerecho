@@ -1,3 +1,4 @@
+from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 from django.db import transaction
 from django.db.models import F
 from rest_framework import status
@@ -35,7 +36,7 @@ from modulo_casos.services.papelera_service import (
 from modulo_casos.services.seguimiento_service import registrar_seguimiento
 from modulo_casos.services.listado_service import preparar_listado_casos
 
-class CasoViewSet(AuditoriaMixin, ModelViewSet):
+class CasoViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
     """
     GET    /api/casos/                    — lista con filtros [todos los roles ven todos los casos activos]
     POST   /api/casos/                    — crear caso (texto o PDF), cliente ya existente [admin, abogado]
@@ -110,7 +111,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         if rama_id:
             qs = qs.filter(rama_detectada_id=rama_id)
         if cliente_id:
-            qs = qs.filter(cliente_id=cliente_id)
+            qs = filtrar_uuid(qs, "cliente__public_id", cliente_id)
         if fecha_desde:
             qs = qs.filter(created_at__date__gte=fecha_desde)
         if fecha_hasta:
@@ -209,7 +210,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         tipo, _ = TipoDoc.objects.get_or_create(tipo="caso_pdf")
         doc_ser = DocumentoCasoWriteSerializer(
             data={
-                "caso"          : caso.pk,
+                "caso"          : str(caso.public_id),
                 "archivo"       : request.FILES["archivo_pdf"],
                 "tipo_documento": tipo.pk,
             },
@@ -395,7 +396,6 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
     def articulos(self, request, pk=None):
         """GET /api/casos/{id}/articulos/ — ranking de artículos aplicables."""
         from modulo_ia.models.resultado import ResultadoArticulo
-        from modulo_ia.serializers.ia_serializer import ResultadoArticuloSerializer
 
         caso       = self.get_object()
         resultados = (
@@ -404,14 +404,75 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
             .select_related("articulo", "articulo__norma", "articulo__rama")
             .order_by("posicion")
         )
-        return Response(
-            ResultadoArticuloSerializer(resultados, many=True).data
-        )
+        from modulo_ia.services.valoracion_service import articulos_con_seleccion
+        resultados = list(resultados)
+        return Response(articulos_con_seleccion(caso, resultados))
+
+    @action(detail=True, methods=["post"], url_path="valorar_articulo")
+    @transaction.atomic
+    def valorar_articulo(self, request, pk=None):
+        from rest_framework import serializers
+        from modulo_ia.models.resultado import ResultadoArticulo
+        from modulo_ia.services.valoracion_service import registrar
+        caso = self.get_object()
+        # Serializa con el inicio del análisis, que también bloquea el caso.
+        caso = Caso.objects.select_for_update().get(pk=caso.pk)
+        if caso.estado_analisis == "procesando":
+            return Response({"detail": "Espera a que termine el análisis para valorar los artículos."}, status=409)
+        class Entrada(serializers.Serializer):
+            resultado_id = serializers.IntegerField(min_value=1, required=False)
+            valoracion_id = serializers.IntegerField(min_value=1, required=False)
+            valor = serializers.ChoiceField(choices=["util", "no_util", "sin_valorar"])
+
+            def validate(self, attrs):
+                if ('resultado_id' in attrs) == ('valoracion_id' in attrs):
+                    raise serializers.ValidationError('Indica un resultado o una selección histórica.')
+                return attrs
+        entrada = Entrada(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        valor = entrada.validated_data['valor']
+        from modulo_ia.services.valoracion_service import contexto_caso
+        contexto_actual = contexto_caso(caso)
+        historica = entrada.validated_data.get('valoracion_id')
+        if historica:
+            from types import SimpleNamespace
+            from modulo_ia.models.valoracion import ValoracionArticulo
+            decision = ValoracionArticulo.objects.select_related('articulo__norma').filter(
+                caso=caso, pk=historica).first()
+            if decision and ValoracionArticulo.objects.filter(caso=caso, articulo=decision.articulo,
+                                                             id__gt=decision.pk).exists():
+                decision = None
+            resultado = None if decision is None else SimpleNamespace(
+                id=f'valoracion-{decision.pk}', articulo=decision.articulo, articulo_id=decision.articulo_id,
+                contexto_evaluado={k: decision.muestra.get(k, [] if k == 'fragmentos' else '')
+                                   for k in ['descripcion', 'fragmentos']},
+                modelo_version=decision.modelo_version, posicion=decision.muestra.get('posicion', 1),
+                score_total=decision.muestra.get('score_total', '0'),
+                es_sugerencia=decision.muestra.get('es_sugerencia', False))
+            if resultado and valor == 'util' and caso.estado_analisis == 'completado':
+                resultado.contexto_evaluado = contexto_actual
+        else:
+            resultado = ResultadoArticulo.objects.select_related("articulo__norma").filter(
+                caso=caso, pk=entrada.validated_data["resultado_id"]
+            ).first()
+        if resultado is None:
+            return Response({"detail": "El artículo ya no pertenece al resultado actual. Actualiza el caso."}, status=404)
+        if valor == 'util' and (not resultado.contexto_evaluado or resultado.contexto_evaluado != contexto_actual):
+            return Response({"detail": "Vuelve a analizar el caso antes de valorar: el resultado no corresponde al texto actual."}, status=409)
+        registro = registrar(caso, resultado, request.user, valor)
+        self._auditar("UPDATE", registro_id=caso.pk, metadata={
+            "accion": "valorar_articulo", "articulo_id": resultado.articulo_id,
+            "valor": valor, "valoracion_id": registro.id,
+        })
+        from modulo_ia.services.valoracion_service import valoracion_desactualizada
+        return Response({"resultado_id": resultado.id, "valoracion": valor,
+                         "valoracion_id": registro.id,
+                         "valoracion_desactualizada": valor == 'util' and valoracion_desactualizada(registro, contexto_actual, resultado.articulo)})
 
     @action(detail=True, methods=["get"], url_path="jurisprudencia")
     def jurisprudencia(self, request, pk=None):
         from modulo_ia.models.jurisprudencia import ResultadoJurisprudencia
-        from modulo_ia.serializers.jurisprudencia_serializer import ResultadoJurisprudenciaSerializer
+        from modulo_ia.services.valoracion_jurisprudencia_service import con_seleccion
         from modulo_ia.services.model_loader import version_activa
 
         caso = self.get_object()
@@ -424,7 +485,76 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
                 caso.estado_analisis != "completado" or
                 resultado.jurisprudencia_modelo_version != version_activa()
             )),
-            "resultados": ResultadoJurisprudenciaSerializer(resultados, many=True).data,
+            "resultados": con_seleccion(caso, list(resultados)),
+        })
+
+    @action(detail=True, methods=["post"], url_path="valorar_jurisprudencia")
+    @transaction.atomic
+    def valorar_jurisprudencia(self, request, pk=None):
+        from types import SimpleNamespace
+        from rest_framework import serializers
+        from modulo_ia.models.jurisprudencia import ResultadoJurisprudencia
+        from modulo_ia.models.valoracion import ValoracionJurisprudencia
+        from modulo_ia.services.valoracion_service import contexto_caso
+        from modulo_ia.services.valoracion_jurisprudencia_service import registrar
+        caso = self.get_object()
+        caso = Caso.objects.select_for_update().get(pk=caso.pk)
+        if caso.estado_analisis == 'procesando':
+            return Response({'detail': 'Espera a que termine el análisis para valorar la jurisprudencia.'}, status=409)
+
+        class Entrada(serializers.Serializer):
+            resultado_id = serializers.IntegerField(min_value=1, required=False)
+            valoracion_id = serializers.IntegerField(min_value=1, required=False)
+            valor = serializers.ChoiceField(choices=['util', 'no_util', 'sin_valorar'])
+
+            def validate(self, attrs):
+                if ('resultado_id' in attrs) == ('valoracion_id' in attrs):
+                    raise serializers.ValidationError('Indica un resultado o una selección histórica.')
+                return attrs
+
+        entrada = Entrada(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        valor = entrada.validated_data['valor']
+        actual = contexto_caso(caso)
+        historica = entrada.validated_data.get('valoracion_id')
+        resultado = None
+        if historica:
+            decision = ValoracionJurisprudencia.objects.select_related('resolucion').filter(caso=caso, pk=historica).first()
+            if decision and not ValoracionJurisprudencia.objects.filter(caso=caso,
+                    resolucion=decision.resolucion, id__gt=decision.pk).exists():
+                contexto = {k: decision.muestra[k] for k in ['descripcion', 'fragmentos']}
+                resultado = SimpleNamespace(**decision.muestra['resultado'], resolucion=decision.resolucion,
+                    resolucion_id=decision.resolucion_id, huella_fuente=decision.muestra['huella_fuente'],
+                    contexto_evaluado=actual if valor == 'util' else contexto)
+        else:
+            resultado = ResultadoJurisprudencia.objects.select_related('resolucion').filter(
+                caso=caso, pk=entrada.validated_data['resultado_id']).first()
+        if resultado is None:
+            return Response({'detail': 'La resolución ya no pertenece al resultado actual. Actualiza el caso.'}, status=404)
+        contexto = resultado.contexto_evaluado or actual  # Resultados previos a la migración.
+        if valor == 'util' and (caso.estado_analisis != 'completado' or contexto != actual
+                or not resultado.resolucion.activa or resultado.huella_fuente != resultado.resolucion.huella):
+            return Response({'detail': 'Vuelve a analizar el caso antes de confirmar la utilidad para el contexto actual.'}, status=409)
+        registro = registrar(caso, resultado, request.user, valor, contexto)
+        self._auditar('UPDATE', registro_id=caso.pk, metadata={'accion': 'valorar_jurisprudencia',
+            'resolucion_id': resultado.resolucion_id, 'valor': valor, 'valoracion_id': registro.pk})
+        return Response({'valoracion': valor, 'valoracion_id': registro.pk})
+
+    @action(detail=True, methods=["get"], url_path="estado_analisis")
+    def estado_analisis(self, request, pk=None):
+        from django.shortcuts import get_object_or_404
+        # Mantiene el filtro de acceso de la vista; evita descifrar cliente,
+        # cargar documentos y serializar el resultado en cada consulta.
+        caso = get_object_or_404(self.get_queryset().only(
+            'public_id', 'estado_analisis', 'analisis_paso', 'analisis_error',
+            'analisis_iniciado_en', 'analisis_completado_en',
+            'usuario_id', 'cliente_id', 'rama_detectada_id',
+        ).prefetch_related(None).select_related(None), public_id=pk)
+        return Response({
+            'id': str(caso.public_id), 'estado_analisis': caso.estado_analisis,
+            'analisis_paso': caso.analisis_paso, 'analisis_error': caso.analisis_error,
+            'analisis_iniciado_en': caso.analisis_iniciado_en,
+            'analisis_completado_en': caso.analisis_completado_en,
         })
 
     @action(detail=True, methods=["post"], url_path="analizar")
@@ -445,7 +575,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         from modulo_ia.services.analisis_background import iniciar_analisis
 
         caso       = self.get_object()
-        serializer = AnalisisCasoSerializer(data={"caso_id": caso.pk})
+        serializer = AnalisisCasoSerializer(data={"caso_id": str(caso.public_id)})
         serializer.is_valid(raise_exception=True)
 
         ok, detalle = iniciar_analisis(caso, request.user)
@@ -456,7 +586,7 @@ class CasoViewSet(AuditoriaMixin, ModelViewSet):
         return Response(
             {
                 "detail"        : "Análisis iniciado.",
-                "caso_id"       : caso.pk,
+                "caso_id"       : str(caso.public_id),
                 "estado_analisis": caso.estado_analisis,
             },
             status=status.HTTP_202_ACCEPTED,

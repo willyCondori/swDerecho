@@ -1,3 +1,5 @@
+import uuid
+from core.public_ids import IdentificadorPublicoSerializer, ReferenciaPublicaField, ClaveInternaDesdeUUIDField
 import hashlib
 import os
 
@@ -42,7 +44,8 @@ class TipoDocSerializer(serializers.ModelSerializer):
 # DocumentoCaso
 # ---------------------------------------------------------------------------
 
-class DocumentoCasoReadSerializer(serializers.ModelSerializer):
+class DocumentoCasoReadSerializer(IdentificadorPublicoSerializer):
+    caso = serializers.UUIDField(source="caso.public_id", read_only=True)
     tipo_documento = TipoDocSerializer(read_only=True)
     url_descarga   = serializers.SerializerMethodField()
 
@@ -64,6 +67,8 @@ class DocumentoCasoReadSerializer(serializers.ModelSerializer):
 
 
 class DocumentoCasoWriteSerializer(serializers.ModelSerializer):
+    from modulo_casos.models.caso import Caso
+    caso = ReferenciaPublicaField(queryset=Caso.objects.filter(estado=True))
     archivo        = serializers.FileField(write_only=True)
     tipo_documento = serializers.PrimaryKeyRelatedField(
                          queryset=TipoDoc.objects.all()
@@ -103,7 +108,7 @@ class DocumentoCasoWriteSerializer(serializers.ModelSerializer):
 
         # Construir ruta de almacenamiento
         caso       = validated_data["caso"]
-        nombre_guardado = f"caso_{caso.id}_{archivo.name}"
+        nombre_guardado = f"{caso.public_id}_{uuid.uuid4().hex}.{extension}"
         ruta_relativa   = f"documentos_caso/{nombre_guardado}"
         ruta_absoluta   = os.path.join(settings.MEDIA_ROOT, ruta_relativa)
 
@@ -195,7 +200,8 @@ class PlantillaDocumentoWriteSerializer(serializers.ModelSerializer):
 # DocumentoGenerado
 # ---------------------------------------------------------------------------
 
-class DocumentoGeneradoSerializer(serializers.ModelSerializer):
+class DocumentoGeneradoSerializer(IdentificadorPublicoSerializer):
+    caso = serializers.UUIDField(source="caso.public_id", read_only=True)
     plantilla_nombre = serializers.CharField(source="plantilla.nombre", read_only=True)
     caso_codigo      = serializers.CharField(source="caso.codigo",       read_only=True)
     url_descarga     = serializers.SerializerMethodField()
@@ -221,7 +227,8 @@ class DocumentoGeneradoSerializer(serializers.ModelSerializer):
 
 class GenerarDocumentoSerializer(serializers.Serializer):
     """Dispara la generación de un documento a partir de plantilla y caso."""
-    caso_id      = serializers.IntegerField()
+    from modulo_casos.models.caso import Caso
+    caso_id = ClaveInternaDesdeUUIDField(queryset=Caso.objects.filter(estado=True))
     plantilla_id = serializers.IntegerField()
 
     def validate_caso_id(self, value):

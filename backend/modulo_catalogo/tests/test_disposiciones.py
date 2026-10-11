@@ -34,7 +34,9 @@ class DisposicionesTests(APITestCase):
         self.client.force_authenticate(usuario)
         self.rama = RamaDerecho.objects.create(nombre='Penal disposiciones')
         self.norma = Norma.objects.create(nombre='Ley 1636', tipo_norma='Ley', numero_norma='1636', fecha_norma=date(2025, 9, 10))
-        self.penal = Norma.objects.get(sigla='CP')
+        # Las migraciones de datos no se repiten al reutilizar una base de pruebas.
+        self.penal, _ = Norma.objects.get_or_create(
+            sigla='CP', defaults={'nombre': 'Código Penal Boliviano', 'tipo_norma': 'Ley'})
         self.penal.fecha_norma = date(1972, 1, 1)
         self.penal.save()
         Articulo.objects.create(norma=self.penal, rama=self.rama, numero_articulo='323 Bis', contenido='I. Texto intacto.\nIII. Parte derogada.')

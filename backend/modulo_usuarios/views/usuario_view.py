@@ -1,3 +1,4 @@
+from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter, SearchFilter
@@ -21,7 +22,7 @@ from core.permissions.roles import (
 )
 
 
-class UsuarioViewSet(AuditoriaMixin, ModelViewSet):
+class UsuarioViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
     """
     GET    /api/usuarios/               — lista [admin]
     POST   /api/usuarios/               — crear usuario + perfil [admin]

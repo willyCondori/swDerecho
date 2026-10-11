@@ -1,3 +1,4 @@
+import uuid
 from datetime import timedelta
 
 from django.db import models
@@ -24,6 +25,7 @@ class EstadoAnalisis(models.TextChoices):
 
 
 class Caso(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Expediente legal principal.
     Puede tener texto redactado (descripcion) o un PDF subido

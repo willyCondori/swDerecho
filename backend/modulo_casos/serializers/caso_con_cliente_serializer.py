@@ -76,7 +76,7 @@ class CasoConClienteSerializer(CasoTituloDescripcionMixin, serializers.Serialize
                 data={
                     "titulo": validated_data["titulo"],
                     "descripcion": validated_data.get("descripcion", ""),
-                    "cliente_id": cliente.pk,
+                    "cliente_id": str(cliente.public_id),
                     "rama_detectada_id": validated_data["rama_detectada_id"].pk,
                 },
                 context=self.context,

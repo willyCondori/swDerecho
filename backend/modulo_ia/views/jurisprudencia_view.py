@@ -3,6 +3,7 @@ import threading
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 from django.db import connections
 from django.db.models import Exists, OuterRef
 from django.db.models.functions import Substr
@@ -78,19 +79,30 @@ class JurisprudenciaViewSet(ReadOnlyModelViewSet):
 
     @action(detail=False, methods=["get"])
     def resumen(self, request):
+        # DRF comprueba autenticación y permisos antes de entrar a esta acción.
+        # Solo contadores públicos del corpus, nunca hechos ni datos del cliente.
+        version = version_activa()
+        clave = f"jurisprudencia:resumen:v1:{version}"
+        guardado = cache.get(clave)
+        if guardado is not None:
+            return Response(guardado)
         resoluciones = ResolucionJurisprudencia.objects.filter(activa=True)
         indexadas = EmbeddingJurisprudencia.objects.filter(
-            fragmento__resolucion_id=OuterRef("pk"), modelo_version=version_activa(),
+            fragmento__resolucion_id=OuterRef("pk"), modelo_version=version,
         )
-        return Response({
+        datos = {
             "resoluciones": resoluciones.count(),
             "indexadas": resoluciones.filter(Exists(indexadas)).count(),
             "embeddings": EmbeddingJurisprudencia.objects.filter(
-                modelo_version=version_activa(), fragmento__resolucion__activa=True,
+                modelo_version=version, fragmento__resolucion__activa=True,
             ).count(),
             "salas": list(resoluciones.exclude(sala="").order_by("sala").values_list("sala", flat=True).distinct()),
             "departamentos": list(resoluciones.exclude(departamento="").order_by("departamento").values_list("departamento", flat=True).distinct()),
-        })
+        }
+        # La importación puede ejecutarse en otro proceso: caducidad breve para
+        # reflejar sus avances sin depender de señales del proceso web.
+        cache.set(clave, datos, timeout=15)
+        return Response(datos)
 
 
 class BuscarTSJView(APIView):

@@ -98,7 +98,7 @@ class IndiceSeMantieneSoloTests(PapeleraClientesBase):
 
     def test_se_reindexa_al_editar_por_la_api(self):
         self.client.force_authenticate(self.abogado)
-        r = self.client.patch(self.url("clientes-detail", self.cliente.pk), {"apellidos": "Vargas"}, format="json")
+        r = self.client.patch(self.url("clientes-detail", self.cliente.public_id), {"apellidos": "Vargas"}, format="json")
         self.assertEqual(r.status_code, status.HTTP_200_OK, r.data)
         self.assertEqual(self.tokens(self.cliente), hashes_de_indexado("Ana", "Vargas"))
         r = self.client.get(self.url("clientes-buscar"), {"q": "rojas"})

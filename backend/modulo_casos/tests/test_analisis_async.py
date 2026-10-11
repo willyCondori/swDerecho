@@ -48,7 +48,7 @@ class AnalizarEndpointAsyncTests(APITestCase):
             usuario=self.abogado, cliente=self.cliente,
         )
         self.client.force_authenticate(self.abogado)
-        self.url = f"/api/casos/{self.caso.pk}/analizar/"
+        self.url = f"/api/casos/{self.caso.public_id}/analizar/"
 
     def test_lanzar_analisis_responde_202_y_marca_procesando(self):
         with patch(RUTA_EJECUTAR_EN_HILO):  # el pipeline real no corre en este test

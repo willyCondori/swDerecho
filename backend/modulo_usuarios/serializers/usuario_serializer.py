@@ -1,3 +1,4 @@
+from core.public_ids import IdentificadorPublicoSerializer, ReferenciaPublicaField, ClaveInternaDesdeUUIDField
 import re
 
 from rest_framework import serializers
@@ -13,7 +14,8 @@ from .rol_serializer import RolListSerializer
 # PerfilUsuario
 # ---------------------------------------------------------------------------
 
-class PerfilUsuarioReadSerializer(serializers.ModelSerializer):
+class PerfilUsuarioReadSerializer(IdentificadorPublicoSerializer):
+    usuario = serializers.UUIDField(source="usuario.public_id", read_only=True)
     """
     Lectura: descifra los campos sensibles antes de devolverlos al cliente.
     Nunca expone el texto cifrado crudo.
@@ -119,7 +121,7 @@ class PerfilUsuarioWriteSerializer(serializers.ModelSerializer):
 # Usuario
 # ---------------------------------------------------------------------------
 
-class UsuarioReadSerializer(serializers.ModelSerializer):
+class UsuarioReadSerializer(IdentificadorPublicoSerializer):
     rol    = RolListSerializer(read_only=True)
     perfil = PerfilUsuarioReadSerializer(read_only=True)
     esta_bloqueado = serializers.BooleanField(read_only=True)

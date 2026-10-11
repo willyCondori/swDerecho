@@ -1,8 +1,10 @@
+import uuid
 from django.db import models
 from .usuario import Usuario
 
 
 class PerfilUsuario(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Datos personales del usuario.
     Los campos sensibles (nombres, apellidos, email, telefono, ci)

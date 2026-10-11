@@ -1,3 +1,4 @@
+from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 # modulo_notificaciones/views/notificacion_view.py
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
@@ -8,7 +9,7 @@ from modulo_notificaciones.models import Notificacion
 from modulo_notificaciones.serializers.notificacion_serializer import NotificacionSerializer
 
 
-class NotificacionViewSet(
+class NotificacionViewSet(VistaIdentificadorPublicoMixin,
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     viewsets.GenericViewSet,
@@ -31,7 +32,7 @@ class NotificacionViewSet(
     permission_classes = [EsUsuarioAutenticado]
 
     def get_queryset(self):
-        qs = Notificacion.objects.filter(usuario=self.request.user).select_related("caso")
+        qs = Notificacion.objects.filter(usuario=self.request.user).select_related("caso__cliente")
         leida = self.request.query_params.get("leida")
         if leida is not None:
             qs = qs.filter(leida=leida.lower() == "true")

@@ -1,7 +1,6 @@
 import { dialogs } from '../../../components/ui/dialogs'
 // modules/casos/pages/CasoDetailPage.jsx
-import TextoVigencia from '../../catalogo/components/articulos/TextoVigencia'
-import AvisosVigencia from '../../catalogo/components/articulos/AvisosVigencia'
+import ArticulosSeleccionados from '../components/ArticulosSeleccionados'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useCasoDetail from '../hooks/useCasoDetail'
@@ -47,6 +46,7 @@ export default function CasoDetailPage() {
   const {
     caso, articulos, loading, error,
     analizando, eliminando, eliminar, analizar,
+    valorarArticulo, valorando, errorValoracion,
   } = useCasoDetail(id)
 
   if (loading) {
@@ -198,36 +198,11 @@ export default function CasoDetailPage() {
             </div>
           )}
 */}
-        {articulos.length > 0 && (
-          <div className={styles.card}>
-            <h2 className={styles.cardTitle}>
-              <i className="ti ti-book" aria-hidden="true" /> Artículos aplicables
-            </h2>
-            <ol className={styles.list}>
-              {articulos.map((a) => (
-                <li key={a.id} className={styles.listItem}>
-                  <div className={styles.articuloHeader}>
-                    <span className={styles.articuloNumero}>
-                      Art. {a.articulo?.numero_articulo} — {a.articulo?.norma_sigla}
-                    </span>
-                    {a.es_sugerencia && <span className={`${styles.badge} ${styles.badgePending}`}>Sugerencia complementaria</span>}
-                    {/*
-                    <span className={styles.articuloScore}>
-                      {Math.round((a.score_total ?? 0) * 100)}% relevancia
-                    </span>
-                    */}
-                  </div>
-                  {a.articulo?.titulo && (
-                    <p className={styles.articuloTitulo}>{a.articulo.titulo}</p>
-                  )}
-                  <AvisosVigencia avisos={a.articulo?.avisos_vigencia} />
-                  <p className={styles.articuloContenido}><TextoVigencia texto={a.articulo?.contenido} avisos={a.articulo?.avisos_vigencia} /></p>
-                </li>
-              ))}
-            </ol>
-          </div>
-        )}
-          <JurisprudenciaRelacionada casoId={id} estadoAnalisis={caso.estado_analisis} resultado={caso.resultado} />
+        <ArticulosSeleccionados articulos={articulos} puedeEscribir={puedeEscribir}
+          bloqueado={caso.estado_analisis === 'procesando' || analizando}
+          valorando={valorando} errorValoracion={errorValoracion} valorarArticulo={valorarArticulo} />
+          <JurisprudenciaRelacionada casoId={id} estadoAnalisis={caso.estado_analisis} resultado={caso.resultado}
+            puedeEscribir={puedeEscribir} bloqueado={caso.estado_analisis === 'procesando' || analizando} />
         </div>
 
         {/* Columna lateral */}

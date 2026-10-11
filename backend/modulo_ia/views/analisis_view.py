@@ -1,3 +1,4 @@
+from core.public_ids import filtrar_uuid
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.filters import OrderingFilter
@@ -51,7 +52,7 @@ class ChunkCasoViewSet(ReadOnlyModelViewSet):
         if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
-            qs = qs.filter(caso_id=caso_id)
+            qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
 
     @action(detail=False, methods=["get"], url_path="por_caso")
@@ -63,7 +64,7 @@ class ChunkCasoViewSet(ReadOnlyModelViewSet):
                 {"detail": "Parámetro caso_id requerido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = self.get_queryset().filter(caso_id=caso_id)
+        qs = filtrar_uuid(self.get_queryset(), "caso__public_id", caso_id)
         return Response(ChunkCasoSerializer(qs, many=True).data)
 
     @action(detail=True, methods=["get"], url_path="entidades")
@@ -108,7 +109,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
         if not ve_todo(user):
             qs = qs.filter(caso__usuario=user)
         if caso_id:
-            qs = qs.filter(caso_id=caso_id)
+            qs = filtrar_uuid(qs, "caso__public_id", caso_id)
         return qs
 
     @action(detail=False, methods=["get"], url_path="por_caso")
@@ -120,7 +121,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
                 {"detail": "Parámetro caso_id requerido."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        qs = self.get_queryset().filter(caso_id=caso_id)
+        qs = filtrar_uuid(self.get_queryset(), "caso__public_id", caso_id)
         return Response(ResultadoArticuloSerializer(qs, many=True).data)
 
     @action(detail=False, methods=["get"], url_path="top")
@@ -143,7 +144,7 @@ class ResultadoArticuloViewSet(ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        qs = self.get_queryset().filter(caso_id=caso_id)[:n]
+        qs = filtrar_uuid(self.get_queryset(), "caso__public_id", caso_id)[:n]
         return Response(ResultadoArticuloSerializer(qs, many=True).data)
 
 
@@ -292,7 +293,7 @@ class AnalisisCasoView(APIView):
         return Response(
             {
                 "detail"         : "Análisis iniciado.",
-                "caso_id"        : caso_id,
+                "caso_id"        : str(caso.public_id),
                 "estado_analisis": caso.estado_analisis,
             },
             status=status.HTTP_202_ACCEPTED,

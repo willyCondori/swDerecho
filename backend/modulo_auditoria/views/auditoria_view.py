@@ -51,7 +51,7 @@ class AuditoriaViewSet(ReadOnlyModelViewSet):
 
     def _aplicar_filtros(self, qs, filtros):
         if uid := filtros.get("usuario_id"):
-            qs = qs.filter(usuario_id=uid)
+            qs = qs.filter(usuario__public_id=uid)
         if usuario := filtros.get("usuario"):
             qs = qs.filter(usuario__usuario__icontains=usuario)
         if tabla := filtros.get("tabla"):
@@ -87,7 +87,7 @@ class AuditoriaViewSet(ReadOnlyModelViewSet):
         query_ser.is_valid(raise_exception=True)
         usuario_id = query_ser.validated_data["usuario_id"]
 
-        qs = self.get_queryset().filter(usuario_id=usuario_id)
+        qs = self.get_queryset().filter(usuario__public_id=usuario_id)
         return self._respuesta_paginada(qs)
 
     @action(detail=False, methods=["get"], url_path="por_tabla")

@@ -51,7 +51,7 @@ class RendimientoListadosTests(APITestCase):
         self.comprobar_consultas_constantes('/api/casos/mis_casos/')
 
     def test_casos_del_cliente_no_consulta_por_cada_caso(self):
-        self.comprobar_consultas_constantes(f'/api/clientes/{self.cliente.pk}/casos/')
+        self.comprobar_consultas_constantes(f'/api/clientes/{self.cliente.public_id}/casos/')
 
     def test_indicadores_y_filtro_pdf_conservan_resultados_sin_duplicados(self):
         sin_pdf = Caso.objects.create(
@@ -76,6 +76,6 @@ class RendimientoListadosTests(APITestCase):
         self.assertTrue(respuesta.data['results'][0]['tiene_resultado'])
         respuesta = self.client.get('/api/casos/', {'tiene_pdf': 'false'})
         self.assertEqual(respuesta.data['count'], 1)
-        self.assertEqual(respuesta.data['results'][0]['id'], sin_pdf.pk)
+        self.assertEqual(respuesta.data['results'][0]['id'], str(sin_pdf.public_id))
         self.assertFalse(respuesta.data['results'][0]['tiene_documento'])
         self.assertFalse(respuesta.data['results'][0]['tiene_resultado'])

@@ -14,17 +14,16 @@ export default function JurisprudenciaPage() {
   const [filtros, setFiltros] = useState({ search: '', desde: '', hasta: '', sala: '', departamento: '', indexada: '' })
   const [resumen, setResumen] = useState(null)
   const [errorResumen, setErrorResumen] = useState(false)
+  const [revisionResumen, setRevisionResumen] = useState(0)
   const [params, setParams] = useSearchParams()
   const seleccion = params.get('resolucion')
   useEffect(() => {
     const controller = new AbortController()
-    const refrescar = () => jurisprudenciaApi.resumen({ signal: controller.signal })
+    jurisprudenciaApi.resumen({ signal: controller.signal })
       .then(({ data }) => { if (!controller.signal.aborted) { setResumen(data); setErrorResumen(false) } })
       .catch(() => { if (!controller.signal.aborted) setErrorResumen(true) })
-    refrescar()
-    const timer = setInterval(refrescar, 20000)
-    return () => { controller.abort(); clearInterval(timer) }
-  }, [])
+    return () => controller.abort()
+  }, [revisionResumen])
   const campo = (clave) => ({ value: filtros[clave], onChange: (e) => setFiltros((v) => ({ ...v, [clave]: e.target.value })) })
   const columnas = [
     { key: 'numero', header: 'Resolución', render: (r) => <><strong>{r.numero || `TSJ ${r.fuente_id}`}</strong><p className={styles.extracto}>{r.extracto}…</p></> },
@@ -35,15 +34,13 @@ export default function JurisprudenciaPage() {
   ]
   return <div className={shared.root}>
     <PageHeader title="Jurisprudencia" subtitle="Explora y lee las resoluciones penales guardadas. Las resoluciones listas para IA se utilizan al analizar los hechos de un caso.">
-      <button className={shared.btnSecondary} onClick={listado.recargar}>Actualizar listado</button>
+      <button className={shared.btnSecondary} onClick={() => { listado.recargar(); setRevisionResumen(v => v + 1) }}>Actualizar listado</button>
     </PageHeader>
     <section className={styles.panel} aria-label="Estado de la colección">
       {resumen && <div className={styles.stats}>
         <div><strong>{resumen.resoluciones.toLocaleString('es-BO')}</strong><span>Resoluciones guardadas</span></div>
-        <div><strong>{resumen.indexadas.toLocaleString('es-BO')}</strong><span>Disponibles para análisis IA</span></div>
-        <div><strong>{resumen.embeddings.toLocaleString('es-BO')}</strong><span>Fragmentos indexados</span></div>
       </div>}
-      <p className={styles.estado}>{errorResumen ? 'No se pudo actualizar el estado de la colección.' : 'Los contadores se actualizan cada 20 segundos durante la importación.'}</p>
+      {errorResumen && <p className={styles.estado} role="alert">No se pudieron cargar las opciones de sala y departamento. Pulsa Actualizar listado para volver a intentar.</p>}
     </section>
     <form className={styles.filters} onSubmit={(e) => { e.preventDefault(); listado.buscar(filtros) }}>
       <label className={`${shared.field} ${styles.busqueda}`}>Buscar por texto, número o expediente<input className={shared.input} {...campo('search')} /></label>

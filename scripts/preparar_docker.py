@@ -17,7 +17,7 @@ else:
     contenido = contenido.replace('SECRET_KEY=CAMBIAR', 'SECRET_KEY=' + secrets.token_hex(48))
     contenido = contenido.replace('DB_PASSWORD=CAMBIAR', 'DB_PASSWORD=' + secrets.token_hex(24))
     if version:
-        contenido = contenido.replace('EMBEDDING_MODEL_VERSION=sw-derecho-embeddings-v1', 'EMBEDDING_MODEL_VERSION=' + version.group(1))
+        contenido = re.sub(r'^EMBEDDING_MODEL_VERSION=.*$', 'EMBEDDING_MODEL_VERSION=' + version.group(1), contenido, flags=re.MULTILINE)
     with destino.open('x', encoding='utf-8') as archivo:
         archivo.write(contenido)
     print('.env.docker creado. Las claves no se muestran ni se guardan en Git.')

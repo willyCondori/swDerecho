@@ -9,6 +9,8 @@
 // Se pierde al recargar la página a propósito — authStore.bootstrap()
 // lo repone pidiendo uno nuevo con la cookie httpOnly del refresh token.
 
+import { clearRequestCache } from './requestCache'
+
 let accessToken = null
 
 export function getAccessToken() {
@@ -16,9 +18,11 @@ export function getAccessToken() {
 }
 
 export function setAccessToken(token) {
+  clearRequestCache()
   accessToken = token
 }
 
 export function clearAccessToken() {
+  clearRequestCache()
   accessToken = null
 }

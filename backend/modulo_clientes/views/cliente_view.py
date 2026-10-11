@@ -1,3 +1,4 @@
+from core.public_ids import VistaIdentificadorPublicoMixin, filtrar_uuid
 from django.db.models import Count, F, Q
 from rest_framework import status
 from rest_framework.decorators import action
@@ -25,7 +26,7 @@ MIN_CARACTERES_BUSQUEDA = 2
 MAX_RESULTADOS_BUSQUEDA = 50
 
 
-class ClienteViewSet(AuditoriaMixin, ModelViewSet):
+class ClienteViewSet(VistaIdentificadorPublicoMixin, AuditoriaMixin, ModelViewSet):
     """
     GET    /api/clientes/           — lista [admin/abogado: todo | asistente: lectura]
     POST   /api/clientes/           — crear [admin, abogado]

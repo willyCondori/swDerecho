@@ -73,7 +73,7 @@ class AuditoriaFiltrosYPaginacionTests(APITestCase):
         self.client.force_authenticate(self.admin)
 
     def test_filtro_por_usuario_id(self):
-        resp = self.client.get(URL, {"usuario_id": self.otro.pk})
+        resp = self.client.get(URL, {"usuario_id": str(self.otro.public_id)})
         self.assertEqual(_ids(resp), [self.reg_otro_usuario.pk])
 
     def test_filtro_por_usuario_nombre_parcial(self):
@@ -108,7 +108,7 @@ class AuditoriaFiltrosYPaginacionTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_filtros_combinados(self):
-        resp = self.client.get(URL, {"tabla": "casos", "accion": "CREATE", "usuario_id": self.admin.pk})
+        resp = self.client.get(URL, {"tabla": "casos", "accion": "CREATE", "usuario_id": str(self.admin.public_id)})
         ids = set(_ids(resp))
         self.assertIn(self.reg_caso.pk, ids)
         self.assertNotIn(self.reg_norma.pk, ids)
@@ -150,7 +150,7 @@ class AuditoriaFiltrosYPaginacionTests(APITestCase):
         self.assertEqual(resp.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_por_usuario_devuelve_solo_lo_de_ese_usuario(self):
-        resp = self.client.get(f"{URL}por_usuario/", {"usuario_id": self.otro.pk})
+        resp = self.client.get(f"{URL}por_usuario/", {"usuario_id": str(self.otro.public_id)})
         self.assertEqual(_ids(resp), [self.reg_otro_usuario.pk])
 
     def test_por_tabla_devuelve_solo_esa_tabla(self):

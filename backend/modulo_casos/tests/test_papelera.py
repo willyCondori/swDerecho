@@ -65,10 +65,10 @@ class PapeleraBase(APITestCase):
 
     def eliminar(self, caso=None, usuario=None):
         self.client.force_authenticate(usuario or self.abogado)
-        return self.client.delete(self.url("casos-detail", (caso or self.caso).pk))
+        return self.client.delete(self.url("casos-detail", (caso or self.caso).public_id))
 
     def restaurar(self, caso=None):
-        return self.client.post(self.url("casos-restaurar", (caso or self.caso).pk))
+        return self.client.post(self.url("casos-restaurar", (caso or self.caso).public_id))
 
 
 class ServicioPapeleraTests(PapeleraBase):
@@ -130,7 +130,7 @@ class EliminarCasoTests(PapeleraBase):
 
         listado = self.client.get(self.url("casos-list"))
         self.assertEqual(resultados(listado), [])
-        detalle = self.client.get(self.url("casos-detail", self.caso.pk))
+        detalle = self.client.get(self.url("casos-detail", self.caso.public_id))
         self.assertEqual(detalle.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_delete_queda_en_auditoria(self):
@@ -148,7 +148,7 @@ class EliminarCasoTests(PapeleraBase):
     def test_desactivar_por_patch_tambien_va_a_la_papelera(self):
         self.client.force_authenticate(self.abogado)
         r = self.client.patch(
-            self.url("casos-detail", self.caso.pk), {"estado": False}, format="json"
+            self.url("casos-detail", self.caso.public_id), {"estado": False}, format="json"
         )
         self.assertEqual(r.status_code, status.HTTP_200_OK)
         self.caso.refresh_from_db()
@@ -160,7 +160,7 @@ class EliminarCasoTests(PapeleraBase):
     def test_patch_de_otros_campos_no_toca_la_papelera(self):
         self.client.force_authenticate(self.abogado)
         r = self.client.patch(
-            self.url("casos-detail", self.caso.pk),
+            self.url("casos-detail", self.caso.public_id),
             {"titulo": "Título nuevo del caso", "estado": True},
             format="json",
         )
@@ -264,7 +264,7 @@ class RestaurarCasoTests(PapeleraBase):
 
     def test_restaurar_inexistente_da_404(self):
         self.client.force_authenticate(self.abogado)
-        r = self.client.post(self.url("casos-restaurar", 999999))
+        r = self.client.post(self.url("casos-restaurar", "00000000-0000-4000-8000-000000000000"))
         self.assertEqual(r.status_code, status.HTTP_404_NOT_FOUND)
 
     def test_cliente_eliminado_da_409_y_el_caso_sigue_en_la_papelera(self):

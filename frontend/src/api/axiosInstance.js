@@ -1,6 +1,7 @@
 // api/axiosInstance.js
 import axios from 'axios'
 import { getAccessToken, setAccessToken, clearAccessToken } from './tokenManager'
+import { clearRequestCache } from './requestCache'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 const esRutaPublicaAuth = (url = '') =>
@@ -48,7 +49,12 @@ const processQueue = (error, token = null) => {
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    if (!['get', 'head', 'options'].includes((response.config?.method || 'get').toLowerCase())) {
+      clearRequestCache()
+    }
+    return response
+  },
   async (error) => {
     const originalRequest = error.config
 

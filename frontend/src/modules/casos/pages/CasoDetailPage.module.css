@@ -28,6 +28,24 @@
 }
 
 .cardTitle { composes: cardTitle from '../../../styles/shared.module.css'; }
+.jurisprudenciaGrupo { composes: card; margin-top: var(--sp-4); }
+.bloqueHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.bloqueTitulo {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--c-text-primary);
+}
+.bloqueToggle { flex-shrink: 0; }
+.bloqueHeader + div:not([hidden]) { margin-top: var(--sp-3); }
 
 .descripcion {
   font-size: var(--fs-sm);
@@ -81,4 +99,20 @@
   color: var(--c-text-muted);
   margin: var(--sp-3) 0 0 0;
   line-height: 1.5;
+}
+.valoracion {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.875rem;
+}
+
+.valoracion select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  background: #fff;
+  color: #0f172a;
 }

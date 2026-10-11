@@ -25,8 +25,8 @@ function tiempoRelativo(iso) {
 
 export default function NotificacionesBell() {
   const navigate = useNavigate()
-  const { noLeidas, lista, loadingLista, cargarLista, marcarLeida, marcarTodasLeidas } = useNotificaciones()
   const [abierto, setAbierto] = useState(false)
+  const { noLeidas, lista, loadingLista, cargarLista, marcarLeida, marcarTodasLeidas } = useNotificaciones(abierto)
   const contenedorRef = useRef(null)
 
   useEffect(() => {

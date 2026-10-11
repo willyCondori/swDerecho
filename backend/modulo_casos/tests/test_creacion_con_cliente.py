@@ -73,7 +73,7 @@ class CreacionConClienteTests(APITestCase):
     def test_texto_crea_cliente_con_telefono_cifrado_y_caso(self):
         respuesta = self.crear()
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        caso = Caso.objects.get(pk=respuesta.data['id'])
+        caso = Caso.objects.get(public_id=respuesta.data['id'])
         self.assertEqual(safe_decrypt(caso.cliente.telefono), '71234567')
         self.assertNotEqual(caso.cliente.telefono, '71234567')
         self.assertEqual(caso.usuario, self.abogado)
@@ -148,7 +148,7 @@ class CreacionConClienteTests(APITestCase):
     def test_pdf_valido_guarda_cliente_caso_y_documento(self):
         respuesta = self.crear_pdf()
         self.assertEqual(respuesta.status_code, 201, respuesta.data)
-        caso = Caso.objects.get(pk=respuesta.data['id'])
+        caso = Caso.objects.get(public_id=respuesta.data['id'])
         self.assertEqual(safe_decrypt(caso.cliente.telefono), self.datos['telefono'])
         self.assertEqual(caso.documentos.count(), 1)
         self.assertTrue(respuesta.data['tiene_documento'])

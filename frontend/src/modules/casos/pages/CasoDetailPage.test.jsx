@@ -20,6 +20,6 @@ it('identifica las sugerencias complementarias y muestra fallos de OCR a lectore
   render(<MemoryRouter><CasoDetailPage /></MemoryRouter>)
   expect(screen.getByRole('alert').textContent).toContain('No se pudo extraer el texto del PDF del caso.')
   const items = screen.getAllByRole('listitem')
-  expect(within(items[0]).queryByText('Sugerencia complementaria')).toBeNull()
-  expect(within(items[1]).getByText('Sugerencia complementaria')).toBeTruthy()
+  expect(within(items[0]).queryByText('Recomendación complementaria')).toBeNull()
+  expect(within(items[1]).getByText('Recomendación complementaria')).toBeTruthy()
 })

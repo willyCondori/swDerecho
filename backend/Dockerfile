@@ -11,9 +11,11 @@ RUN python -m pip install --index-url https://download.pytorch.org/whl/cpu torch
     && python -m pip install -r requirements-docker.txt
 RUN useradd --create-home sw-derecho && mkdir -p /app/media /app/modelos /app/logs /app/cache /app/staticfiles \
     && chown -R sw-derecho:sw-derecho /app
+COPY requirements-realtime.txt ./
+RUN python -m pip install -r requirements-realtime.txt
 COPY --chown=sw-derecho:sw-derecho . .
 RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 USER sw-derecho
 EXPOSE 8000
 ENTRYPOINT ["/app/docker-entrypoint.sh"]
-CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "1", "--worker-class", "gthread", "--threads", "4", "--timeout", "240", "--graceful-timeout", "120", "--access-logfile", "-", "--error-logfile", "-"]
+CMD ["uvicorn", "config.asgi:application", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--lifespan", "off", "--ws-max-size", "8192"]

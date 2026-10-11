@@ -1,8 +1,9 @@
 import api from './axiosInstance'
+import cachedGet from './cachedGet'
 
 const jurisprudenciaApi = {
   listar: (params, config = {}) => api.get('/api/ia/jurisprudencia/', { ...config, params }),
-  obtener: (id, config = {}) => api.get(`/api/ia/jurisprudencia/${id}/`, config),
+  obtener: (id, config = {}) => cachedGet(`/api/ia/jurisprudencia/${id}/`, { ttl: 120000, ...config }),
   resumen: (config = {}) => api.get('/api/ia/jurisprudencia/resumen/', config),
   buscarTSJ: (params, config = {}) => api.get('/api/ia/tsj/buscar/', { ...config, params, timeout: 60000 }),
   incorporar: (fuente_id) => api.post('/api/ia/tsj/incorporar/', { fuente_id }),

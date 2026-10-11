@@ -18,6 +18,12 @@ consultas `icontains` de Django en PostgreSQL.
 
 Las migraciones `modulo_ia/0004_busqueda_articulos_caso.py` y
 `modulo_ia/0005_ranking_vigencia.py` contienen su definición y su reversión.
+`modulo_ia/0009_excluir_articulos_no_utiles.py` excluye, antes del límite
+de candidatos, los artículos cuya última valoración en ese caso sea «No útil».
+La decisión se comparte entre los usuarios que pueden acceder al caso y
+persiste al cambiar la descripción, el PDF o el modelo. «Útil» y «Sin valorar»
+revocan la exclusión. Las reglas de sugerencias también aplican esa decisión.
+Las valoraciones no eliminan artículos del catálogo ni afectan otros casos.
 Se utiliza desde `RankingService` mediante parámetros, sin
 concatenar valores del usuario en SQL.
 

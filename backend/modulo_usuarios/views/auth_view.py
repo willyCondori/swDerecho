@@ -97,7 +97,7 @@ class LoginView(APIView):
             {
                 "access_token": data["access_token"],
                 "usuario": {
-                    "id": user.id,
+                    "id": str(user.public_id),
                     "usuario": user.usuario,
                     "rol": RolListSerializer(user.rol).data if user.rol else None,
                     "debe_cambiar_password": user.debe_cambiar_password,

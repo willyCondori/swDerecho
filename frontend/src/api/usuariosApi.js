@@ -1,10 +1,11 @@
 import api from './axiosInstance'
+import cachedGet from './cachedGet'
 
 const usuariosApi = {
   // ========= ROLES =========
 
   listarRoles() {
-    return api.get('/api/usuarios/roles/lista/')
+    return cachedGet('/api/usuarios/roles/lista/')
   },
 
   listarRolesCompleto(params = {}) {

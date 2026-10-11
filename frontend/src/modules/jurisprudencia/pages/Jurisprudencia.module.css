@@ -9,4 +9,7 @@
 .enlaces { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin: var(--sp-3) 0; }
 .texto { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 60vh; overflow-y: auto; padding: var(--sp-4); border: 1px solid var(--c-border); border-radius: var(--radius-md); line-height: 1.8; }
 .estado { color: var(--c-text-muted); margin: 0; }
+.relacion { color: var(--c-text-primary); }
+.fragmentoRelacionado { background: var(--c-amber-800); color: var(--c-amber-100); border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+.fragmentoSinResaltar { background: transparent; color: inherit; }
 @media (max-width: 600px) { .filters { flex-direction: column; align-items: stretch; } .filters label { min-width: 0; } }

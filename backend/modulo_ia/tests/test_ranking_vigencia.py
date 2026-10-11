@@ -83,3 +83,63 @@ class RankingVigenciaTests(TestCase):
         self.assertEqual(sum(not r.es_sugerencia for r in resultados), 15)
         self.assertEqual([r.articulo_id for r in resultados if r.es_sugerencia], [sugerencia.pk])
         self.assertEqual(resultados[-1].posicion, 16)
+
+    def valorar(self, articulo, valor):
+        from modulo_ia.models.valoracion import ValoracionArticulo
+        return ValoracionArticulo.objects.create(
+            caso=self.caso, articulo=articulo, usuario=self.caso.usuario,
+            valor=valor, contexto_hash='0' * 64, muestra={})
+
+    def test_robo_principal_y_secuestro_complementario_por_tentativa(self):
+        self.caso.chunks.update(contenido='Me robaron con cuchillo, más intento de secuestro')
+        robo = self.articulo(331, 'Artículo 331. (Robo). Texto de prueba')
+        secuestro = self.articulo(334, 'Artículo 334. (Secuestro). Texto de prueba')
+        with patch('modulo_ia.services.ranking_service.ClasificadorDelitoService.score_delito_articulo', return_value=1):
+            resultados = RankingService.calcular_ranking(self.caso)
+        por_articulo = {r.articulo_id: r for r in resultados}
+        self.assertFalse(por_articulo[robo.pk].es_sugerencia)
+        self.assertTrue(por_articulo[secuestro.pk].es_sugerencia)
+        self.assertLess(por_articulo[robo.pk].posicion, por_articulo[secuestro.pk].posicion)
+
+    def test_no_util_se_excluye_antes_del_limite_semantico(self):
+        for numero in range(51):
+            self.valorar(self.articulo(numero), 'no_util')
+        disponible = self.articulo(100)
+        scores, _ = RankingService._score_semantico_por_articulo(self.caso)
+        self.assertEqual(set(scores), {disponible.pk})
+
+    def test_no_util_excluye_principales_y_sugerencias_al_reanalizar(self):
+        principal = self.articulo(1)
+        vector = [0.45, (1 - 0.45 ** 2) ** 0.5] + [0.0] * 766
+        sugerencia = self.articulo(99, 'Artículo 99. (TENTATIVA). Texto de prueba', vector)
+        with patch('modulo_ia.services.ranking_service.ClasificadorDelitoService.score_delito_articulo', return_value=0):
+            iniciales = RankingService.calcular_ranking(self.caso)
+            self.assertEqual({r.articulo_id for r in iniciales}, {principal.pk, sugerencia.pk})
+            self.valorar(principal, 'no_util')
+            self.valorar(sugerencia, 'no_util')
+            self.assertEqual(RankingService.calcular_ranking(self.caso), [])
+        self.assertFalse(self.caso.resultado_articulos.exists())
+
+    def test_ultima_decision_rehabilita_sin_afectar_otros_casos(self):
+        articulo = self.articulo(1)
+        decision = self.valorar(articulo, 'no_util')
+        otro = Caso.objects.create(codigo='OTRO-UTIL', titulo='Otro', usuario=self.caso.usuario,
+                                  cliente=self.caso.cliente, rama_detectada=self.rama)
+        chunk = ChunkCaso.objects.create(caso=otro, orden=0, contenido='robo', tipo='texto')
+        EmbeddingChunk.objects.create(chunk=chunk, vector=self.vector, modelo_version=version_activa())
+        self.assertIn(articulo.pk, RankingService._score_semantico_por_articulo(otro)[0])
+        for valor in ['util', 'sin_valorar']:
+            self.valorar(articulo, valor)
+            self.assertIn(articulo.pk, RankingService._score_semantico_por_articulo(self.caso)[0])
+            self.valorar(articulo, 'no_util')
+            self.assertNotIn(articulo.pk, RankingService._score_semantico_por_articulo(self.caso)[0])
+        self.assertTrue(type(decision).objects.filter(pk=decision.pk).exists())
+
+    def test_no_util_persiste_tras_editar_y_excluye_proteccion_complementaria(self):
+        articulo = self.articulo(1)
+        self.valorar(articulo, 'no_util')
+        self.caso.descripcion = 'Descripción nueva del mismo caso'
+        self.caso.save(update_fields=['descripcion'])
+        with patch('modulo_ia.services.ranking_service.ProteccionMenoresService.hay_menores', return_value=True), \
+             patch('modulo_ia.services.ranking_service.ProteccionMenoresService.articulos', return_value=[articulo]):
+            self.assertEqual(RankingService.calcular_ranking(self.caso), [])

@@ -1,3 +1,4 @@
+import uuid
 # modulo_notificaciones/models/notificacion.py
 from django.conf import settings
 from django.db import models
@@ -17,6 +18,7 @@ class TipoNotificacion(models.TextChoices):
 
 
 class Notificacion(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Notificación in-app para UN usuario puntual. A diferencia del resto
     del sistema, acá ve_todo() NO aplica: una notificación es personal,

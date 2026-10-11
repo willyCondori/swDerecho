@@ -2,8 +2,10 @@
 // ⚠️ Ya existía y lo usa DashboardPage (casosApi.misCasos). Fusiona esto con
 // cualquier método adicional que ya tuvieras antes de reemplazar el archivo.
 import api from './axiosInstance'
+import cachedGet from './cachedGet'
 
 const casosApi = {
+  estadoAnalisis: (id) => api.get(`/api/casos/${id}/estado_analisis/`),
   /** GET /api/casos/ — lista con filtros (rama_id, cliente_id, fecha_desde, fecha_hasta, tiene_pdf, etapa, search) */
   listar(params = {}) {
     return api.get('/api/casos/', { params })
@@ -67,13 +69,20 @@ const casosApi = {
     return api.get(`/api/casos/${id}/articulos/`)
   },
 
+  valorarArticulo(id, data) {
+    return api.post(`/api/casos/${id}/valorar_articulo/`, data)
+  },
+
   jurisprudencia(id, config = {}) {
     return api.get(`/api/casos/${id}/jurisprudencia/`, config)
+  },
+  valorarJurisprudencia(id, data) {
+    return api.post(`/api/casos/${id}/valorar_jurisprudencia/`, data)
   },
 
   /** GET /api/casos/etapas/ — catálogo de etapas de seguimiento [{ value, label, orden }] */
   etapas() {
-    return api.get('/api/casos/etapas/')
+    return cachedGet('/api/casos/etapas/')
   },
 
   /** GET /api/casos/{id}/seguimiento/ — línea de tiempo del caso (más reciente primero) */

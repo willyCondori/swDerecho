@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from modulo_casos.models.caso import Caso
 
@@ -14,6 +15,7 @@ class TipoDoc(models.Model):
 
 
 class DocumentoCaso(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Archivo subido por el usuario asociado a un caso.
     Puede ser el PDF del caso, documentos de respaldo, etc.
@@ -89,6 +91,7 @@ class PlantillaDocumento(models.Model):
 
 
 class DocumentoGenerado(models.Model):
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     """
     Documento .docx generado automáticamente por docxtpl
     a partir del análisis IA y la plantilla seleccionada.

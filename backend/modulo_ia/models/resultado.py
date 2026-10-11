@@ -46,6 +46,8 @@ class ResultadoArticulo(models.Model):
                            help_text="Frecuencia histórica normalizada.",
                        )
     posicion         = models.PositiveIntegerField(help_text="Posición en el ranking.")
+    modelo_version   = models.CharField(max_length=100, blank=True)
+    contexto_evaluado = models.JSONField(default=dict)
     es_sugerencia    = models.BooleanField(
                            default=False,
                            help_text=(

@@ -3,6 +3,18 @@ from modulo_usuarios.models.rol import Rol
 
 
 class RolSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        if self.instance:
+            nombre_actual = self.instance.nombre.strip().lower()
+            if nombre_actual == 'administrador':
+                if attrs.get('nombre', self.instance.nombre).strip().lower() != nombre_actual:
+                    raise serializers.ValidationError({'nombre': 'El rol Administrador no puede renombrarse.'})
+                if attrs.get('estado') is False:
+                    raise serializers.ValidationError({'estado': 'El rol Administrador no puede desactivarse.'})
+            if attrs.get('estado') is False and self.instance.usuarios.filter(estado=True).exists():
+                raise serializers.ValidationError({'estado': 'No se puede desactivar un rol con usuarios activos asignados.'})
+        return attrs
+
     class Meta:
         model  = Rol
         fields = ["id", "nombre", "descripcion", "estado", "created_at", "updated_at"]
